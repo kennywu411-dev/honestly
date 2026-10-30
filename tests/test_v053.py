@@ -204,9 +204,9 @@ def test_cli_version_and_config_usage(capsys):
 def test_background_output_file_is_read_from_the_tail(tmp_path):
     from honestly.claude_code import _tool_result_text
     big = tmp_path / "t.output"
-    big.write_text("x" * 100_000 + "\n12 passed in 1.0s\n", encoding="utf-8")
+    big.write_bytes(b"x" * 100_000 + b"\n12 passed in 1.0s\n")   # bytes: no newline translation on Windows
     text = _tool_result_text({"content": f"Output is being written to: {big}"})
-    assert text.endswith("12 passed in 1.0s\n") and len(text) <= 3000
+    assert text.rstrip().endswith("12 passed in 1.0s") and len(text) <= 3000
 
 
 def test_fail_open_input_leaves_a_note(tmp_path, monkeypatch):
