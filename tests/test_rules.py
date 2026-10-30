@@ -25,7 +25,7 @@ def test_sed_code_is_edit():
     assert R.bash_is_edit("sed -i '' 's/a/b/' src/app.py")
 
 def test_commit_email_not_edit():
-    assert not R.bash_is_edit('git add -A && git commit -q -m "docs: x\n\nCo-Authored-By: C <noreply@anthropic.com>"')
+    assert not R.bash_is_edit('git add -A && git commit -q -m "docs: x\n\nCo-Authored-By: C <c@example.com>"')
 
 def test_comparison_not_redirect():
     assert not R.bash_is_edit("python3 -c \"import sys; print(1 if 2>=1 else 0)\"")
@@ -61,7 +61,7 @@ def test_argv_scratch_target_not_edit():
     assert not R.bash_is_edit(cmd)
 
 def test_multiline_commit_message_is_one_segment():
-    cmd = 'git add -A && git commit -q -m "fix: x\n\n- ran tests/test_a.py\nCo-Authored-By: C <noreply@anthropic.com>" 2>&1 | tail -1 && uv run pytest -q | tail -1'
+    cmd = 'git add -A && git commit -q -m "fix: x\n\n- ran tests/test_a.py\nCo-Authored-By: C <c@example.com>" 2>&1 | tail -1 && uv run pytest -q | tail -1'
     segs = R.segments(cmd)
     assert any(sg.text.startswith("git commit") for sg in segs)
     assert not any("Co-Authored" in sg.text and not sg.text.startswith("git commit") for sg in segs)

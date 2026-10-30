@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "honestly"
-version = "0.5.2"
+version = "0.5.3"
 description = "Stops a coding agent from claiming \"tests pass\", \"fixed\", \"sent\" or \"deployed\" without evidence on the transcript. Hooks for Claude Code, Codex, Cursor and Gemini CLI; audits past sessions. Deterministic rules, no model, no API key."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,7 +16,13 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Quality Assurance",
 ]
 

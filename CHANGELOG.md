@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.3 (2026-10-30)
+
+Fixes from a review of 0.5.2 (a code review, a public-surface audit and a fresh-install test on an empty home directory).
+
+- **Windows: desktop notification text was interpolated into a PowerShell command.** A reply sentence could run code when `guard notify on` was set. The text now travels in environment variables; macOS escapes the AppleScript string; Linux passes `--`.
+- **Windows: the hook command was written with backslashes**, which the POSIX shell that runs hooks strips, so the guard was installed but never ran. Paths are written with forward slashes; `doctor` now runs the installed hook line through the shell and reports failure.
+- Rules: `src/prompts/builder.py`, `proj/tmp/app.py`, `app/reports/views.py` are code again (the doc-path rule is anchored); `#` comments are stripped before splitting commands (an apostrophe in a comment no longer swallows the next command); `patch` is an edit only as the verb; `0 errors` needs a word boundary; "the test passes a mock client" is not a claim; `?` ends a sentence; `until`, `before I`, `make sure`, `ensure` only disqualify what follows them; `pip install pytest` and `pip list | grep pytest` are not test runs; a `go test` output with a `FAIL` line is contradicted even next to `ok` lines.
+- PreToolUse: `--log` no longer disarms the pipe check (`pytest --log-cli-level … | tail`); `--collect-only`, `--version`, `--help` are not runs; the message names the actual pipe (`grep`, `wc` …).
+- `guard`: odd-shaped `settings.json` (`"hooks": null`, a string where a list is expected) no longer crashes; an unreadable file makes `install`/`uninstall` exit 1 and leaves the file alone; repeated installs say so and write no new backup; `uninstall` with nothing installed says so.
+- `doctor`: exits 1 when it lists a problem; `HONESTLY_NO_UPDATE_CHECK=1` is respected (it was not); the PyPI check is named in the output; the hook command line is printed once.
+- `share`: the PNG is reported correctly when Chrome exits non-zero on its first run but still writes the file; a stale PNG from an earlier run is removed first.
+- `catches` and `doctor` show local time; `config verify` / `off` without a value exit with a usage line instead of writing an empty entry; `rule install --dir` refuses a missing directory; `rule status` shows all four files; `rule install` on a file that already has the section says so; `--version`.
+- `feedback` redacts `KEY=value` credentials, `-p`, `--token`, `user:pass@host`, bearer tokens and token-like runs (paths and constant names are kept).
+- Stop hook reads only the tail of a background task's `.output` file; input it let through unchecked (non-JSON stdin, a missing or empty transcript) leaves a one-line note in `hook-errors.log`.
+- Help text names all four assistants; `pyproject` requires setuptools ≥ 77 for its license metadata and lists Python 3.9–3.13; the CI workflow has read-only permissions.
+- Docs: the second labelling pass is described as what it was (a language-model agent given the sheet); the current rule set's flags were labelled once more; precision denominators explained; 130 tests.
+
 ## 0.5.2 (2026-10-30)
 
 - New visual identity: cover, hero and demo (English and Chinese) regenerated; share cards use the same palette.
@@ -44,7 +61,7 @@
 
 ## 0.3.0 (2026-10-28)
 
-- Renamed from `sober-cli` to `honestly`. Guard-first positioning; `honestly catches`; 21 fixes from an independent review (Codex CLI tool names and exit codes, Windows paths and encoding, apostrophes, headings and tables, read-only pipelines).
+- Renamed from `sober-cli` to `honestly`. Guard-first positioning; `honestly catches`; 21 fixes from a review by a second agent (Codex CLI tool names and exit codes, Windows paths and encoding, apostrophes, headings and tables, read-only pipelines).
 
 ## 0.2.x (2026-10-27 – 28)
 

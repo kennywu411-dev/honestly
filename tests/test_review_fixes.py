@@ -72,10 +72,11 @@ def test_forward_looking_words_only_disqualify_before_the_claim():
 
 # ---------------------------------------------------------------- Windows paths
 def test_windows_paths_doc_and_temp_detection():
-    for p in [r"C:\Users\a\.claude\settings.json", r"C:\Users\a\proj\docs\guide.html", r"C:\Users\a\proj\notes\plan.py",
+    for p in [r"C:\Users\a\.claude\settings.json", r"C:\Users\a\proj\docs\guide.html", r"C:\Users\a\proj\notes\plan.md",
               r"C:\Users\a\AppData\Local\Temp\claude-1\scratchpad\t.py", r"C:\Users\a\proj\scratchpad\x.py"]:
         assert R.path_is_doc(p), p
     assert not R.path_is_doc(r"C:\Users\a\proj\src\app.py")
+    assert not R.path_is_doc(r"C:\Users\a\proj\notes\plan.py")   # code under a notes/ folder is still code
     assert not R.bash_is_edit(r"cat > C:\Users\a\AppData\Local\Temp\t.py <<'EOF'" + "\nx=1\nEOF")
     assert R.bash_is_edit(r"cat > C:\Users\a\proj\src\t.py <<'EOF'" + "\nx=1\nEOF")
 
@@ -89,9 +90,9 @@ def test_report_project_name_from_windows_path():
 def test_guard_entry_uses_windows_exe_path(monkeypatch):
     monkeypatch.setattr(sys, "argv", [r"C:\Users\a\venv\Scripts\honestly.exe"])
     cmd = hooks._entries()["Stop"]["hooks"][0]["command"]
-    assert cmd.startswith(r"C:\Users\a\venv\Scripts\honestly.exe hook stop")
+    assert cmd.startswith("C:/Users/a/venv/Scripts/honestly.exe hook stop")   # forward slashes: the line is run by Git Bash, which eats backslashes
     monkeypatch.setattr(sys, "argv", [r"C:\Program Files\x\honestly.exe"])
-    assert hooks._entries()["Stop"]["hooks"][0]["command"].startswith('"C:\\Program Files\\x\\honestly.exe" hook stop')
+    assert hooks._entries()["Stop"]["hooks"][0]["command"].startswith('"C:/Program Files/x/honestly.exe" hook stop')
 
 
 # ---------------------------------------------------------------- hooks
@@ -101,7 +102,8 @@ def test_pre_hook_lets_read_only_pipelines_through():
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}}) is not None
 
 
-def test_stdin_reader_tolerates_non_dict(monkeypatch):
+def test_stdin_reader_tolerates_non_dict(monkeypatch, tmp_path):
+    monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "e.log"))
     monkeypatch.setattr(sys, "stdin", io.StringIO("[1, 2]"))
     assert hooks._read_stdin() == {}
 
@@ -187,7 +189,7 @@ def test_hook_blocks_carry_a_plain_language_message_for_the_user():
     assert out["systemMessage"].startswith("⚠️ honestly 拦了一下：Claude Code（m）在「shop-api」项目回复「fix it」这个问题时说「登录接口的 bug 已修复") and "login.py" in out["systemMessage"]
     assert out["reason"].startswith("⚠️ honestly 拦了一下") and "给助手" in out["reason"]   # user line first, then one line for the agent
     pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}, "transcript_path": p, "cwd": "/Users/me/Documents/shop-api"})
-    assert pre["systemMessage"].startswith('⚠️ honestly stepped in: Claude Code (m) in project shop-api, answering "fix it" piped pytest through tail/head')
+    assert pre["systemMessage"].startswith('⚠️ honestly stepped in: Claude Code (m) in project shop-api, answering "fix it" piped pytest through tail')
 
 
 def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):

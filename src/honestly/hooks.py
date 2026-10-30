@@ -30,8 +30,12 @@ def _read_stdin():
         if hasattr(sys.stdin, "reconfigure"):
             sys.stdin.reconfigure(encoding="utf-8", errors="replace")   # Claude Code sends UTF-8; Windows would decode with the locale
         data = json.load(sys.stdin)
-        return data if isinstance(data, dict) else {}
-    except Exception:
+        if not isinstance(data, dict):
+            _note("stdin", f"hook input is not a JSON object ({type(data).__name__}); nothing checked")
+            return {}
+        return data
+    except Exception as e:
+        _note("stdin", f"hook input is not JSON ({e.__class__.__name__}); nothing checked")
         return {}
 
 
@@ -96,12 +100,18 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     return f'⚠️ honestly stepped in: {who or "the agent"} said "{claim}" but ran no check {where}. It has been told to run one first.'
 
 
+def _pipe_name(cmd: str) -> str:
+    m = rules.PIPE_SWALLOW.search(cmd)
+    return m.group(1) if m else "tail"
+
+
 def _plain_pre(cmd: str, zh: bool, who: str = "") -> str:
     m = re.search(r"(pytest|npm test|npm run \w+|cargo test|go test|make \w+|yarn test|pnpm test|mvn \w+|gradle \w+|ruff|mypy|tsc|eslint)", cmd)
+    pipe = _pipe_name(cmd)
     if zh:
-        what = f"把 {m.group(1)} 的结果截断了" if m else "把检查命令的结果截断了"
+        what = f"把 {m.group(1)} 的结果接进了 {pipe}" if m else f"把检查命令的结果接进了 {pipe}"
         return f"⚠️ honestly 拦了一下：{who or 'AI'}{what}，失败也会显示得像通过。已经要求它改成能看到真实结果的写法。"
-    what = f"piped {m.group(1)} through tail/head" if m else "piped a check through tail/head"
+    what = f"piped {m.group(1)} through {pipe}" if m else f"piped a check through {pipe}"
     return f"⚠️ honestly stepped in: {who or 'the agent'} {what}, so a failure would look like a pass. It has been told to run it so the real result is visible."
 
 
@@ -110,17 +120,22 @@ def _notify(title: str, body: str) -> None:
     if os.environ.get("HONESTLY_NOTIFY") != "1" and not os.path.exists(notify_flag_path()):
         return
     import subprocess, sys as _sys
-    body = body.replace('"', "'")[:200]
+    body = re.sub(r"\s+", " ", body).strip()[:200]
+    title = re.sub(r"[^\w .:-]", "", title)[:40] or "honestly"
     try:
         if _sys.platform == "darwin":
-            subprocess.run(["osascript", "-e", f'display notification "{body}" with title "{title}"'], timeout=5, capture_output=True)
+            def esc(s: str) -> str:   # AppleScript string literal: backslash and double quote are the only specials
+                return s.replace("\\", "\\\\").replace('"', '\\"')
+            subprocess.run(["osascript", "-e", f'display notification "{esc(body)}" with title "{esc(title)}"'], timeout=5, capture_output=True)
         elif _sys.platform.startswith("linux"):
-            subprocess.run(["notify-send", title, body], timeout=5, capture_output=True)
+            subprocess.run(["notify-send", "--", title, body], timeout=5, capture_output=True)
         elif _sys.platform == "win32":
+            # the text travels in environment variables: nothing from the reply is ever part of the script
             ps = ("[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');"
                   "$n=New-Object System.Windows.Forms.NotifyIcon;$n.Icon=[System.Drawing.SystemIcons]::Information;$n.Visible=$true;"
-                  f"$n.ShowBalloonTip(8000,'{title}','{body}',[System.Windows.Forms.ToolTipIcon]::Warning);Start-Sleep 8;$n.Dispose()")
-            subprocess.run(["powershell", "-NoProfile", "-Command", ps], timeout=15, capture_output=True)
+                  "$n.ShowBalloonTip(8000,$env:HONESTLY_NOTIFY_TITLE,$env:HONESTLY_NOTIFY_BODY,[System.Windows.Forms.ToolTipIcon]::Warning);Start-Sleep 8;$n.Dispose()")
+            env = dict(os.environ, HONESTLY_NOTIFY_TITLE=title, HONESTLY_NOTIFY_BODY=body)
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps], timeout=15, capture_output=True, env=env)
     except Exception:
         pass
 
@@ -143,6 +158,29 @@ def set_notify(on: bool) -> str:
 
 def catches_path() -> str:
     return os.path.join(os.path.expanduser("~/.honestly"), "catches.jsonl")
+
+
+def local_time(ts: str) -> str:
+    """A catch's UTC timestamp as local wall-clock time, for people reading the report."""
+    import datetime
+    try:
+        d = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=datetime.timezone.utc)
+        return d.astimezone().strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return str(ts)[:16]
+
+
+def _note(which: str, msg: str) -> None:
+    """One line in hook-errors.log for input the hook let through without looking at (so `doctor` can show why nothing was caught)."""
+    import datetime
+    try:
+        os.makedirs(os.path.dirname(errors_path()), exist_ok=True)
+        with open(errors_path(), "a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} {which}: {msg}\n")
+    except Exception:
+        pass
 
 
 def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: str = "", command: str = "", tools=None) -> None:
@@ -214,7 +252,7 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
         lines.append(f"  {c:3}  {k or ('（未知）' if zh else '(unknown)')}")
     lines += ["", "最近三次：" if zh else "Most recent:"]
     for r in rows[-3:]:
-        lines.append(f"  {str(r.get('ts', ''))[:16]}  {r.get('message', '')[:160]}")
+        lines.append(f"  {local_time(r.get('ts', ''))}  {r.get('message', '')[:160]}")
     lines.append("")
     if zh:
         lines.append(f"可以直接发的一句话：honestly 在{window}拦住了我的 AI 助手 {n} 次，都是没检查就说「做完了」。")
@@ -242,11 +280,16 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
     if path and os.path.exists(path):
         try:
             turns = agents.parser_for(agent, tail=True)(path)
-        except Exception:
+        except Exception as e:
+            _note("stop", f"transcript could not be parsed, only the final message was checked: {path} ({e.__class__.__name__}: {e})")
             turns = []
         if turns:
             turn = turns[-1]
             prev = turns[-2] if len(turns) > 1 else None
+        elif os.path.getsize(path) == 0:
+            _note("stop", f"transcript is empty, only the final message was checked: {path}")
+    elif path:
+        _note("stop", f"transcript_path does not exist, only the final message was checked: {path}")
     if turn is None:
         turn = Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or ""))
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
@@ -272,10 +315,11 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
 
 
 TEST_LIKE = re.compile("|".join(p.pattern for k, p in rules.VERIFY.items() if k in ("test", "build")), re.I)
-READ_ONLY = re.compile(r"(gh (run|pr) (view|list|watch|checks)|--log|statusCheckRollup|^\s*(?:pip3? (?:list|show|freeze)|npm (?:ls|list)|uv pip (?:list|show))\b)", re.I)   # reading CI status/logs: the exit code does not carry the result
+READ_ONLY = re.compile(r"(gh (run|pr) (view|list|watch|checks)|statusCheckRollup|^\s*(?:pip3? (?:list|show|freeze)|npm (?:ls|list)|uv pip (?:list|show))\b)", re.I)   # reading CI status/logs: the exit code does not carry the result
 
 
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
+NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig)")
 RUNNER = re.compile(r"\s*(?:\w+=\S+\s+)*(?:\S*/)?(?:python3?|uv|poetry|hatch|pipenv|node|npx|bun|deno|go|bash|sh|zsh|make|ruby|bundle|php|dotnet|swift|cargo)\b")
 
 
@@ -305,6 +349,8 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             t = QUOTED.sub(" ", t)   # `codex exec "run pytest | tail"`: a quoted test command is an argument, not a pipeline that runs here
         if seg.heredoc or not _runs_check(t) or READ_ONLY.search(t) or rules.NON_VERIFY_VERB.match(t) or re.match(r"\s*git (commit|push|tag|add)\b", t):
             continue   # `cat build.log | tail` mentions a test tool but runs none
+        if NOT_A_RUN.search(t):
+            continue   # listing tests or printing a version is not a run whose result could be hidden
         if rules.PIPE_SWALLOW.search(t) and "pipefail" not in cmd:
             zh = _lang_zh(cfg, cmd, os.environ.get("LANG", ""))
             turn = None
@@ -320,8 +366,9 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh))
             _record("pre", data, turn, plain, command=t)
             _notify("honestly", plain)
-            fix = ("给助手：把命令前面加上 `set -o pipefail;`，或者去掉 `| tail` / `| head` 直接读最后一行汇总。" if zh else
-                   "To the agent: prefix the command with `set -o pipefail;`, or drop the `| tail` / `| head` and read the summary line.")
+            pipe = _pipe_name(t)
+            fix = (f"给助手：把命令前面加上 `set -o pipefail;`，或者去掉 `| {pipe}` 直接读最后一行汇总。" if zh else
+                   f"To the agent: prefix the command with `set -o pipefail;`, or drop the `| {pipe}` and read the summary line.")
             return agents.emit(agent, "pre", plain, fix)
     return None
 
@@ -362,9 +409,14 @@ def _exe() -> str:
     if is_ours and not (ntpath.isabs(argv0) or posixpath.isabs(argv0)):
         argv0 = os.path.abspath(argv0)   # hooks run from any cwd, so a relative .venv/bin/honestly would break
     exe = argv0 if is_ours else "honestly"   # Scripts\honestly.exe on Windows
+    if WIN_PATH.match(exe):
+        exe = exe.replace("\\", "/")   # the hook line is run by a POSIX shell (Git Bash on Windows), which would eat the backslashes
     if " " in exe:
         exe = f'"{exe}"'
     return exe
+
+
+WIN_PATH = re.compile(r"^[A-Za-z]:\\")
 
 
 def _entries():
@@ -384,29 +436,57 @@ def guard(action: str, dry_run: bool = False, agent: str = "claude-code") -> str
     try:
         cfg = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
     except Exception as e:
-        return f"cannot read {path}: {e}"
-    hooks = cfg.setdefault("hooks", {})
-    installed = {ev: any(_ours(h) for g in groups for h in g.get("hooks", [])) for ev, groups in hooks.items()}
+        return _fail(action, f"honestly guard: cannot read {path}: {e}  (the file was left untouched)")
+    if not isinstance(cfg, dict):
+        return _fail(action, f"honestly guard: {path} is not a JSON object (the file was left untouched)")
+    hooks = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
+    installed = {ev: any(_ours(h) for g in groups_of(hooks, ev) for h in hooks_of(g)) for ev in hooks}
     if action == "status":
         on = [ev for ev, v in installed.items() if v]
         return f"honestly guard (Claude Code): {'installed for ' + ', '.join(on) if on else 'not installed'} ({path})"
+    before = json.dumps(cfg, sort_keys=True)
+    cfg["hooks"] = hooks
     if action == "install":
-        if not dry_run and os.path.exists(path):
-            import shutil, time
-            shutil.copy(path, path + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S"))
         for ev, entry in _entries().items():
-            groups = hooks.setdefault(ev, [])
-            groups[:] = [g for g in groups if not any(_ours(h) for h in g.get("hooks", []))]   # replace older entries (path or name may have changed)
+            groups = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]   # replace older entries (path or name may have changed)
             groups.append(entry)
+            hooks[ev] = groups
     elif action == "uninstall":
         for ev in list(hooks):
-            hooks[ev] = [g for g in hooks[ev] if not any(_ours(h) for h in g.get("hooks", []))]
-            if not hooks[ev]:
+            kept = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]
+            if kept:
+                hooks[ev] = kept
+            else:
                 del hooks[ev]
+    if not hooks:
+        cfg.pop("hooks", None)
     if dry_run:
         return (f"honestly guard would write the following `hooks` section into {path} (a timestamped backup of the file is made first; "
                 f"`honestly guard uninstall` removes exactly these entries):\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2))
+    if json.dumps(cfg, sort_keys=True) == before:
+        return (f"honestly guard: already installed, nothing changed ({path})" if action == "install"
+                else f"honestly guard: not installed, nothing to remove ({path})")
+    if os.path.exists(path):
+        import shutil, time
+        shutil.copy(path, path + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S"))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(cfg, fh, ensure_ascii=False, indent=2)
     return f"honestly guard: {action}ed → {path}"
+
+
+def _fail(action: str, msg: str) -> str:
+    """`status` reports a broken settings file; `install` / `uninstall` exit non-zero on it so scripts notice."""
+    if action == "status":
+        return msg
+    raise SystemExit(msg)
+
+
+def groups_of(hooks: dict, ev: str) -> list:
+    gs = hooks.get(ev)
+    return [g for g in gs if isinstance(g, dict)] if isinstance(gs, list) else []
+
+
+def hooks_of(group: dict) -> list:
+    hs = group.get("hooks")
+    return [h for h in hs if isinstance(h, dict)] if isinstance(hs, list) else []

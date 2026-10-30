@@ -4,30 +4,35 @@
 
 ## Data
 
-- 87 Claude Code sessions (2,340 turns) for the code-claim rounds; 101 sessions for the non-code round; 122 sessions in the current report.
+- 87 Claude Code sessions (2,340 turns) for the code-claim rounds; 101 sessions for the non-code round; 125 sessions in the current (0.5.3) report.
 - Turns duplicated by forked sessions are counted once.
 - The labelling sheets contain excerpts of private sessions and are not published. The audit itself can be re-run on any machine: `honestly audit --json findings.jsonl`.
 
 ## Method
 
-Every rule change was followed by a labelling round over every claim the audit flagged as `unverified`. Each flagged claim was labelled twice: a first pass by the author, and a second, blind pass with no access to the first pass's labels. Precision is the share of flags both passes agreed were correct.
+Every rule change was followed by a labelling round over every claim the audit flagged as `unverified`. Each flagged claim was labelled twice: a first pass by the author, reading the full turn in the transcript; a second pass by a language-model agent given only the label sheet (the claim, its context, the last edit, the tools after it, the verifying command's output and the audit's reason) and no access to the first pass's labels. The second pass is blind and cheap, not a second person: it caught some of the author's slips (round 1 below) and it shares the sheet's blind spots (round 1 again).
+
+Each pass's precision is reported separately: the flags that pass judged correct, over the flags it could judge. Unsure items and forked duplicates are left out of the denominator, which is why the denominators are smaller than the flag counts. Agreement between the two passes is given after the table.
 
 The rules are tuned for precision over recall. Anything the audit cannot see (a subagent, a background job, the user's own terminal, a remote CI or Kaggle run, a piped command whose summary line was swallowed) is reported as `could not check`, never as `unverified`.
 
 ## Code claims (tests pass, checks pass, build ok, rendered, pushed, committed, fixed)
 
-| Round | Flagged | Precision, pass 1 | Precision, pass 2 (blind) | Main fix afterwards |
+| Round | Flagged | Precision, pass 1 (author) | Precision, pass 2 (LLM agent, blind) | Main fix afterwards |
 |---|---|---|---|---|
 | 1 | 38 | 18/32 (56%) | 22/32 (69%) | edits to docs, logs and memory files counted as code edits; versioned `hyperframes@x check` not recognised |
 | 2 | 22 | 10/19 (53%) | 11/21 (52%) | variable paths, `.agent/state.json`, heredoc bodies; verdict from the last summary line; `fail 0` is a pass |
 | 3 | 27 | — | 13/23 (57%) | heredoc header lost whitespace (regression); semicolons inside quotes split sentences |
 | 4–5 | 19 → 13 | 12/13 (92%) | — | environment-variable prefixes, LaTeX tools; remote and background runs moved to `could not check` |
 | 6 | 12 | 12/12 | 11/11 (+1 unsure) | quote-aware splitting of multi-line commands; file-writing heredocs never count as verification |
-| after 6 | 18 | — | — | evidence for "fixed" narrowed to test, check or render commands; background starts and pure syntax checks moved to `could not check` |
+| after 6 (0.5.0–0.5.2) | 18 | — | — | evidence for "fixed" narrowed to test, check or render commands; background starts and pure syntax checks moved to `could not check`; not re-labelled at the time |
+| 0.5.3 (current rules) | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |
 
 Agreement between the two passes on round 2: `unverified` 18/19, `verified` 33/39, `contradicted` 8/8. On round 6: `unverified` 11/11, `verified` 32/36.
 
 The one lesson worth repeating: in round 1 several correct flags were labelled as false positives because the label sheet truncated commands to 100 characters and hid the `pytest` that ran right after a heredoc. Read the whole command.
+
+The 0.5.3 pass was done once, by the author, from `honestly audit --json` output, after the rule changes in that release; it is weaker than the two-pass rounds above and a blind second pass has not been run on it. The four unsure items: a fix to a scheduled job whose only check was reading the job's log (`grep`, which the rules do not count as verification); two "lint passes" sentences whose command text was cut off in the sheet; and one `contradicted` verdict read from a log file rather than from the check's own output. The fourteen correct flags are the familiar shape: an edit, then "tests pass" / "fixed" / "check passes" with no command after the edit, or with the earlier run now stale.
 
 ## Recall
 
@@ -38,7 +43,7 @@ Recall was estimated once, on a sample of 66 claims the audit had *not* flagged 
 | 1 | 2 | 63 | 1 |
 | 2 | 3 | 48 | 15 |
 
-Five distinct suspected misses after de-duplication. Four were fixed by rule changes (`evals/` scripts are not tests; the word "background" no longer triggers the remote-run rule; a narrowed test run backs a claim when the counts match; a commit claim needs a commit). The remaining known miss is a progress checklist read as a claim. Recall on that sample was roughly 55–75% before the fixes; the sample is small and the interval wide. `could not check` is not a pass.
+Five distinct suspected misses after de-duplication. Four were fixed by rule changes (`evals/` scripts are not tests; the word "background" no longer triggers the remote-run rule; a narrowed test run backs a claim when the counts match; a commit claim needs a commit). The remaining known miss is a progress checklist read as a claim. Set against the 12–18 flags the same rounds produced, five misses put recall somewhere between roughly 55% and 75%, depending on how the 15 unsure items of pass 2 are counted; the sample is small and the interval wide, and the number is not reported anywhere as a headline. `could not check` is not a pass.
 
 ## Non-code claims (sent, deployed, downloaded, saved, checked, scheduled, verified)
 
@@ -63,6 +68,7 @@ All three are regression tests.
 
 ## Known limits
 
+- The 0.5.3 rule changes were checked by one labelling pass, not two.
 - Recall is estimated on one small sample. A larger labelled set, especially from other stacks, is the most useful contribution: run `honestly feedback` on a wrong catch, or open an issue with a claim that should have been caught.
 - "Fixed" is inherently vague. When the fix is visual, looking at a screenshot is the real verification and no tool can see the look; such claims are reported as `weak` and kept out of the headline rate.
 - The rules were tuned on one developer's sessions (Python, JavaScript, video tooling, Kaggle) and corrected with logs from two other machines. Other stacks are covered by synthetic tests only.

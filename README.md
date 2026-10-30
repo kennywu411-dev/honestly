@@ -127,7 +127,7 @@ honestly share                # a card in ~/.honestly/ (SVG, plus PNG when Chrom
 
 ![honestly audit on the author's sessions](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
-The report breaks the number down by assistant and model, by project, by week (so you can see whether a new model or a new rule file changed anything), and lists why each *could not check* happened. Those are the author's own numbers: 122 sessions, 322 of 339 decided claims verified. On the code claims: 161 verified, 15 flagged, 17 could not check, 10 judged only from a screenshot. On the non-code claims: 161 verified, 2 flagged, 52 could not check. A team that hand-labelled 357 "tests pass" claims from 150 Claude Code sessions found [80 with no run behind them](https://github.com/anthropics/claude-code/issues/104504); benchmarks report the same pattern on ML tasks ([57% of frontier-agent runs take a planted shortcut](https://arxiv.org/abs/2608.30724), and telling the agent not to barely helps).
+The report breaks the number down by assistant and model, by project, by week (so you can see whether a new model or a new rule file changed anything), and lists why each *could not check* happened. Those are the author's own numbers with the 0.5.3 rules: 125 sessions, 334 of 352 decided claims verified. On the code claims: 167 verified, 16 flagged, 17 could not check, 10 judged only from a screenshot. On the non-code claims: 167 verified, 2 flagged, 63 could not check. One GitHub issue reports the same pattern from another team's logs: of 357 "tests pass" claims in 150 Claude Code sessions, [80 had no run behind them](https://github.com/anthropics/claude-code/issues/104504) (one team's sessions, not a population estimate, as the issue itself says); a benchmark reports it on ML tasks ([57% of frontier-agent runs take a planted shortcut](https://arxiv.org/abs/2608.30724), and telling the agent not to barely helps).
 
 ## How a claim is judged
 
@@ -139,20 +139,21 @@ The report breaks the number down by assistant and model, by project, by week (s
 6. **Visual fixes.** "Fixed the overlap" followed by a render and a look at the screenshot is `weak`: shown separately, counted neither way (blocked only under `strictness strict`).
 7. **Everything invisible → `could not check`**: remote runs (CI, Kaggle), browser actions, your own terminal, another session, output that was never captured.
 
-Forked sessions are de-duplicated so the same turn is counted once. Rule details and every exclusion are in [`src/honestly/rules.py`](src/honestly/rules.py) and [`src/honestly/noncode.py`](src/honestly/noncode.py).
+Forked sessions are de-duplicated so the same turn is counted once. Rule details and every exclusion are in [`src/honestly/rules.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/rules.py) and [`src/honestly/noncode.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/noncode.py).
 
 ## Precision
 
-Every rule change was followed by a labelling round over every claim the audit flagged. Each flagged claim was labelled twice, the second pass blind to the first.
+Every rule change was followed by a labelling round over every claim the audit flagged. Each flagged claim was labelled twice: once by the author reading the full turn, once by a language-model agent given only the label sheet and no access to the first pass. The second pass is blind and cheap, not a second person; it caught some of the author's slips and shares the sheet's blind spots. Denominators are smaller than the flag counts because unsure items and forked duplicates are left out.
 
-| Round | Flagged `unverified` | Precision, pass 1 | Precision, pass 2 (blind) | What was fixed next |
+| Round | Flagged `unverified` | Precision, pass 1 (author) | Precision, pass 2 (LLM agent, blind) | What was fixed next |
 |---|---|---|---|---|
-| 1 | 38 | 56% | 69% | doc/log/memory edits counted as code edits; versioned `hyperframes@x check` missed |
-| 2 | 22 | 53% | 52% | variable paths, `.agent/state.json`, heredoc bodies; judge output by the last summary line |
+| 1 | 38 | 18/32 (56%) | 22/32 (69%) | doc/log/memory edits counted as code edits; versioned `hyperframes@x check` missed |
+| 2 | 22 | 10/19 (53%) | 11/21 (52%) | variable paths, `.agent/state.json`, heredoc bodies; judge output by the last summary line |
 | 6 | 12 | 12/12 | 11/11 (+1 unsure) | quote-aware multi-line splitting; writing heredocs never count as verification |
 | non-code | 41 | 0/41 | 5/41 | summaries, previous-turn work and background jobs were being flagged; now structural rules, 0 flags on the same logs |
+| 0.5.3 (current rules) | 18 | 14/18 correct, 4 unsure, 0 wrong | not done | the 0.5.3 fixes; one pass only, not blind |
 
-Rounds 3–5 and the recall study are in [docs/precision.md](docs/precision.md). **Recall:** 66 claims the audit had *not* flagged were labelled the same way; 5 distinct misses were found and 4 are fixed. `honestly` still prefers *could not check* over a wrong flag. The first false flags came from logs on another machine (a bibliography title containing "fixed bed reactor", a Windows encoding issue) and the first miss from a live demo (a script body containing `curl` counted as a send); all three are regression tests now. The most useful contribution right now is a labelled claim from a stack other than Python or JavaScript: open an issue with the sentence and what the turn did.
+Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md). **Recall:** 66 claims the audit had *not* flagged were labelled the same way; 5 distinct misses were found and 4 are fixed. `honestly` still prefers *could not check* over a wrong flag. The first false flags came from logs on another machine (a bibliography title containing "fixed bed reactor", a Windows encoding issue) and the first miss from a live demo (a script body containing `curl` counted as a send); all three are regression tests now. The most useful contribution right now is a labelled claim from a stack other than Python or JavaScript: open an issue with the sentence and what the turn did.
 
 ## What it is not
 
@@ -161,10 +162,10 @@ Rounds 3–5 and the recall study are in [docs/precision.md](docs/precision.md).
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Their hooks are implemented from the vendors' documentation and covered by tests against the documented payloads, but have not yet been exercised on a real machine; `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 108 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 130 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 
-[claude-guard-hooks](https://github.com/jefftanlearn-eng/claude-guard-hooks) and [groundtruth](https://github.com/vnmoorthy/groundtruth) block unbacked "done" claims with keyword matching; [superpowers](https://github.com/obra/superpowers) asks for verification in a skill (prompt-level). `honestly` differs in reading command *output*, covering non-code claims, reading subagent transcripts, scoring your history across agents and models, and refusing to count what it cannot see.
+[groundtruth](https://github.com/vnmoorthy/groundtruth) blocks unbacked "done" claims with keyword matching; [superpowers](https://github.com/obra/superpowers) asks for verification in a skill (prompt-level). `honestly` differs in reading command *output*, covering non-code claims, reading subagent transcripts, scoring your history across agents and models, and refusing to count what it cannot see.
 
-中文说明见 [README.zh-CN.md](README.zh-CN.md)。
+中文说明见 [README.zh-CN.md](https://github.com/kennywu411-dev/honestly/blob/main/README.zh-CN.md)。

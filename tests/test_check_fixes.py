@@ -31,9 +31,9 @@ def test_topic_drops_harness_tags_and_boilerplate():
 def test_pre_message_without_a_recognised_tool_reads_cleanly():
     zh = hooks._plain_pre("python src/eval.py | tail -3", True, "Claude Code")
     en = hooks._plain_pre("python src/eval.py | tail -3", False, "Claude Code")
-    assert "把检查命令的结果截断了" in zh and "  " not in zh
-    assert "piped a check through tail/head" in en and "  " not in en
-    assert "把 pytest 的结果截断了" in hooks._plain_pre("pytest | tail", True, "")
+    assert "把检查命令的结果接进了 tail" in zh and "  " not in zh
+    assert "piped a check through tail" in en and "  " not in en
+    assert "把 pytest 的结果接进了 tail" in hooks._plain_pre("pytest | tail", True, "")
 
 
 def test_ci_status_read_after_real_test_run_does_not_hide_the_result():

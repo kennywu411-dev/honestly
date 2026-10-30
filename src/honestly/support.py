@@ -16,16 +16,34 @@ REPO = "https://github.com/kennywu411-dev/honestly"
 
 
 # ------------------------------------------------------------------- doctor
-def _hook_cmd_paths(settings: dict) -> list[str]:
+def _hook_cmds(settings: dict) -> list[str]:
+    """The command lines guard installed, one per distinct executable."""
     out = []
-    for groups in (settings.get("hooks") or {}).values():
-        for g in groups or []:
-            for h in g.get("hooks", []) or []:
+    hk = settings.get("hooks") if isinstance(settings.get("hooks"), dict) else {}
+    for ev in hk:
+        for g in hooks.groups_of(hk, ev):
+            for h in hooks.hooks_of(g):
                 if hooks._ours(h):
-                    cmd = str(h.get("command", ""))
-                    exe = cmd.split(" hook ", 1)[0].strip().strip('"')
-                    out.append(exe)
-    return out
+                    out.append(str(h.get("command", "")))
+    return list(dict.fromkeys(out))
+
+
+def _hook_cmd_paths(settings: dict) -> list[str]:
+    return list(dict.fromkeys(c.split(" hook ", 1)[0].strip().strip('"') for c in _hook_cmds(settings)))
+
+
+def _hook_runs(cmd: str) -> tuple:
+    """Run the installed hook line through a POSIX shell with an empty event, the way the assistant will: (ran, detail)."""
+    import shutil, subprocess
+    sh = shutil.which("bash") or shutil.which("sh")
+    if not sh:
+        return (None, "no bash/sh found to try the hook line")
+    try:
+        r = subprocess.run([sh, "-c", cmd.replace("hook stop", "hook pre", 1)], input=b"{}", capture_output=True, timeout=20)
+    except Exception as e:
+        return (False, f"{e.__class__.__name__}: {e}")
+    err = r.stderr.decode("utf-8", "ignore").strip().splitlines()
+    return (r.returncode == 0, err[-1] if err and r.returncode != 0 else "")
 
 
 def _fake_session(d: str, rows: list) -> str:
@@ -71,7 +89,8 @@ def self_test() -> list:
     return results
 
 
-def doctor(zh: bool | None = None) -> str:
+def doctor(zh: bool | None = None, with_problems: bool = False):
+    """The report as text; with_problems=True returns (text, problems) so the CLI can exit non-zero."""
     if zh is None:
         zh = hooks._lang_zh(config.load(), os.environ.get("LANG", ""))
     L = lambda en, cn: cn if zh else en
@@ -96,7 +115,8 @@ def doctor(zh: bool | None = None) -> str:
             problems.append(L(f"fix the JSON in {sp} (a backup may exist next to it)", f"修复 {sp} 里的 JSON（旁边可能有备份）"))
     else:
         lines.append(f"{warn}" + L(f"no Claude Code settings file at {sp}", f"没有 Claude Code 设置文件：{sp}"))
-    installed = {ev for ev, groups in (settings.get("hooks") or {}).items() if any(hooks._ours(h) for g in groups for h in g.get("hooks", []))}
+    _hk = settings.get("hooks") if isinstance(settings.get("hooks"), dict) else {}
+    installed = {ev for ev in _hk if any(hooks._ours(h) for g in hooks.groups_of(_hk, ev) for h in hooks.hooks_of(g))}
     if {"Stop", "PreToolUse"} <= installed:
         lines.append(f"{ok}" + L("guard hooks installed (Stop, PreToolUse)", "guard 的两个 hook 已装（Stop、PreToolUse）"))
     else:
@@ -116,6 +136,14 @@ def doctor(zh: bool | None = None) -> str:
             lines.append(f"{ok if exists else bad}" + L(f"hook command exists: {exe}", f"hook 命令存在：{exe}"))
             if not exists:
                 problems.append(L("the hook points to a missing file; run: honestly guard install", "hook 指向的文件不存在；运行：honestly guard install"))
+    for cmd in _hook_cmds(settings)[:1]:
+        ran, detail = _hook_runs(cmd)
+        if ran is None:
+            continue
+        lines.append(f"{ok if ran else bad}" + L(f"hook line runs through the shell: {cmd.split('  #')[0]}", f"hook 命令行能在 shell 里跑：{cmd.split('  #')[0]}") + (f"  ({detail})" if detail else ""))
+        if not ran:
+            problems.append(L("the hook line fails when a shell runs it (the assistant would skip the guard silently); run `honestly guard install` again and send this output with `honestly feedback --issue`",
+                              "hook 命令行在 shell 里跑不起来（助手会静默跳过 guard）；重新 honestly guard install，并用 honestly feedback --issue 发来这段输出"))
     for agent in ("codex", "cursor", "gemini"):
         from . import agents as _ag
         on = _ag.installed(agent)
@@ -145,11 +173,15 @@ def doctor(zh: bool | None = None) -> str:
     if os.path.exists(ep) and os.path.getsize(ep) > 0:
         with open(ep, encoding="utf-8", errors="ignore") as fh:
             tail = fh.read()[-600:]
-        lines.append(f"{warn}" + L(f"the hooks hit an internal error before (they let the assistant continue); last entry in {ep}:", f"hook 之前出过内部错误（当时直接放行了）；{ep} 的最后一条："))
-        lines += ["         " + l for l in tail.strip().splitlines()[-4:]]
-        problems.append(L("send that log entry with `honestly feedback --issue`", "把这条日志用 honestly feedback --issue 发过来"))
+        if "Traceback" in tail:
+            lines.append(f"{warn}" + L(f"the hooks hit an internal error before (they let the assistant continue); last entry in {ep}:", f"hook 之前出过内部错误（当时直接放行了）；{ep} 的最后一条："))
+            lines += ["         " + l for l in tail.strip().splitlines()[-4:]]
+            problems.append(L("send that log entry with `honestly feedback --issue`", "把这条日志用 honestly feedback --issue 发过来"))
+        else:
+            lines.append(f"{ok}" + L(f"the hooks let some input through unchecked (not an error); last note in {ep}:", f"hook 有几次没看就放行了（不是错误）；{ep} 的最后一条："))
+            lines += ["         " + l for l in tail.strip().splitlines()[-1:]]
     rows = hooks.load_catches()
-    lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {str(rows[-1].get('ts', ''))[:16]}" if rows else "") + f"  ({hooks.catches_path()})")
+    lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {hooks.local_time(rows[-1].get('ts', ''))}" if rows else "") + f"  ({hooks.catches_path()})")
     notify = os.environ.get("HONESTLY_NOTIFY") == "1" or os.path.exists(hooks.notify_flag_path())
     lines.append(f"{ok}" + L(f"desktop notifications {'on' if notify else 'off  (honestly guard notify on)'}", f"桌面通知{'已开' if notify else '未开（honestly guard notify on）'}"))
     cfg = config.load()
@@ -161,7 +193,8 @@ def doctor(zh: bool | None = None) -> str:
         if latest and _parse(latest) > _parse(__version__):
             lines.append(f"{warn}" + L(f"newer release on PyPI: {latest} (pip install -U honestly)", f"PyPI 有新版 {latest}（pip install -U honestly）"))
         elif latest:
-            lines.append(f"{ok}" + L(f"up to date ({latest})", f"已是最新（{latest}）"))
+            lines.append(f"{ok}" + L(f"up to date ({latest}; pypi.org is asked once a day, HONESTLY_NO_UPDATE_CHECK=1 turns this off)",
+                                     f"已是最新（{latest}；每天问一次 pypi.org，HONESTLY_NO_UPDATE_CHECK=1 可关闭）"))
     except Exception:
         pass
     lines.append("")
@@ -170,14 +203,27 @@ def doctor(zh: bool | None = None) -> str:
         lines += [f"  - {p}" for p in problems]
     else:
         lines.append(L("all good: guard is installed and blocking.", "一切正常：guard 已装上并且能拦。"))
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    return (text, problems) if with_problems else text
 
 
 # ----------------------------------------------------------------- feedback
+SECRET_ASSIGN = re.compile(r"(?i)\b([\w.-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|auth|credential|private[_-]?key)[\w.-]*)(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)")
+SECRET_FLAG = re.compile(r"(?i)((?:^|\s)(?:-p|--password|--token|--api-key|--secret|-u|--user|--auth)[=\s]?)(\"[^\"]*\"|'[^']*'|\S+)")
+URL_CREDS = re.compile(r"(://)[^\s/@:]+:[^\s/@]+@")
+LONG_TOKEN = re.compile(r"(?<![\w/.-])[A-Za-z0-9_+\-]{20,}(?![\w/.-])")   # no `/`: a path is not a token
+BEARER = re.compile(r"(?i)(bearer\s+)\S+")
+
+
 def _redact(s: str) -> str:
+    """Paths under $HOME, e-mails, credential assignments and flags, URL user:pass and long token-like runs."""
     home = os.path.expanduser("~")
     s = s.replace(home, "~")
-    s = re.sub(r"[A-Za-z0-9_\-]{32,}", "<redacted>", s)
+    s = SECRET_ASSIGN.sub(lambda m: m.group(0) if m.group(3).lower() == "bearer" else m.group(1) + m.group(2) + "<redacted>", s)
+    s = BEARER.sub(r"\1<redacted>", s)
+    s = SECRET_FLAG.sub(lambda m: m.group(1) + "<redacted>", s)
+    s = URL_CREDS.sub(r"\1<redacted>@", s)
+    s = LONG_TOKEN.sub(lambda m: m.group(0) if re.fullmatch(r"[A-Z0-9_]+|[A-Za-z_]+|[a-z0-9_]+", m.group(0)) else "<redacted>", s)   # constant names and words stay
     s = re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", s)
     return s
 
@@ -235,6 +281,8 @@ RULE_FILES = {"claude-code": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMIN
 
 def rule(action: str, agent: str = "claude-code", cwd: str | None = None, zh: bool = False) -> str:
     """Add or remove a short 'verify before you claim' section in the project's instructions file, between markers."""
+    if cwd and not os.path.isdir(cwd):
+        raise SystemExit(f"honestly rule: no such directory: {cwd}")
     path = os.path.join(cwd or os.getcwd(), RULE_FILES[agent])
     text_block = RULE_TEXT_ZH if zh else RULE_TEXT
     block = RULE_START + "\n" + text_block + RULE_END + "\n"
@@ -255,6 +303,10 @@ def rule(action: str, agent: str = "claude-code", cwd: str | None = None, zh: bo
             new = block if not stripped.strip() else stripped.rstrip("\n") + "\n\n" + RULE_START + "\n" + text_block + RULE_END + "\n"
     else:
         new = stripped.rstrip("\n") + "\n" if stripped.strip() else ""
+    if action == "install" and new == text:
+        return f"honestly rule: already present, nothing changed: {path}"
+    if action == "uninstall" and RULE_START not in text:
+        return f"honestly rule: not present, nothing to remove: {path}"
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     if action == "uninstall" and not new.strip():
         if os.path.exists(path):

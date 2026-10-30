@@ -311,13 +311,18 @@ def svg_to_png(svg_path: str, png_path: str) -> bool:
         if not b:
             continue
         attempts.append([b, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png_path}", "--window-size=1200,630", pathlib.Path(svg_path).resolve().as_uri()])
+    try:
+        if os.path.exists(png_path):
+            os.remove(png_path)   # a stale file must not pass as this run's output
+    except Exception:
+        pass
     for cmd in attempts:
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+            subprocess.run(cmd, check=False, capture_output=True, timeout=90)
         except Exception:
             continue
         if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
-            return True
+            return True   # a first-run Chrome exits non-zero and still writes the screenshot: the file decides
     return False
 
 

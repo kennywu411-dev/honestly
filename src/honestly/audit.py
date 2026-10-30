@@ -71,6 +71,8 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         return "unverifiable", "only a syntax check ran after the fix"
     if category in ("tests_pass", "checks_pass") or (category == "fixed" and rules.VERIFY["test"].search(seg)):
         summ = _last_summary(out)
+        if re.search(r"\bgo test\b", seg) and re.search(r"(?m)^(FAIL\b|--- FAIL:)", out):
+            return "contradicted", "go test output shows FAIL"   # `ok pkg/a` lines do not cancel a failing package
         if TEST_FAIL.search(summ) and not TEST_PASS.search(summ):
             return "contradicted", "last test summary shows failures"
         if TEST_FAIL.search(summ) and TEST_PASS.search(summ) and re.search(r"\b[1-9]\d* failed", summ):

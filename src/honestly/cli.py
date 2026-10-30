@@ -164,10 +164,15 @@ def cmd_config(a):
     if k in ("strictness", "language"):
         print(config.set_value(k, v, project=a.project)); return
     if k in ("off", "on"):
-        for cat in [c.strip() for c in v.split(",") if c.strip()]:
+        cats = [c.strip() for c in v.split(",") if c.strip()]
+        if not cats:
+            raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: honestly config)")
+        for cat in cats:
             print((config.add_to if k == "off" else config.remove_from)("off", cat, project=a.project))
         return
     if k in ("verify", "unverify"):
+        if not v.strip():
+            raise SystemExit(f'honestly config {k}: give the command, e.g. honestly config {k} "make smoke"')
         print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); return
     raise SystemExit("usage: honestly config [strictness strict|normal|lenient | language auto|zh|en | off CAT[,CAT] | on CAT | verify \"CMD\" | unverify \"CMD\"] [--project]")
 
@@ -178,13 +183,20 @@ def cmd_feedback(a):
 
 
 def cmd_rule(a):
-    from .support import rule
-    print(rule(a.action, a.agent, a.dir, zh=a.lang == "zh"))
+    from .support import rule, RULE_FILES
+    if a.action == "status" and not a.agent:
+        for agent in RULE_FILES:
+            print(rule("status", agent, a.dir, zh=a.lang == "zh"))
+        return
+    print(rule(a.action, a.agent or "claude-code", a.dir, zh=a.lang == "zh"))
 
 
 def cmd_doctor(a):
     from .support import doctor
-    print(doctor(zh=None if a.lang == "auto" else a.lang == "zh"))
+    text, problems = doctor(zh=None if a.lang == "auto" else a.lang == "zh", with_problems=True)
+    print(text)
+    if problems:
+        sys.exit(1)
 
 
 def cmd_hook(a):
@@ -247,9 +259,11 @@ def main(argv=None):
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except Exception:
                 pass
+    from . import __version__
     p = argparse.ArgumentParser(prog="honestly", description="Audit how often your coding agent verified what it claimed.")
+    p.add_argument("--version", action="version", version=f"honestly {__version__}")
     sub = p.add_subparsers(dest="cmd", required=False)
-    pa = sub.add_parser("audit", help="scan Claude Code / Codex session logs and print the report")
+    pa = sub.add_parser("audit", help="scan Claude Code, Codex, Cursor and Gemini CLI session logs and print the report")
     pa.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects)")
     pa.add_argument("--codex-root", default=None, help="Codex sessions dir (default ~/.codex/sessions)")
     pa.add_argument("--agent", action="append", choices=["claude-code", "codex", "cursor", "gemini"], help="limit to one assistant (repeatable)")
@@ -272,7 +286,7 @@ def main(argv=None):
     pc.add_argument("--lang", choices=["auto", "zh", "en"], default="auto")
     pc.add_argument("--out", default=None, help="directory for the card (default ~/.honestly)")
     pc.set_defaults(fn=cmd_catches)
-    pg = sub.add_parser("guard", help="install / uninstall the Claude Code hooks")
+    pg = sub.add_parser("guard", help="install / uninstall the hooks (Claude Code by default; --agent codex | cursor | gemini | all)")
     pg.add_argument("action", choices=["install", "uninstall", "status", "notify"])
     pg.add_argument("value", nargs="?", choices=["on", "off"], help="for notify: on | off")
     pg.add_argument("--dry-run", action="store_true", help="print the resulting hooks section without writing")
@@ -290,22 +304,21 @@ def main(argv=None):
     pf.add_argument("n", type=int, nargs="?", default=1, help="1 = latest catch, 2 = the one before, ..."); pf.add_argument("--issue", action="store_true", help="also print a pre-filled GitHub issue link")
     pf.set_defaults(fn=cmd_feedback)
     pr = sub.add_parser("rule", help="add a short 'verify before you claim' section to the project's CLAUDE.md / AGENTS.md / GEMINI.md / Cursor rules")
-    pr.add_argument("action", choices=["install", "uninstall", "status"]); pr.add_argument("--agent", choices=["claude-code", "codex", "gemini", "cursor"], default="claude-code")
+    pr.add_argument("action", choices=["install", "uninstall", "status"]); pr.add_argument("--agent", choices=["claude-code", "codex", "gemini", "cursor"], default=None, help="default: claude-code; status shows all four")
     pr.add_argument("--dir", default=None, help="project directory (default: current)"); pr.add_argument("--lang", choices=["en", "zh"], default="en")
     pr.set_defaults(fn=cmd_rule)
     pd = sub.add_parser("doctor", help="check the install: hooks, paths, logs, and a live self-test of the guard")
     pd.add_argument("--lang", choices=["auto", "zh", "en"], default="auto"); pd.set_defaults(fn=cmd_doctor)
-    ph = sub.add_parser("hook", help="(internal) run as a Claude Code hook; reads JSON on stdin")
+    ph = sub.add_parser("hook", help="(internal) run as the assistant's hook; reads the hook event as JSON on stdin")
     ph.add_argument("which", choices=["stop", "pre"]); ph.add_argument("--agent", choices=["claude-code", "codex", "cursor", "gemini"], default="claude-code")
     ph.set_defaults(fn=cmd_hook)
-    pm = sub.add_parser("sample", help="(maintainers) draw a labeling sample from a findings JSONL")
+    pm = sub.add_parser("sample", help="(maintainers) draw a labelling sample from a findings JSONL")
     pm.add_argument("findings"); pm.add_argument("--verdict", default="unbacked"); pm.add_argument("--n", type=int, default=100)
     pm.add_argument("--per-session", type=int, default=8); pm.add_argument("--seed", type=int, default=42)
     pm.add_argument("--exclude", nargs="*", default=[]); pm.add_argument("--out", default=".honestly-labels/label_sheet.md")
     pm.set_defaults(fn=cmd_sample)
     a = p.parse_args(argv)
     if not a.cmd:
-        from . import __version__
         from .hooks import guard
         status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l) or "not installed (honestly guard install)"
         print(OVERVIEW.format(v=__version__, status=status)); return

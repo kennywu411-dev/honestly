@@ -30,6 +30,8 @@ def _fetch_latest(timeout: float = 2.0) -> str:
 
 def latest_version(now: float | None = None) -> str:
     """Latest version on PyPI, from the daily cache when it is fresh; '' when the network is unavailable."""
+    if os.environ.get("HONESTLY_NO_UPDATE_CHECK") == "1":
+        return ""
     now = now if now is not None else time.time()
     try:
         with open(cache_path(), encoding="utf-8") as fh:
@@ -53,8 +55,6 @@ def latest_version(now: float | None = None) -> str:
 
 def update_note(current: str, zh: bool = False) -> str:
     """One line when a newer release exists, otherwise ''."""
-    if os.environ.get("HONESTLY_NO_UPDATE_CHECK") == "1":
-        return ""
     latest = latest_version()
     if not latest or _parse(latest) <= _parse(current):
         return ""

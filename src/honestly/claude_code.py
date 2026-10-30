@@ -80,8 +80,10 @@ def _tool_result_text(b: dict) -> str:
     m = BG_OUTPUT.search(rc)
     if m and os.path.exists(m.group(1)):   # a background command: its real output is in the task file, when it still exists
         try:
-            with open(m.group(1), encoding="utf-8", errors="ignore") as fh:
-                out = fh.read()
+            with open(m.group(1), "rb") as fh:   # only the tail is used; the file can be a long-running job's whole log
+                fh.seek(0, 2)
+                fh.seek(max(0, fh.tell() - 6000))
+                out = fh.read().decode("utf-8", "ignore")
             if out.strip():
                 rc = out[-3000:]
         except Exception:

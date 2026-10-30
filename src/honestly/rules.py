@@ -14,10 +14,10 @@ from dataclasses import dataclass
 # ----------------------------------------------------------------- claims
 CLAIM_PATTERNS = [
     ("tests_pass", re.compile(
-        r"(all (the )?tests? (now )?pass(es|ed|ing)?\b|tests? (are |all )?(now )?pass(es|ed|ing)?\b"
+        r"((?:all (?:the )?)?tests? (?:are |all )?(?:now )?pass(?:es|ed|ing)?\b(?!\s+(?:a|an|the|its|this|that|my|our|your|each|every|some|any|\w+ (?:to|into|through|as|along|down))\b)"
         r"|\b\d+ (tests? )?passed\b|\d+ 个?(测试|用例)(全部|都|均)?通过|测试(全部|都|已|已经|均)?通过|用例(全部|都)?通过)", re.I), {"test"}),
     ("checks_pass", re.compile(
-        r"(checks? (all )?pass(es|ed)?\b|lint(ing)? pass(es|ed)?\b|type ?check(s|ing)? pass(es|ed)?\b|build pass(es|ed)?\b|检查(结果)?[:：]?\s*(全部|都|均)?通过|全部通过|lint (全部)?通过|0 (错误|warnings?|errors?))", re.I), {"test", "build"}),
+        r"(checks? (all )?pass(es|ed)?\b|lint(ing)? pass(es|ed)?\b|type ?check(s|ing)? pass(es|ed)?\b|build pass(es|ed)?\b|检查(结果)?[:：]?\s*(全部|都|均)?通过|全部通过|lint (全部)?通过|\b0 (错误|warnings?|errors?))", re.I), {"test", "build"}),   # "10 errors" is not "0 errors"
     ("build_ok", re.compile(
         r"(build (succeeded|passed|passes|is green|ok)|compiles? (cleanly|fine|ok)|编译通过|构建(成功|通过)|打包(成功|完成)|类型检查通过|lint 通过|ruff 也?通过)", re.I), {"build", "test", "run"}),
     ("rendered", re.compile(
@@ -40,17 +40,17 @@ CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in _noncode.CLAIMS]
 
 NOT_A_CLAIM = re.compile(
     r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|not yet|haven'?t|hasn'?t|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|^running|^re-running|^checking|^verifying|^now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|^next|syntax[- ]?check|只做了语法检查"
-    r"|需要你|请你|你可以|you can|\?|？|待验证|直到|until|before (I|we|my|the|this)\b"
+    r"|需要你|请你|你可以|you can|\?|？|待验证"
     r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"  # honest partial results are not a pass claim
     r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经"  # someone else fixed it, somewhere else
     r"|通过率|通过的(条件|用例|标准)|position:\s*fixed|transaction"
     r"|我也会|我还会|我再|完成后会|之后会|会出现在|默认保存|通常保存|一般保存|会保存到|核实过的|核对过的|验证过的|下载完成后|不会丢"  # future, generic behaviour, adjectives, state
     r"|^(意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
-    r"|\bprevious|yesterday|last (?:week|run|time)|make sure|ensure|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
+    r"|\bprevious|yesterday|last (?:week|run|time)|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
     r"|\[J\]|\bet al\b|\bdoi\b|\bvol\.\s*\d|\bpp\.\s*\d|\bISBN\b|\bISSN\b"  # bibliography entries
     r"|\bI'?m re-?(running|rendering|testing|checking)\b|\bto (check|verify|confirm)\b)", re.I)  # says a check is still coming
 # forward-looking words only disqualify a claim when they come BEFORE it ("if tests pass" vs "tests pass, even if X")
-PREFIX_NOT_CLAIM = re.compile(r"(准备|will |I'll|I’ll|we'll|next,? I|let me|going to|while |如果|\bif |一旦|\bonce |^then )", re.I)
+PREFIX_NOT_CLAIM = re.compile(r"(准备|will |I'll|I’ll|we'll|next,? I|let me|going to|while |如果|\bif |一旦|\bonce |^then |直到|\buntil\b|\bbefore (?:I|we|my|the|this)\b|make sure|\bensure\b)", re.I)   # "make sure tests pass" is an instruction; "tests pass, make sure to…" still a claim
 REMOTE_RUN = re.compile(r"(kaggle|冒烟|压力测试|\bCI\b|notebook|公榜|提交版|提交前检查|runpod|colab|github actions|workflow run)", re.I)
 QUOTES = "\"“”「」『』"
 APOSTROPHE_QUOTE = re.compile(r"(?<!\w)['’]|['’](?!\w)")   # a straight or curly quote that is not inside a word (I've, user's)
@@ -69,7 +69,7 @@ def split_sentences(text: str):
     text = re.sub(r"`([^`\n]*)`", r"\1", text)   # keep the words inside inline code: file names and commands are what the claim is about
     text = "\n".join(l for l in text.splitlines() if not re.match(r"\s*(#{1,6}\s|\|)", l) and not re.match(r"\s*\*\*[^*\n]{1,80}\*\*\s*[:：]?\s*$", l))   # headings, table rows, bold-only lines
     text = re.sub(r"(?m)^\s*(?:[-*+]\s+)?(?:\[[ xX]\]\s+)?", "", text)                        # list markers, checkboxes
-    parts = re.split(r"(?<=[。！!\.])\s+|\n+|(?<=[。！])", text)
+    parts = re.split(r"(?<=[。！!\.?？])\s+|\n+|(?<=[。！？])", text)   # a question ends a sentence too
     return [p.strip() for p in parts if p and p.strip()]
 
 
@@ -105,14 +105,17 @@ def find_claims(text: str):
 
 # ------------------------------------------------------------ edits & paths
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-DOC_EXT = {".md", ".txt", ".rst", ".csv", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".wav", ".srt", ".log", ".example", ".b64", ".jsonl"}
+DOC_EXT = {".md", ".txt", ".rst", ".csv", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".wav", ".srt", ".log", ".example", ".b64", ".jsonl", ".mdc"}
+# directories and file names that hold notes rather than code; anchored, so `src/prompts/builder.py` or `proj/tmp/app.py` stay code
 DOC_DIRS = re.compile(
-    r"(^docs?/|/docs?/|/memory/|/scratchpad/|/reports?/|/notes?/|/\.claude/projects/|/research_notes/|README|CHANGELOG|HANDOFF|AGENTS\.md|CLAUDE\.md|PROMPT|\.env|\.gitignore|\.gitattributes|LICENSE"
-    r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.claude/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账|/tmp/|/private/tmp/|AppData/Local/Temp/|/Temp/claude)", re.I)
+    r"(^docs?/|/docs?/|/memory/|/scratchpad/|/(?:reports?|notes?|research_notes)/[^/]*\.(?:md|txt|rst|csv|json|html|pdf)$|/\.claude/projects/"
+    r"|(?:^|/)(?:README|CHANGELOG|HANDOFF|PROMPTS?)(?:[^/]*\.(?:md|txt|rst))?$|(?:^|/)(?:AGENTS|CLAUDE|GEMINI)\.md$|(?:^|/)\.env(?:\.[\w.-]+)?$|(?:^|/)\.gitignore$|(?:^|/)\.gitattributes$|(?:^|/)LICENSE[^/]*$"
+    r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.claude/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
+    r"|^/tmp/|^/private/tmp/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
 TMP_CWD = re.compile(r"(^|\s)cd (/private/tmp|/tmp|\S*scratchpad)")
 INTERP = re.compile(r"(python3?|node|bash|zsh|\bsh|ruby|perl|psql|sqlite3|uv run|\.venv/bin/python3?)\b[^\n]*<<")
 WRITE_MARK = re.compile(r"(write_text\(|open\([^)]*['\"][wa]\+?['\"]|\.write\(|writeFileSync|fs\.write|shutil\.(copy|move)|os\.rename|Path\([^)]*\)\.touch)")
-PLAIN_EDIT = re.compile(r"(sed -i|\btee\b|cat >>?|(^|[\s)])>>?(?![=>])\s*[^&>/ \n=]|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|\bpatch\b)")
+PLAIN_EDIT = re.compile(r"(sed -i|\btee\b|cat >>?|(^|[\s)])>>?(?![=>])\s*[^&>/ \n=]|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|(?:^|\|)\s*(?:sudo\s+)?patch\b)")   # `patch` only as the verb: `grep mock.patch` reads
 PLAIN_EDIT_EXCLUDE = re.compile(r"(>\s*/dev/null|2>&1|&>)")
 REDIRECT_TARGET = re.compile(r"(?:cat >>? ?|tee -a |tee |[\s)]>>?(?![=>]) ?)\"?([\w./~\-一-鿿 ]+?\.[A-Za-z0-9]+)\"?(?=\s|$|&|;|\|)")
 QUOTED_PATH = re.compile(r"['\"]([^'\"\n]+\.(?:py|js|mjs|cjs|ts|tsx|jsx|html|css|scss|json|toml|yaml|yml|sh|zsh|go|rs|java|kt|swift|c|cc|cpp|h|rb|php|sql|tex|ipynb|vue|svelte|glsl|cfg|ini|md|txt|rst|csv|log|jsonl))['\"]")
@@ -158,6 +161,29 @@ def _split_shell(line: str):
     return [x.strip() for x in out if x.strip()]
 
 
+def _strip_comments(text: str) -> str:
+    """Drop `# …` to the end of the line outside quotes: an apostrophe in a comment must not swallow the next command."""
+    out, q, i, n = [], None, 0, len(text)
+    while i < n:
+        ch = text[i]
+        if q:
+            out.append(ch)
+            if ch == q and text[i - 1] != "\\":
+                q = None
+        elif ch in ("'", '"'):
+            q = ch; out.append(ch)
+        elif ch == "#" and (i == 0 or text[i - 1] in " \t;&|(\n"):
+            j = text.find("\n", i)
+            if j == -1:
+                break
+            i = j
+            continue
+        else:
+            out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def segments(cmd: str):
     """Split a shell command into segments; a heredoc block is one segment.
     Quotes are respected across lines, so a multi-line commit message stays inside its git commit segment."""
@@ -182,7 +208,7 @@ def segments(cmd: str):
             i = j
         else:
             flat.append(line); i += 1
-    text = "\n".join(flat)
+    text = _strip_comments("\n".join(flat))
     out = []
     for seg in _split_shell(text.replace("\n", " ; ")):
         key = next((k for k in blocks if k in seg), None)
@@ -246,7 +272,7 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
             return False
         # a plain `cmd > file` only authors a file when the verb writes agent-authored content;
         # `pytest > log`, `honestly audit > summary.json`, `ffmpeg ... > x` are program output, not code edits
-        if not re.search(r"(sed -i|\btee\b|cat >>?|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|\bpatch\b)", c):
+        if not re.search(r"(sed -i|\btee\b|cat >>?|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|(?:^|\|)\s*(?:sudo\s+)?patch\b)", c):
             if not re.match(r"\s*(cat|echo|printf|tee|sed|awk|perl|jq|cp|mv)\b", c):
                 return False
     targets = [t.strip() for t in segment_targets(seg, whole_cmd)]
@@ -267,7 +293,7 @@ def bash_is_edit(cmd: str) -> bool:
     segs = segments(cmd)
     if segs and TMP_CWD.search(segs[0].text):
         return False
-    if re.search(r"(/private/tmp|scratchpad|/tmp/|AppData/Local/Temp|tempfile\.|mkdtemp\(|NamedTemporaryFile|TemporaryDirectory)", cmd) and not re.search(r"(sed -i|write_text|open\([^)]*['\"][wa])", cmd):
+    if re.search(r"((?:^|[\s=\"'(])/private/tmp/|(?:^|[\s=\"'(])/tmp/|(?:^|[\s=\"'(])/var/folders/|scratchpad|AppData/Local/Temp|tempfile\.|mkdtemp\(|NamedTemporaryFile|TemporaryDirectory)", cmd) and not re.search(r"(sed -i|write_text|open\([^)]*['\"][wa])", cmd):
         return False
     return any(segment_is_edit(s, cmd) for s in segs)
 
@@ -292,7 +318,7 @@ NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pyt
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|\bdev\b|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 

@@ -33,7 +33,7 @@ def test_rule_install_status_uninstall(tmp_path):
     assert "added" in support.rule("install", "claude-code", str(tmp_path))
     text = (tmp_path / "CLAUDE.md").read_text()
     assert text.startswith("# mine") and support.RULE_START in text and "pipefail" in text
-    assert "added" in support.rule("install", "claude-code", str(tmp_path))      # idempotent
+    assert "already present" in support.rule("install", "claude-code", str(tmp_path))      # idempotent
     assert text == (tmp_path / "CLAUDE.md").read_text()
     assert "present" in support.rule("status", "claude-code", str(tmp_path))
     assert "removed" in support.rule("uninstall", "claude-code", str(tmp_path))

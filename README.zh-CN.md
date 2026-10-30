@@ -42,8 +42,8 @@ honestly guard status                    # 四家一起看；guard uninstall [--
 hook 往聊天窗口写一句大白话，用对话本身的语言，写明是哪个助手、哪个模型、哪个项目、哪段对话：
 
 ```
-⚠️ honestly 拦了一下：Claude Code（claude-opus-5-5）在「docpilot」项目回复「修一下登录 bug」这个问题时
-说「修好了，12 个测试全部通过」，但改完 login.py 之后没有跑过任何检查。已经要求它先跑了再说。
+⚠️ honestly 拦了一下：Claude Code（claude-opus-5-5）在「docpilot」项目回复「修一下登录接口的 bug」这个问题时
+说「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有跑过任何检查。已经要求它先跑了再说。
 ```
 
 助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是告诉你已经搞定。
@@ -126,7 +126,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 
 ![honestly audit 在作者会话上的结果](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
-报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己的数字：122 个会话，339 条可判定结论中 322 条已验证。代码类：161 条已验证、15 条标记、17 条无法核实、10 条只凭截图判断。非代码类：161 条已验证、2 条标记、52 条无法核实。有团队人工标注了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)；基准测试在 ML 任务上看到同样的模式（[57% 的前沿智能体运行会走预埋的捷径](https://arxiv.org/abs/2608.30724)，叮嘱它别这么做几乎没用）。
+报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）；基准测试在 ML 任务上也看到了（[57% 的前沿智能体运行会走预埋的捷径](https://arxiv.org/abs/2608.30724)，叮嘱它别这么做几乎没用）。
 
 ## 一条结论是怎么判的
 
@@ -138,20 +138,21 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 6. **视觉修复。** "重叠修好了"后面跟着渲染和看截图，记为"弱"：单独列出，不算验证也不算无支撑（只有 `strictness strict` 才拦）。
 7. **看不见的一律"无法核实"**：远程运行（CI、Kaggle）、浏览器操作、你自己的终端、其他会话、没有捕获的输出。
 
-分叉的会话会去重，同一轮只算一次。全部规则和排除项在 [`src/honestly/rules.py`](src/honestly/rules.py) 和 [`src/honestly/noncode.py`](src/honestly/noncode.py)。
+分叉的会话会去重，同一轮只算一次。全部规则和排除项在 [`src/honestly/rules.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/rules.py) 和 [`src/honestly/noncode.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/noncode.py)。
 
 ## 精确率
 
-每次改规则之后都做一轮标注：审计标记出来的每一条结论都标两遍，第二遍看不到第一遍的结果。
+每次改规则之后都做一轮标注：审计标记出来的每一条结论都标两遍。第一遍由作者读完整的一轮来标；第二遍由一个大模型 agent 只看标注表（那句话、最后一次修改、之后的工具、审计给的理由）来标，看不到第一遍的结果。第二遍是盲标、也便宜，但不是第二个人：它抓出过作者的几处疏漏，也和标注表有同样的盲区。分母比标记条数少，是因为去掉了"不确定"和分叉会话的重复项。
 
-| 轮次 | 标记为无支撑 | 第一遍精确率 | 第二遍（盲标）精确率 | 之后修了什么 |
+| 轮次 | 标记为无支撑 | 第一遍精确率（作者） | 第二遍精确率（大模型 agent，盲标） | 之后修了什么 |
 |---|---|---|---|---|
-| 1 | 38 | 56% | 69% | 文档/日志/记忆的修改被当成代码修改；带版本号的 `hyperframes@x check` 没识别 |
-| 2 | 22 | 53% | 52% | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
+| 1 | 38 | 18/32（56%） | 22/32（69%） | 文档/日志/记忆的修改被当成代码修改；带版本号的 `hyperframes@x check` 没识别 |
+| 2 | 22 | 10/19（53%） | 11/21（52%） | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
 | 6 | 12 | 12/12 | 11/11（+1 不确定） | 识别引号的多行切句；写文件的 heredoc 永远不算验证 |
 | 非代码 | 41 | 0/41 | 5/41 | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
+| 0.5.3（现行规则） | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
 
-第 3 到 5 轮和召回率研究见 [docs/precision.md](docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不冤枉。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
+第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不冤枉。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
 
 ## 它不是什么
 
@@ -160,10 +161,10 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，108 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，130 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 
-[claude-guard-hooks](https://github.com/jefftanlearn-eng/claude-guard-hooks) 和 [groundtruth](https://github.com/vnmoorthy/groundtruth) 用关键词匹配拦没有依据的"完成"；[superpowers](https://github.com/obra/superpowers) 在 skill 里要求验证（提示词层面）。`honestly` 的不同在于读命令的*输出*、覆盖非代码结论、读子代理的记录、跨助手和模型给历史打分，以及看不见的一律不算。
+[groundtruth](https://github.com/vnmoorthy/groundtruth) 用关键词匹配拦没有依据的"完成"；[superpowers](https://github.com/obra/superpowers) 在 skill 里要求验证（提示词层面）。`honestly` 的不同在于读命令的*输出*、覆盖非代码结论、读子代理的记录、跨助手和模型给历史打分，以及看不见的一律不算。
 
-English README: [README.md](README.md).
+English README: [README.md](https://github.com/kennywu411-dev/honestly/blob/main/README.md).
