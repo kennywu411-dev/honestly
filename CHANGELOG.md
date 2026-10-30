@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.4 (2026-10-30)
+
+- `doctor` missed an internal hook error when the traceback was longer than the last 600 characters of `hook-errors.log` (long install paths do that) and reported it as a harmless note. The whole last log entry is checked now.
+- A test fixture no longer carries a developer's user name.
+
 ## 0.5.3 (2026-10-30)
 
 Fixes from a review of 0.5.2 (a code review, a public-surface audit and a fresh-install test on an empty home directory).
