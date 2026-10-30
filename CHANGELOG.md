@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.5 (2026-10-31)
+
+- A test run that collected nothing (`no tests ran`, `Ran 0 tests`, `running 0 tests`, `[no tests to run]`, `No tests found`, `0 passing`, `Tests run: 0`) no longer backs a "tests pass" claim: the claim is *unverified* and blocked under normal strictness. Suggested by a reader on X.
+
 ## 0.5.4 (2026-10-30)
 
 - `doctor` missed an internal hook error when the traceback was longer than the last 600 characters of `hook-errors.log` (long install paths do that) and reported it as a harmless note. The whole last log entry is checked now.

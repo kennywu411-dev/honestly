@@ -133,7 +133,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 1. **范围：一轮。** 你的提问到它的回复之间做的所有事，包括子代理做的。
 2. **最后一次代码修改。** `Edit`/`Write` 工具、`sed -i`、`cat > file`、写文件的 heredoc。改文档、日志、笔记、记忆、`.env`、临时目录、agent 状态文件不算。
 3. **之后有没有对应的检查。** 见上表。`verify_commands` 里的自定义命令算测试。
-4. **输出说了什么。** 最后一行汇总说了算：`12 passed` 支持结论，`2 failed` 反驳，`fail 0` 是通过。缩小范围的运行（`pytest -k`、单个文件）只在结论写了同样的数量时才算。最后一次检查没说通过还是失败（比如只是读 CI 状态），就用前面最近一次说了的。
+4. **输出说了什么。** 最后一行汇总说了算：`12 passed` 支持结论，`2 failed` 反驳，`fail 0` 是通过；一个测试都没收集到的运行（`no tests ran`、`Ran 0 tests`、`0 passing`、`[no tests to run]`）什么都不支持，退出码是绿的也一样。缩小范围的运行（`pytest -k`、单个文件）只在结论写了同样的数量时才算。最后一次检查没说通过还是失败（比如只是读 CI 状态），就用前面最近一次说了的。
 5. **非代码结论**看整轮加上一轮（回复经常开头先汇报上一轮做了什么），而且必须对得上：说"已保存到 report.csv"就得写过 `report.csv`；说"图发你了"得有发送工具，脚本正文里出现 mail 命令不算。
 6. **视觉修复。** "重叠修好了"后面跟着渲染和看截图，记为"弱"：单独列出，不算验证也不算无支撑（只有 `strictness strict` 才拦）。
 7. **看不见的一律"无法核实"**：远程运行（CI、Kaggle）、浏览器操作、你自己的终端、其他会话、没有捕获的输出。
@@ -161,7 +161,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，131 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，132 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 
