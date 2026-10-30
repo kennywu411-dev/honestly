@@ -59,6 +59,10 @@ def _last_summary(out: str) -> str:
     # a pytest summary like "2 failed, 17 passed" spans one line: take everything from the last summary start
     tail = out[out.rfind(hits[-1]):]
     return tail[:400]
+# a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet
+ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
+                        r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
+                        r"|\btest result: ok\. 0 passed\b", re.I | re.M)
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 
 
@@ -77,6 +81,8 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
             return "contradicted", "last test summary shows failures"
         if TEST_FAIL.search(summ) and TEST_PASS.search(summ) and re.search(r"\b[1-9]\d* failed", summ):
             return "contradicted", "last test summary shows failures alongside passes"
+        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b", summ):
+            return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
         if TEST_PASS.search(summ) or (category == "checks_pass" and not TEST_FAIL.search(out) and not ev.is_error):
             if rules.NARROWED_TEST.search(seg) and category == "tests_pass":
                 claimed = re.search(r"(\d+)\s*(个|项)?\s*(测试|用例|tests?)", claim_text or "")

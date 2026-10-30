@@ -84,6 +84,29 @@ def test_go_test_fail_lines_are_contradicted():
     assert audit.judge_output("tests_pass", "go test ./...", ok)[0] == "backed"
 
 
+def test_a_run_that_collects_no_tests_does_not_back_a_pass_claim():
+    outs = {
+        "pytest -q tests/": "collected 0 items\n\nno tests ran in 0.01s\n",
+        "python -m unittest": "\n----------------------------------------------------------------------\nRan 0 tests in 0.000s\n\nOK\n",
+        "cargo test": "running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n",
+        "go test ./...": "ok  \tpkg/a\t0.001s [no tests to run]\n",
+        "npx jest": "No tests found, exiting with code 1\n",
+        "npx mocha": "\n  0 passing (2ms)\n",
+        "mvn test": "Tests run: 0, Failures: 0, Errors: 0, Skipped: 0\n",
+    }
+    for cmd, out in outs.items():
+        ev = Event("tool", name="Bash", text=cmd, result=out, is_error=cmd == "npx jest")
+        verdict, why = audit.judge_output("tests_pass", cmd, ev)
+        assert verdict == "unbacked" and "no tests" in why, (cmd, verdict, why)
+    # real runs are untouched, including a later run in the same command after an empty one
+    ev = Event("tool", name="Bash", text="pytest -q", result="collected 12 items\n12 passed in 0.3s\n", is_error=False)
+    assert audit.judge_output("tests_pass", "pytest -q", ev)[0] == "backed"
+    ev = Event("tool", name="Bash", text="pytest -q a.py; pytest -q b.py", result="no tests ran in 0.01s\n3 passed in 0.1s\n", is_error=False)
+    assert audit.judge_output("tests_pass", "pytest -q a.py; pytest -q b.py", ev)[0] == "backed"
+    ev = Event("tool", name="Bash", text="npx mocha", result="  3 passing (20ms)\n  0 pending\n", is_error=False)
+    assert audit.judge_output("tests_pass", "npx mocha", ev)[0] == "backed"
+
+
 # ---------------------------------------------------------------- pre hook
 def test_log_flags_do_not_disarm_the_pipe_check_and_listing_is_not_a_run():
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest --log-cli-level=INFO tests/ 2>&1 | tail -20"}}) is not None
