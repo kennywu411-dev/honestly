@@ -172,7 +172,12 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     ep = hooks.errors_path()
     if os.path.exists(ep) and os.path.getsize(ep) > 0:
         with open(ep, encoding="utf-8", errors="ignore") as fh:
-            tail = fh.read()[-600:]
+            tail = fh.read()[-8000:]
+        # the last entry starts at the last timestamped line; a traceback can be longer than a few hundred
+        # characters when the install path is long, so the whole entry is checked, not a fixed tail
+        entry_lines = tail.splitlines()
+        starts = [i for i, l in enumerate(entry_lines) if re.match(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d ", l)]
+        tail = "\n".join(entry_lines[starts[-1]:] if starts else entry_lines)
         if "Traceback" in tail:
             lines.append(f"{warn}" + L(f"the hooks hit an internal error before (they let the assistant continue); last entry in {ep}:", f"hook 之前出过内部错误（当时直接放行了）；{ep} 的最后一条："))
             lines += ["         " + l for l in tail.strip().splitlines()[-4:]]

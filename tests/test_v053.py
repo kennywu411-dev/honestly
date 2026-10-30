@@ -131,8 +131,8 @@ def test_guard_install_is_idempotent_without_new_backups(tmp_path, monkeypatch):
 
 
 def test_windows_exe_path_is_written_with_forward_slashes(monkeypatch):
-    monkeypatch.setattr(sys, "argv", [r"C:\Users\jhw\.venv\Scripts\honestly.exe"])
-    assert hooks._exe() == "C:/Users/jhw/.venv/Scripts/honestly.exe"
+    monkeypatch.setattr(sys, "argv", [r"C:\Users\dev\.venv\Scripts\honestly.exe"])
+    assert hooks._exe() == "C:/Users/dev/.venv/Scripts/honestly.exe"
     monkeypatch.setattr(sys, "argv", ["/home/me/.venv/bin/honestly"])
     assert hooks._exe() == "/home/me/.venv/bin/honestly"
 

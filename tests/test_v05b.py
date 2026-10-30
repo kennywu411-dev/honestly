@@ -123,3 +123,17 @@ def test_quoted_test_command_passed_as_an_argument_is_not_a_pipeline():
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": 'bash -c "pytest -q | tail -3"'}}) is not None
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q 2>&1 | tail -3"}}) is not None
+
+
+def test_doctor_sees_a_traceback_longer_than_the_old_tail(tmp_path, monkeypatch):
+    log = tmp_path / "hook-errors.log"
+    long_path = "/" + "x" * 300 + "/site-packages/honestly/hooks.py"
+    log.write_text("2026-10-30T10:00:00 stop claude-code\nTraceback (most recent call last):\n"
+                   + "".join(f'  File "{long_path}", line {i}, in f{i}\n    f{i + 1}()\n' for i in range(6))
+                   + "ZeroDivisionError: division by zero\n", encoding="utf-8")
+    monkeypatch.setattr(hooks, "errors_path", lambda: str(log))
+    monkeypatch.setattr(hooks, "settings_path", lambda: str(tmp_path / "none.json"))
+    assert "internal error" in support.doctor(zh=False)
+    log.write_text("2026-10-30T09:00:00 stop claude-code\nTraceback (most recent call last):\nValueError: old\n"
+                   "2026-10-30T10:00:00 stop: transcript missing\n", encoding="utf-8")
+    assert "internal error" not in support.doctor(zh=False)
