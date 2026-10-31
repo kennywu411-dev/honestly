@@ -176,8 +176,10 @@ fi
 
 
 def test_real_world_shell_shapes(tmp_path, monkeypatch):
+    import re
     from honestly import rules
     monkeypatch.setattr(rules, "path_is_doc", lambda p: p.endswith(".md"))
+    monkeypatch.setattr(rules, "TMP_CWD", re.compile(r"(?!)"))   # pytest's tmp dir is /tmp on Linux: `cd /tmp/…` would mark the edit as scratch work
     root, cr = _repo(tmp_path), tmp_path / "claude"
     other = str(tmp_path / "tool")
     os.makedirs(other)
@@ -196,3 +198,14 @@ def test_real_world_shell_shapes(tmp_path, monkeypatch):
     assert ev.last_edit == "gate.py" and ev.status == "pass"
     assert "| `git commit (its pre-commit hook ran the checks)` | ✅ passed | `12 passed in 1.0s` |" in block
     assert "tool.py" not in block and "1 failed" not in block and "GIT_AUTHOR" not in block
+
+
+def test_a_loop_keyword_is_not_an_edited_file(tmp_path, monkeypatch):
+    import re
+    from honestly import rules
+    monkeypatch.setattr(rules, "path_is_doc", lambda p: p.endswith(".md"))
+    monkeypatch.setattr(rules, "TMP_CWD", re.compile(r"(?!)"))
+    root, cr = _repo(tmp_path), tmp_path / "claude"
+    _session(str(cr), root, [("bash", "for f in a b; do sed -i 's/a/b/' gate.py; done", "", False)])
+    ev, _ = _note(root, cr)
+    assert ev.last_edit == "gate.py"

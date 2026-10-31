@@ -269,11 +269,15 @@ def _edit_place(e, turn) -> tuple:
     for seg, where in _walk(e, turn):
         last_where = where
         if rules.segment_is_edit(seg, e.text):
-            targets = list(rules.segment_targets(seg, e.text))
+            targets = [t for t in rules.segment_targets(seg, e.text) if re.search(r"[./]", t) and t not in SHELL_WORDS]
+            if not targets:   # `sed -i … gate.py; done`: take the last file-looking word of the editing line
+                exts = "|".join(re.escape(x[1:]) for x in sorted(rules.CODE_EXT, key=len, reverse=True))
+                targets = re.findall(r"(?<![\w'\"/])([\w./~-]+\.(?:" + exts + r"))(?![\w])", seg.text.split("\n")[0])[-1:]
             return (targets[0] if targets else ""), where
     return "", last_where
 
 
+SHELL_WORDS = {"done", "fi", "then", "do", "else", "esac", "EOF"}
 ENV_PREFIX = re.compile(r"^(\s*(?:export\s+)?\w+=(\"[^\"]*\"|'[^']*'|\S+)\s+)+")
 
 
