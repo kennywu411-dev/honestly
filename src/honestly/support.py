@@ -273,6 +273,7 @@ RULE_TEXT = """## Verify before you claim (honestly)
 - If you changed code and did not run the check, say exactly that: "changed, not yet verified".
 - Never pipe a test or build through `tail` / `head` without `set -o pipefail`; a cut-off result hides failures.
 - When honestly stops you, start the next reply with one bold line: why you were stopped and what the check returned.
+- When you open or update a pull request, run `honestly pr-note --gh` after it (or put `honestly pr-note` output in the body) so the reviewer sees what ran after the last edit.
 """
 RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 
@@ -280,6 +281,7 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
 - 测试或构建命令不要接 `tail` / `head` 又不加 `set -o pipefail`，截断的结果会把失败藏起来。
 - 被 honestly 拦下后，下一条回复第一行用加粗写明：为什么被拦、补跑的结果是什么。
+- 开或更新 pull request 之后运行 `honestly pr-note --gh`（或把 `honestly pr-note` 的输出放进描述），让审阅者看到最后一次改动之后跑了什么。
 """
 RULE_FILES = {"claude-code": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.md", "cursor": os.path.join(".cursor", "rules", "honestly.mdc")}
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 (2026-10-31)
+
+- **`honestly pr-note`**: the verification evidence behind a branch, as a block for the pull-request description. It reads this repository's local agent transcripts (Claude Code, Codex, Cursor, Gemini CLI) since the branch left its base and writes the last code edit, every test and build that ran after it with the summary line each printed, and the claims that had nothing behind them. `--gh` puts it into the branch's open PR and replaces its own earlier block on the next run; `--check` exits 1 unless a test ran after the last edit and passed; `--since` / `--base` change the window. Suggested by a reader on X.
+- Sessions opened in a parent folder count only for the turns that work in the repository: each edit and check is attributed to the directory it ran in (`cd repo && …`, `for d in a b; do cd $d …`), so a command that edits elsewhere and only later `cd`s here is not credited to it. Test results printed by a pre-commit hook count as a test run after the edit. Commands still running are not reported.
+- `honestly rule install` now also tells the agent to run `honestly pr-note --gh` after opening or updating a PR. The no-argument overview lists the new command.
+
 ## 0.5.5 (2026-10-31)
 
 - A test run that collected nothing (`no tests ran`, `Ran 0 tests`, `running 0 tests`, `[no tests to run]`, `No tests found`, `0 passing`, `Tests run: 0`) no longer backs a "tests pass" claim: the claim is *unverified* and blocked under normal strictness. Suggested by a reader on X.

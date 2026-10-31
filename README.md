@@ -114,6 +114,34 @@ When a catch looks wrong, one command turns it into an issue-ready text with pat
 honestly feedback                        # the latest catch; `honestly feedback 2` for the one before; --issue adds a pre-filled link
 ```
 
+## Put the evidence in the pull request
+
+An agent's "all tests pass" in a PR description is its word. `honestly pr-note` replaces it with what the transcript shows: the last code edit on this branch, every test and build that ran after it, the summary line each one printed, and the claims that had nothing behind them.
+
+```bash
+gh pr create --fill          # or let the agent open it
+honestly pr-note --gh        # adds the block to this branch's PR; run again after more work and it replaces itself
+```
+
+What the reviewer sees:
+
+> **✅ Tests ran after the last code edit and passed: `132 passed in 2.60s`**
+>
+> Last code edit: `src/honestly/prnote.py` at 10-31 10:57 (2 other files edited before it).
+>
+> | Check after the last edit | Result | Output |
+> |---|---|---|
+> | `pytest -q` | ✅ passed | `132 passed in 2.60s` |
+>
+> Agent claims in this work: 12 verified, 0 unverified, 0 contradicted, 1 could not check.
+
+When the agent edited after its last test run, the block says so (`⚠️ No test or build ran after the last code edit`) and lists the claims it could not back. A run that collected no tests, or a test piped through `tail` that printed no summary, is shown as such, never as a pass.
+
+- The window is the work since the branch left its base (`--base`, `--since 2h` to change it). Sessions opened in the repository count whole; a session opened elsewhere counts only for the turns that `cd` into it or edit files in it.
+- It reads Claude Code, Codex, Cursor and Gemini CLI transcripts on your machine; nothing is uploaded except the block you put in the PR. Home paths, e-mails and token-like strings are redacted. Without `--gh` it only prints; `--out file.md` writes a file.
+- `--check` exits 1 unless a test ran after the last edit and passed: a local pre-push gate.
+- `honestly rule install` tells the agent to run `honestly pr-note --gh` itself whenever it opens a PR.
+
 ## Audit your history
 
 The same rules run over every past session on the machine and give you a number.
@@ -162,7 +190,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Their hooks are implemented from the vendors' documentation and covered by tests against the documented payloads, but have not yet been exercised on a real machine; `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 132 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 144 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 

@@ -113,6 +113,30 @@ honestly rule install --lang zh          # 写进 CLAUDE.md；--agent codex → 
 honestly feedback                        # 最近一次；honestly feedback 2 是上一次；--issue 多给一个预填好的链接
 ```
 
+## 把证据放进 pull request
+
+PR 描述里 agent 写的「测试全部通过」只是它的一句话。`honestly pr-note` 换成记录里真实发生的事：这个分支最后一次改代码、之后跑过的每个测试和构建、各自打印的汇总行，以及哪些结论没有任何依据。
+
+```bash
+gh pr create --fill          # 或者让 agent 自己开
+honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再改再跑，会替换旧的那块
+```
+
+审阅者看到的：
+
+> **✅ Tests ran after the last code edit and passed: `132 passed in 2.60s`**
+>
+> | Check after the last edit | Result | Output |
+> |---|---|---|
+> | `pytest -q` | ✅ passed | `132 passed in 2.60s` |
+
+如果 agent 在最后一次跑测试之后又改了代码，证据块会直接写出来（`⚠️ No test or build ran after the last code edit`），并列出没有依据的结论。一个用例都没收集到的运行、接了 `tail` 又没打印汇总的测试，都会如实标出，不会算成通过。
+
+- 时间范围是分支离开基线之后的工作（`--base`、`--since 2h` 可改）。在仓库里打开的会话整段算；在别处打开的会话，只算 `cd` 进仓库或改了仓库里文件的那几轮。
+- 读的是你本机的 Claude Code、Codex、Cursor、Gemini CLI 记录，除了你放进 PR 的这一块，什么都不上传；家目录路径、邮箱和像 token 的字符串会被打码。不加 `--gh` 只打印；`--out file.md` 写文件。
+- `--check`：最后一次改动之后没有通过的测试就退出 1，可以当本地 pre-push 门禁。
+- `honestly rule install` 会让 agent 每次开 PR 时自己运行 `honestly pr-note --gh`。
+
 ## 审计历史记录
 
 同一套规则跑一遍本机所有历史会话，给你一个数。
@@ -161,7 +185,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，132 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，144 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 

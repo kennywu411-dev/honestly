@@ -191,6 +191,22 @@ def cmd_rule(a):
     print(rule(a.action, a.agent or "claude-code", a.dir, zh=a.lang == "zh"))
 
 
+def cmd_pr_note(a):
+    from . import prnote
+    agents = tuple(a.agent) if a.agent else None
+    ev, block = prnote.run(os.getcwd(), base=a.base, since=a.since, agents=agents, claude_root=a.root, codex_root=a.codex_root)
+    if a.gh:
+        print(prnote.update_pr(prnote.repo_root(os.getcwd()), block, a.pr))
+    elif a.out:
+        with open(a.out, "w", encoding="utf-8") as fh:
+            fh.write(block)
+        print(f"wrote {a.out}", file=sys.stderr)
+    else:
+        print(block, end="")
+    if a.check and ev.status not in ("pass", "no-edit"):
+        sys.exit(1)
+
+
 def cmd_doctor(a):
     from .support import doctor
     text, problems = doctor(zh=None if a.lang == "auto" else a.lang == "zh", with_problems=True)
@@ -247,6 +263,7 @@ OVERVIEW = """honestly {v}: did your coding agent actually do what it said?
   honestly audit             score your past sessions        (--since 30d, --project name, explain N, share)
   honestly ignore "phrase"   silence a false catch           (honestly config: strictness, language, custom checks)
   honestly feedback          turn a wrong catch into an issue-ready text
+  honestly pr-note --gh      put the branch's test evidence into its pull request
 
 guard: {status}\nhonestly --help for everything.
 """
@@ -307,6 +324,16 @@ def main(argv=None):
     pr.add_argument("action", choices=["install", "uninstall", "status"]); pr.add_argument("--agent", choices=["claude-code", "codex", "gemini", "cursor"], default=None, help="default: claude-code; status shows all four")
     pr.add_argument("--dir", default=None, help="project directory (default: current)"); pr.add_argument("--lang", choices=["en", "zh"], default="en")
     pr.set_defaults(fn=cmd_rule)
+    pn = sub.add_parser("pr-note", help="the verification evidence behind this branch (last edit, tests that ran after it, flagged claims) as a pull-request block")
+    pn.add_argument("--gh", action="store_true", help="put the block into this branch's open PR description with gh (replaces an earlier one)")
+    pn.add_argument("--pr", default=None, help="with --gh: PR number or URL (default: the PR of the current branch)")
+    pn.add_argument("--base", default=None, help="base branch the work started from (default: origin's default branch)")
+    pn.add_argument("--since", default=None, help="override the window: 30m, 2h, 3d, 1w or an ISO time")
+    pn.add_argument("--agent", action="append", choices=["claude-code", "codex", "cursor", "gemini"], help="limit to one assistant (repeatable)")
+    pn.add_argument("--out", default=None, help="write the block to a file instead of stdout")
+    pn.add_argument("--check", action="store_true", help="exit 1 unless a test ran after the last code edit and passed")
+    pn.add_argument("--root", default=None, help=argparse.SUPPRESS); pn.add_argument("--codex-root", default=None, help=argparse.SUPPRESS)
+    pn.set_defaults(fn=cmd_pr_note)
     pd = sub.add_parser("doctor", help="check the install: hooks, paths, logs, and a live self-test of the guard")
     pd.add_argument("--lang", choices=["auto", "zh", "en"], default="auto"); pd.set_defaults(fn=cmd_doctor)
     ph = sub.add_parser("hook", help="(internal) run as the assistant's hook; reads the hook event as JSON on stdin")
