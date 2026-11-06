@@ -48,3 +48,18 @@ def test_plugin_manifests_are_consistent():
     assert market["plugins"][0]["name"] == plugin["name"] == "honestly"
     hooks = json.load(open(os.path.join(root, "hooks", "hooks.json"), encoding="utf-8"))["hooks"]
     assert set(hooks) == {"Stop", "PreToolUse"}
+
+
+def test_quoted_test_words_are_not_a_check_but_inline_code_is():
+    from honestly import rules
+    v = lambda c: bool(rules.verifying_segments(c, {"test", "run"}))
+    assert not v('gh pr create --title "fix: pytest |& tail" --body "pytest passes"')
+    assert not v("git tag -m 'run pytest' v1")
+    assert v('uv run python -c "import evalkit.cli"')
+    assert v('bash -c "pytest -q"')
+    assert v('pytest -k "login and not slow"')
+
+
+def test_pr_note_shows_command_without_subshell_env_prefix():
+    from honestly import prnote
+    assert prnote._show("HOME=$(mktemp -d) .venv/bin/python -m pytest -q") == ".venv/bin/python -m pytest -q"

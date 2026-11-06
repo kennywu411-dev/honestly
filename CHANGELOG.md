@@ -4,6 +4,7 @@
 
 - **Claude Code plugin.** The repository is now also a plugin marketplace: `/plugin install honestly --marketplace kennywu411-dev/honestly` installs the two hooks plus `/honestly:pr-note` and `/honestly:catches`, running honestly from the plugin's own copy with no pip install. When `honestly guard install` has already added the hooks, the plugin's hooks step aside so a reply is not checked twice.
 - The pre-command hook now also refuses `pytest |& tail` (a pipe that carries stderr too) and a group piped as a whole, `{ cd app && pytest; } | tail`.
+- `pr-note` no longer lists a command as a check because a test tool is named inside its quoted arguments (`gh pr create --title "... pytest ..."`), and shows `HOME=$(mktemp -d) pytest` as `pytest`. Inline code (`python -c "..."`, `bash -c "..."`) still counts. Found by running `pr-note` on this release's own PR.
 - `CONTRIBUTING.md`: setup, where each rule lives, and how to turn a misjudged case into a test.
 
 ## 0.6.1 (2026-11-07)

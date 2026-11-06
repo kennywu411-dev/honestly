@@ -322,6 +322,10 @@ NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|\bdev\b|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 
+INTERP_INLINE = re.compile(r"(?:^|[\s/])(?:bash|sh|zsh|dash|python[\d.]*|node|bun|deno|ruby|perl)\s+(?:-\w+\s+)*-l?[ce]\b")
+QUOTED_ARG = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
+
+
 def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
     segs = segments(cmd)
     if after_edit_only:
@@ -337,6 +341,8 @@ def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
             continue
         if SERVER.search(probe) and not re.search(r"(pytest|test|check)", probe):
             continue
+        if not INTERP_INLINE.search(probe):   # `uv run python -c "..."`, `bash -c "..."`: the quoted text is what runs
+            probe = QUOTED_ARG.sub(" ", probe)   # `gh pr create --title "... pytest ..."` names a test tool but runs none
         if any(VERIFY[k].search(probe) for k in kinds if k in VERIFY):
             out.append(s)
     return out
