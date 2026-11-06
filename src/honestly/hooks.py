@@ -320,6 +320,7 @@ READ_ONLY = re.compile(r"(gh (run|pr) (view|list|watch|checks)|statusCheckRollup
 
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
 NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig)")
+ENV_ASSIGN = re.compile(r"^(?:\s*\w+=\S*\s+)+")   # leading `VAR=value ` assignments; a quoted value is already blanked by QUOTED
 RUNNER = re.compile(r"\s*(?:\w+=\S+\s+)*(?:\S*/)?(?:python3?|uv|poetry|hatch|pipenv|node|npx|bun|deno|go|bash|sh|zsh|make|ruby|bundle|php|dotnet|swift|cargo)\b")
 
 
@@ -347,7 +348,8 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
         t = rules.COMMIT_MSG.sub("", seg.text)   # text quoted in a commit message is not a command
         if not re.match(r"\s*(?:\S*/)?(?:bash|sh|zsh|dash)\s+-l?c\b", t):
             t = QUOTED.sub(" ", t)   # `codex exec "run pytest | tail"`: a quoted test command is an argument, not a pipeline that runs here
-        if seg.heredoc or not _runs_check(t) or READ_ONLY.search(t) or rules.NON_VERIFY_VERB.match(t) or re.match(r"\s*git (commit|push|tag|add)\b", t):
+        bare = ENV_ASSIGN.sub("", t)   # `CI=1 pytest | tail` is judged by the command that runs, not by its VAR=value prefix
+        if seg.heredoc or not _runs_check(t) or READ_ONLY.search(bare) or rules.NON_VERIFY_VERB.match(bare) or re.match(r"\s*git (commit|push|tag|add)\b", bare):
             continue   # `cat build.log | tail` mentions a test tool but runs none
         if NOT_A_RUN.search(t):
             continue   # listing tests or printing a version is not a run whose result could be hidden

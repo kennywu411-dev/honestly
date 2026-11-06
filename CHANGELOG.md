@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 (2026-11-07)
+
+- The pre-command hook no longer lets a piped test run through when the command starts with an environment assignment: `CI=1 pytest | tail`, `NODE_ENV=test npm test | tail -20` and `cd app && CI=1 go test ./... | tail` are refused like their unprefixed forms. The leading `VAR=value` words are now removed before the command is classified, as the transcript audit already did. Reported by Matt Abate in #1.
+
 ## 0.6.0 (2026-10-31)
 
 - **`honestly pr-note`**: the verification evidence behind a branch, as a block for the pull-request description. It reads this repository's local agent transcripts (Claude Code, Codex, Cursor, Gemini CLI) since the branch left its base and writes the last code edit, every test and build that ran after it with the summary line each printed, and the claims that had nothing behind them. `--gh` puts it into the branch's open PR and replaces its own earlier block on the next run; `--check` exits 1 unless a test ran after the last edit and passed; `--since` / `--base` change the window. Suggested by a reader on X.
