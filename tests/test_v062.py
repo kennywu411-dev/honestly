@@ -1,0 +1,50 @@
+"""0.6.2: `|&` and a `{ ...; }` group piped into tail/head are refused like a plain pipe."""
+from honestly import hooks
+
+
+def _deny(cmd):
+    return hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is not None
+
+
+def test_pipe_ampersand_and_brace_group_are_denied():
+    for cmd in ["pytest |& tail",
+                "npm test |& head -40",
+                "{ pytest; } | tail",
+                "{ cd app && pytest -q; } 2>&1 | tail -5",
+                "{ CI=1 go test ./...; } |& grep -v ok"]:
+        assert _deny(cmd), cmd
+
+
+def test_groups_without_a_check_or_with_pipefail_pass():
+    for cmd in ["{ ls; cat a.txt; } | head",
+                "{ echo a; echo b; } | sort",
+                "set -o pipefail; { pytest; } | tail",
+                "{ pytest; } > out.txt",
+                "pytest || true"]:
+        assert not _deny(cmd), cmd
+
+
+def test_plugin_entry_runs_from_checkout_and_steps_aside_for_guard(tmp_path):
+    import json, os, subprocess, sys
+    run = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks", "run.py")
+    event = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "pytest |& tail"}})
+    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), CLAUDE_CONFIG_DIR=str(tmp_path / "cfg"))
+    out = subprocess.run([sys.executable, run, "hook", "pre"], input=event, capture_output=True, text=True, env=env, encoding="utf-8")
+    assert '"deny"' in out.stdout
+    (tmp_path / "cfg").mkdir()
+    (tmp_path / "cfg" / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
+        {"type": "command", "command": "honestly hook pre  # honestly hook"}]}]}}))
+    out = subprocess.run([sys.executable, run, "hook", "pre"], input=event, capture_output=True, text=True, env=env, encoding="utf-8")
+    assert out.returncode == 0 and out.stdout.strip() == ""
+
+
+def test_plugin_manifests_are_consistent():
+    import json, os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    plugin = json.load(open(os.path.join(root, ".claude-plugin", "plugin.json"), encoding="utf-8"))
+    market = json.load(open(os.path.join(root, ".claude-plugin", "marketplace.json"), encoding="utf-8"))
+    from honestly import __version__
+    assert plugin["version"] == __version__
+    assert market["plugins"][0]["name"] == plugin["name"] == "honestly"
+    hooks = json.load(open(os.path.join(root, "hooks", "hooks.json"), encoding="utf-8"))["hooks"]
+    assert set(hooks) == {"Stop", "PreToolUse"}

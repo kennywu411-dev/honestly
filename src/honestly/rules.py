@@ -313,7 +313,7 @@ VERIFY = {
     "commit": re.compile(r"(git commit|git tag)", re.I),
     "run": re.compile(r"(python3? (-I )?\S+\.py|python3? -m (?!http)|python3? -c|python3? - <<|node \S+\.(m?js|ts)|node --check|npx (?!remotion)\S+|\bcurl\b|bash \S+\.sh|\bsh \S+\.sh|\./\S+|cargo run|go run|\bmake\b|docker (build|compose up|run)|kaggle kernels (status|output)|uv run (python|pytest|ruff|mypy|-q python|-q pytest)|\.venv/bin/python)", re.I),
 }
-PIPE_SWALLOW = re.compile(r"\|\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more)\b")   # the pipeline exits with the last command's status
+PIPE_SWALLOW = re.compile(r"\|&?\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more)\b")   # the pipeline exits with the last command's status (`|&` pipes stderr too)
 NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pytest[^|\n]*\s[\w/]+\.py::|pytest\s+[\w/]+\.py\b)", re.I)
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 

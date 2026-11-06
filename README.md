@@ -12,6 +12,16 @@ An agent edits `login.py`, remembers that the tests passed ten minutes ago, and 
 
 ## Install in one minute
 
+As a Claude Code plugin (no pip; needs `python3` 3.9+ on your PATH), inside Claude Code:
+
+```
+/plugin install honestly --marketplace kennywu411-dev/honestly
+```
+
+On Claude Code older than 2.1.275, add the marketplace first: `/plugin marketplace add kennywu411-dev/honestly`, then `/plugin install honestly@honestly`. The plugin adds the two hooks plus `/honestly:pr-note` and `/honestly:catches`.
+
+Or with pip, which also gives you the `honestly` command for Codex, Cursor and Gemini CLI, history audits and `pr-note` from the terminal:
+
 ```bash
 pip install honestly            # Python 3.9+, standard library only (pipx install honestly / uv tool install honestly also work)
 honestly guard install          # two hooks into ~/.claude/settings.json (--dry-run shows them first)
@@ -190,7 +200,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Their hooks are implemented from the vendors' documentation and covered by tests against the documented payloads, but have not yet been exercised on a real machine; `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 147 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 151 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 

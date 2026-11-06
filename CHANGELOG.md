@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2 (2026-11-07)
+
+- **Claude Code plugin.** The repository is now also a plugin marketplace: `/plugin install honestly --marketplace kennywu411-dev/honestly` installs the two hooks plus `/honestly:pr-note` and `/honestly:catches`, running honestly from the plugin's own copy with no pip install. When `honestly guard install` has already added the hooks, the plugin's hooks step aside so a reply is not checked twice.
+- The pre-command hook now also refuses `pytest |& tail` (a pipe that carries stderr too) and a group piped as a whole, `{ cd app && pytest; } | tail`.
+- `CONTRIBUTING.md`: setup, where each rule lives, and how to turn a misjudged case into a test.
+
 ## 0.6.1 (2026-11-07)
 
 - The pre-command hook no longer lets a piped test run through when the command starts with an environment assignment: `CI=1 pytest | tail`, `NODE_ENV=test npm test | tail -20` and `cd app && CI=1 go test ./... | tail` are refused like their unprefixed forms. The leading `VAR=value` words are now removed before the command is classified, as the transcript audit already did. Reported by Matt Abate in #1.
