@@ -4,7 +4,11 @@
 
 **AI 编程助手报告的"测试通过、已修复、已发送、已部署"，有一部分从未实际执行。`honestly` 在这句话写出来的那一刻，核对这一轮记录里有没有对应的动作，没有就拦下回复。**
 
-![honestly：AI 助手说「测试通过了」，它真的跑了吗？](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/cover.zh.png)
+![真实的 Claude Code 会话：AI 把 pytest 接进 tail，honestly 拒绝执行，AI 重跑之后才说测试通过](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-zh.gif)
+
+<sub>真实的 Claude Code 会话（Sonnet 5.5），在一个演示用的小仓库里录制。只加了字幕、在拦截处停顿了一下、剪掉了结尾。AI 把 pytest 接进了 tail，这样测试失败也看不出来；honestly 在命令执行前拒绝了它，AI 改成能看到真实结果的跑法重跑。</sub>
+
+在 Claude Code 里一行安装：`/plugin install honestly --marketplace kennywu411-dev/honestly`
 
 ## 它解决什么问题
 
