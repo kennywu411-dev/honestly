@@ -1,11 +1,35 @@
 # Changelog
 
-## 0.6.4 (2026-11-07)
+## 0.7.0 (2026-11-07)
 
-- Clearer block messages: "⚠️ honestly blocked this reply:" / "⚠️ honestly blocked this command:" in English and "⚠️ honestly 已拦截：" / "已拦截该命令：" in Chinese, with the same formal wording in `catches`, `doctor` and the rules text.
-- README: a real recorded Claude Code session at the top (English and Chinese) and a `demo/` folder to reproduce it; percentages removed in favour of plain counts; package and plugin descriptions now say Cursor and Gemini CLI support is experimental.
-- Fixes a false catch: a `gh` command whose arguments name a test tool (`gh repo edit --add-topic pytest | tail`) was refused as a test run. Found while tagging this repository.
-- CI now also runs Python 3.10 and 3.11, so the full 3.9–3.13 range in the README is tested.
+A pre-release review reproduced every item below before it was fixed; each one is now a regression test (`tests/test_v070.py`).
+
+**Correctness**
+- A failing test run whose output was longer than 3000 characters could back a "tests pass" claim: only the start of the output was kept, and test runners print their summary last. Long output now keeps the start, the end and any summary lines in between.
+- A test command split over lines with a trailing backslash (`pytest tests/ \` newline `-q | tail`) slipped past the pipe check.
+- **The pre-command check now stays quiet unless a pipe actually keeps the result from the agent.** It only looks at tools that print a pass/fail verdict (test runners, builds, linters) and refuses a pipe that cuts off the summary (`pytest | head`, `sed -n`), discards the output (`| wc`, `grep -q`, `grep -c`), filters the summary out (`pytest -rs | grep SKIP`), or keeps only the last lines of a runner that prints one result per package or suite (`go test ./... | tail`, `cargo test`, `tox`, `make test`, `pnpm -r test`). `pytest | tail`, `| tee`, `| cat`, lint output piped into `head`, document tools such as `pdftotext`, and project scripts are left alone; the stop check still reads the summary before the agent may say the tests pass. Replayed against the 73 commands the previous rules refused on the author's machine since 2026-10-31, the new rules refuse 3, each one a pipe that really hid the summary. A test tool that only appears as an argument or after the pipe is not a run (`docker logs app | grep pytest`, `man pytest`, `gh repo edit --add-topic pytest`, `/path/bin/pip install pytest`, `brew install ruff`). Block messages say how the result was lost.
+- `pipefail` must actually be turned on before the pipe (`set -o pipefail`, `set -euo pipefail`, `bash -o pipefail -c`, zsh `setopt pipefail`); the word in a comment or an `echo` no longer counts, and `set +o pipefail` turns it off again. Reading `${PIPESTATUS[0]}` is accepted.
+- A heredoc fed to a shell (`bash <<'EOF'`) is checked; `<<` inside quotes is not a heredoc.
+- More test and lint commands are recognised: `manage.py test`, `rails test`, `artisan test`, `bun run test`, `just test`, `hatch run test`, `pdm test`, `npm run lint` / `typecheck`. `make clean`, `make install` and `make help` are not build checks.
+- A run that tested nothing (`12 deselected`, `0 passed`) or that errored without printing a summary backs no "tests pass" claim; `pytest --collect-only` is not a run.
+- "Test suite passes" and "the tests are green" are recognised as claims; "tests passed earlier" is not a claim about now.
+
+**Install and robustness**
+- Settings files are written atomically (a temporary file next to the real one, then a rename; symlinked dotfiles are written through) and backups never overwrite each other.
+- `honestly guard install` respects `CLAUDE_CONFIG_DIR`.
+- The plugin's hooks step aside only for a guard install that still works (a `pip uninstall` leaves a dead entry behind), recognise the old `sober` name, and never crash on an unusual settings file. They call `python3`, falling back to `python` on Windows.
+- `pr-note --gh` without the GitHub CLI explains what to do instead of printing a traceback.
+- `honestly doctor` lists a project `.honestly.json` that relaxes the rules.
+
+**Language**
+- Messages follow the system language: `LC_ALL`, then `LC_MESSAGES`, then `LANG`; with none set (apps started from the macOS Dock or the Windows Start menu), the macOS or Windows UI language. The conversation's language still wins when it is Chinese.
+- Clearer block messages: "⚠️ honestly blocked this reply:" / "⚠️ honestly blocked this command:" and "⚠️ honestly 已拦截：" / "已拦截该命令：", with the same formal wording in `catches`, `doctor` and the rules text.
+
+**Project**
+- README: a real recorded Claude Code session at the top (English and Chinese), a language switch, plain counts instead of percentages, and a section on sharing real cases; package and plugin descriptions say Cursor and Gemini CLI support is experimental.
+- Issue forms for real catches, false catches and missed claims; SECURITY.md with private vulnerability reporting.
+- CI runs Python 3.9, 3.10, 3.11, 3.12 and 3.13.
+- Fixes a false catch: a `gh` command whose arguments name a test tool was refused as a test run.
 
 ## 0.6.3 (2026-11-07)
 

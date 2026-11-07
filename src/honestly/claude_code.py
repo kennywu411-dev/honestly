@@ -72,6 +72,23 @@ def _records(path: str, start: int = 0):
                 yield r
 
 
+OUTPUT_KEEP = 3000
+MIDDLE_SUMMARY = re.compile(r"\b\d+ (?:passed|failed|errors?|passing|failing)\b|test result:|^\s*Tests?:\s|^Ran \d+ tests?|^(?:OK|FAILED)\b", re.I)
+
+
+def clip_output(text: str, keep: int = OUTPUT_KEEP) -> str:
+    """Keep the start and, above all, the end of a tool's output: test runners print their pass/fail summary last,
+    so a long verbose run cut from the front would lose the one line that decides the verdict."""
+    text = text or ""
+    if len(text) <= keep:
+        return text
+    head, tail = keep // 5, keep - keep // 5
+    middle = text[head:-tail]
+    summaries = [ln.strip()[:200] for ln in middle.splitlines() if MIDDLE_SUMMARY.search(ln)][-8:]   # another tool may print after the tests
+    kept = ("\n".join(summaries) + "\n") if summaries else ""
+    return text[:head] + "\n[... output clipped by honestly ...]\n" + kept + text[-tail:]
+
+
 def _tool_result_text(b: dict) -> str:
     rc = b.get("content")
     if isinstance(rc, list):
@@ -88,7 +105,7 @@ def _tool_result_text(b: dict) -> str:
                 rc = out[-3000:]
         except Exception:
             pass
-    return rc[:3000]
+    return clip_output(rc)
 
 
 def _parse(path: str, sidechain: bool = False, start: int = 0):

@@ -42,7 +42,7 @@ def test_custom_verify_command_counts_as_a_test(tmp_path, monkeypatch):
         assert [f.verdict for f in audit_turn(t) if f.category == "tests_pass"] == ["unbacked"]
         config.add_to("verify_commands", "make verify"); config.apply(load())
         assert [f.verdict for f in audit_turn(t) if f.category == "tests_pass"] == ["backed"]
-        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "make verify | tail -3"}, "cwd": str(tmp_path)}) is not None
+        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "make verify | head -3"}, "cwd": str(tmp_path)}) is not None
     finally:
         config.apply(config.DEFAULTS)
 

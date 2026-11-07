@@ -135,7 +135,7 @@ def cmd_catches(a):
         out = a.out or os.path.expanduser("~/.honestly")
         for p in write_catches_card(load_catches(a.days), a.days, out):
             print("wrote", p)
-    note = update_note(__version__, zh=_is_zh(os.environ.get("LANG", "")))   # once a day, CLI only, never from the hooks
+    note = update_note(__version__, zh=_is_zh(""))   # once a day, CLI only, never from the hooks
     if note:
         print("\n" + note)
 

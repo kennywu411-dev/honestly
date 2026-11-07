@@ -1,14 +1,21 @@
+<div align="center">
+
 # honestly
 
-[![tests](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml/badge.svg)](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml) [![PyPI](https://img.shields.io/pypi/v/honestly)](https://pypi.org/project/honestly/) ![python](https://img.shields.io/badge/python-3.9%2B-blue) ![deps](https://img.shields.io/badge/dependencies-none-success)
+**AI 说"测试通过了"，它真的跑了吗？**
 
-**AI 编程助手有时没做检查就说"测试通过""已修复"。`honestly` 会发现这种情况并拦下这条回复，直到它真正运行检查。**
+honestly 会确认 AI 在最后一次改代码之后真正运行过检查，否则拦下这条回复。<br>
+支持 Claude Code 和 Codex · 确定性规则，不调用模型 · 数据不离开你的电脑
 
-<sub>支持 Claude Code 和 Codex（Cursor、Gemini CLI 为实验性支持）。确定性规则，不调用模型，数据不离开你的电脑。</sub>
+[English](https://github.com/kennywu411-dev/honestly#readme) · **简体中文**
+
+[![tests](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml/badge.svg)](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml) [![PyPI](https://img.shields.io/pypi/v/honestly)](https://pypi.org/project/honestly/) ![python](https://img.shields.io/badge/python-3.9%2B-blue) ![deps](https://img.shields.io/badge/dependencies-none-success) ![license](https://img.shields.io/badge/license-MIT-lightgrey) [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757)](#一分钟安装)
+
+</div>
 
 ![真实的 Claude Code 会话：AI 把 pytest 接进 tail，honestly 拒绝执行，AI 重跑之后才说测试通过](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-zh.gif)
 
-<sub>真实的 Claude Code 会话（Sonnet 5.5），只加了字幕：AI 把 pytest 的输出通过管道交给 tail，测试失败也看不出来；honestly 拒绝执行这条命令；AI 改用能显示真实结果的方式重跑并报告结果。可用 [`demo/`](demo/) 复现。[English demo](README.md)</sub>
+<sub>真实的 Claude Code 会话（Sonnet 5.5），只加了字幕：AI 把 pytest 的输出通过管道交给 tail，测试失败也看不出来；honestly 拒绝执行这条命令；AI 改用能显示真实结果的方式重跑并报告结果。可用 [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo) 复现。</sub>
 
 **安装：**在 Claude Code 里输入 `/plugin install honestly --marketplace kennywu411-dev/honestly`；用 Codex 或命令行则 `pip install honestly && honestly guard install`。
 
@@ -18,7 +25,7 @@
 
 ## 一分钟安装
 
-作为 Claude Code 插件安装（不用 pip，只要系统里有 Python 3.9 以上的 `python3`），在 Claude Code 里输入：
+作为 Claude Code 插件安装（不用 pip，只要系统里有 Python 3.9 以上的 `python3`，Windows 上为 `python`），在 Claude Code 里输入：
 
 ```
 /plugin install honestly --marketplace kennywu411-dev/honestly
@@ -64,7 +71,7 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 
 助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。
 
-第二个 hook 在每条 shell 命令执行前检查：测试或构建命令接了 `| tail` `| head` `| grep` `| awk` `| wc` `| tee` 又没加 `set -o pipefail`，退出码就是最后那个命令的，失败会显示得像通过。这种命令会被拒绝，并附上一行改法。一条回复里有好几句没依据时，提示会说明还有几句。
+第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`pytest -rs | grep SKIP` 把汇总行滤掉了，`go test ./... | tail`（每个包各出一个结果）可能把前面的失败挤出去。这些命令会被拒绝，并附上一行改法。`pytest | tail`、`| tee log`、lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令都直接放行；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
 
 hook 不影响正常使用：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
 
@@ -211,11 +218,12 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 ## 它不是什么
 
 - **不判断代码对不对，也不判断测试够不够。**"已验证"只表示对应的检查在修改之后跑过、输出和那句话一致，不代表代码是对的、也不代表测试覆盖了改动。
+- **不是沙箱。**它拦的是无心之失，不防刻意绕过的助手：能执行 shell 的助手可以改自己的配置，项目里的 `.honestly.json` 也可以放宽这个项目的规则（`honestly doctor` 会列出这类覆盖）。`pytest || true`、`; exit 0` 这类明确的放行写法不拦；开了 `pipefail` 或读取 `${PIPESTATUS[0]}` 的管道视为正确写法。
 - **不是排行榜。**按模型的表只统计你自己的会话。
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
-- **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，157 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，239 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 

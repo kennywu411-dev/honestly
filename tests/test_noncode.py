@@ -1,5 +1,5 @@
 """Claims about things other than code: sent / deployed / downloaded / saved / checked / scheduled / verified."""
-from honestly import rules as R, noncode
+from honestly import rules as R
 from honestly.claude_code import Event, Turn
 from honestly.audit import audit_turn
 

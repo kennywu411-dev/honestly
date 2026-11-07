@@ -99,7 +99,7 @@ def test_guard_entry_uses_windows_exe_path(monkeypatch):
 def test_pre_hook_lets_read_only_pipelines_through():
     for cmd in ["cat build.log | tail -50", "grep -n pytest setup.cfg | head", "pip list | grep -i pytest | head", "find . -name '*_test.py' | head"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}}) is not None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}}) is not None
 
 
 def test_stdin_reader_tolerates_non_dict(monkeypatch, tmp_path):
@@ -188,14 +188,14 @@ def test_hook_blocks_carry_a_plain_language_message_for_the_user():
     assert out["decision"] == "block"
     assert out["systemMessage"].startswith("⚠️ honestly 已拦截：Claude Code（m）在「shop-api」项目回复「fix it」这个问题时声称「登录接口的 bug 已修复") and "login.py" in out["systemMessage"]
     assert out["reason"].startswith("⚠️ honestly 已拦截") and "给助手" in out["reason"]   # user line first, then one line for the agent
-    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}, "transcript_path": p, "cwd": "/Users/me/Documents/shop-api"})
-    assert pre["systemMessage"].startswith('⚠️ honestly blocked this command: Claude Code (m) in project shop-api, answering "fix it" piped pytest through tail')
+    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "transcript_path": p, "cwd": "/Users/me/Documents/shop-api"})
+    assert pre["systemMessage"].startswith('⚠️ honestly blocked this command: Claude Code (m) in project shop-api, answering "fix it" cut off the end of pytest')
 
 
 def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "catches_path", lambda: str(tmp_path / "catches.jsonl"))
     assert "no catches" in hooks.catches_report(7)
-    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}, "cwd": "/Users/me/shop-api"})
+    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "cwd": "/Users/me/shop-api"})
     assert pre is not None
     rows = hooks.load_catches(7)
     assert len(rows) == 1 and rows[0]["kind"] == "pre" and rows[0]["project"] == "/Users/me/shop-api"

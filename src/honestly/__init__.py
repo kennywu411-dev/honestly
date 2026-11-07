@@ -1,2 +1,2 @@
 """honestly: block unverified "tests pass / fixed / pushed" claims from coding agents, and audit past sessions."""
-__version__ = "0.6.4"
+__version__ = "0.7.0"

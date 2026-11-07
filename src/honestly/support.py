@@ -92,7 +92,7 @@ def self_test() -> list:
 def doctor(zh: bool | None = None, with_problems: bool = False):
     """The report as text; with_problems=True returns (text, problems) so the CLI can exit non-zero."""
     if zh is None:
-        zh = hooks._lang_zh(config.load(), os.environ.get("LANG", ""))
+        zh = hooks._lang_zh(config.load(), "")
     L = lambda en, cn: cn if zh else en
     ok, warn, bad = "  ok   ", "  warn ", "  FAIL "
     lines = [f"honestly {__version__} doctor"]
@@ -104,6 +104,11 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     enc = (getattr(sys.stdout, "encoding", "") or "").lower()
     lines.append(f"{ok if 'utf' in enc else warn}" + L(f"terminal encoding {enc or 'unknown'}", f"终端编码 {enc or '未知'}")
                  + ("" if "utf" in enc else L("  (not UTF-8: honestly re-encodes its own output, other tools may show garbled text)", "  （不是 UTF-8：honestly 自己的输出会转码，其他工具可能乱码）")))
+    pp = config.project_path(None)
+    proj = config._clean(config._read(pp)) if os.path.exists(pp) else {}
+    relaxed = [k for k in ("ignore", "verify_commands", "off") if proj.get(k)] + (["strictness: lenient"] if proj.get("strictness") == "lenient" else [])
+    if relaxed:
+        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules: {', '.join(relaxed)}", f"本项目的 {pp} 放宽了规则：{'、'.join(relaxed)}"))
     sp = hooks.settings_path()
     settings = {}
     if os.path.exists(sp):
@@ -163,7 +168,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     codex_dir = os.path.expanduser("~/.codex/sessions")
     lines.append((f"{ok}" if os.path.isdir(codex_dir) else "  -    ") + L(f"Codex sessions {'found' if os.path.isdir(codex_dir) else 'not found (fine if you do not use Codex)'}",
                                                                            f"Codex 会话记录{'已找到' if os.path.isdir(codex_dir) else '未找到（不用 Codex 就没关系）'}"))
-    for name, passed, msg in self_test():
+    for name, passed, _msg in self_test():
         what = {"code": L("a fake 'All tests pass.' right after an edit, no test run", "伪造一句改完代码就说「All tests pass.」，没跑测试"),
                 "non-code": L("a fake 'I've sent you the report.' with no send tool", "伪造一句「I've sent you the report.」，没有发送动作")}[name]
         lines.append(f"{ok if passed else bad}" + L(f"self-test ({name}): {what} → {'blocked' if passed else 'NOT blocked'}", f"自测（{'代码' if name == 'code' else '非代码'}）：{what} → {'已拦截' if passed else '未拦截'}"))
@@ -245,7 +250,7 @@ def feedback(n: int = 1, issue_url: bool = False) -> str:
         "## honestly: a catch that looks wrong", "",
         f"- honestly {r.get('version') or __version__}, {platform.system()} {platform.release()}, Python {'.'.join(map(str, sys.version_info[:3]))}",
         f"- assistant: {r.get('agent', '')} {r.get('model', '')}".rstrip(),
-        f"- kind: {'stop (claim without a check)' if r.get('kind') == 'stop' else 'pre (check piped through tail/head)'}",
+        f"- kind: {'stop (claim without a check)' if r.get('kind') == 'stop' else 'pre (check result cut off by a pipe)'}",
         f"- project: {hooks._short(r.get('project', ''))}",
         f"- what it said: \"{r.get('claim') or r.get('command') or ''}\"",
         f"- honestly's reason: {r.get('reason') or '(pipe check)'}",
@@ -271,7 +276,7 @@ RULE_TEXT = """## Verify before you claim (honestly)
 
 - Before writing "tests pass", "fixed", "builds", "pushed", "sent", "deployed", "saved" or "checked", run the matching command in this same turn and quote its real output. No command, no claim.
 - If you changed code and did not run the check, say exactly that: "changed, not yet verified".
-- Never pipe a test or build through `tail` / `head` without `set -o pipefail`; a cut-off result hides failures.
+- Do not pipe a test or build into `head`, `grep -c`, `wc` or a `grep` that drops the summary; a cut-off result hides failures. Use `set -o pipefail` when you must pipe.
 - When honestly stops you, start the next reply with one bold line: why you were stopped and what the check returned.
 - When you open or update a pull request, run `honestly pr-note --gh` after it (or put `honestly pr-note` output in the body) so the reviewer sees what ran after the last edit.
 """
@@ -279,7 +284,7 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 
 - 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先在这一轮里跑对应的命令，并引用它的真实输出。没跑就不能说。
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
-- 测试或构建命令不要接 `tail` / `head` 又不加 `set -o pipefail`，截断的结果会把失败藏起来。
+- 测试或构建命令不要接 `head`、`grep -c`、`wc` 或会滤掉汇总行的 `grep`，截断的结果会把失败藏起来；确实要用管道时加 `set -o pipefail`。
 - 被 honestly 拦截后，下一条回复第一行用加粗写明：被拦截的原因和补跑结果。
 - 开或更新 pull request 之后运行 `honestly pr-note --gh`（或把 `honestly pr-note` 的输出放进描述），让审阅者看到最后一次改动之后跑了什么。
 """

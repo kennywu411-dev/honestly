@@ -30,9 +30,9 @@ def test_stop_hook_fires_once():
     assert hooks.stop_hook({"transcript_path": "/nonexistent", "last_assistant_message": "tests pass", "stop_hook_active": True}) is None
 
 def test_pre_hook_denies_piped_test():
-    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "npm test 2>&1 | tail -5"}})
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "npm test 2>&1 | head -5"}})
     assert out and out["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "set -o pipefail; npm test 2>&1 | tail -5"}}) is None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "set -o pipefail; npm test 2>&1 | head -5"}}) is None
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "ls | tail -5"}}) is None
 
 def test_guard_dry_run_adds_entries(tmp_path, monkeypatch):

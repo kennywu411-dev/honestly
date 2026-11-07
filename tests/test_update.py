@@ -1,5 +1,5 @@
 """The once-a-day "newer version" note: cached, quiet on failure, off by env var, never from the hooks."""
-import json, os
+import json
 from honestly import update
 
 

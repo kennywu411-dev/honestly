@@ -1,6 +1,6 @@
 """Codex / Cursor / Gemini CLI: transcript parsing, hook payloads in and out, installers."""
-import json, os
-from honestly import agents, hooks, config
+import json
+from honestly import agents, hooks
 from honestly.audit import audit_turn
 
 
@@ -56,7 +56,7 @@ def test_normalize_and_emit_per_agent():
 def test_pre_hook_denies_for_cursor_and_codex_payloads(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "catches_path", lambda: str(tmp_path / "c.jsonl"))
     monkeypatch.setattr(hooks, "_notify", lambda *a, **k: None)
-    out = hooks.pre_hook({"command": "npm test | tail -3", "workspace_roots": [str(tmp_path)]}, agent="cursor")
+    out = hooks.pre_hook({"command": "npm test | head -3", "workspace_roots": [str(tmp_path)]}, agent="cursor")
     assert out["permission"] == "deny" and "Cursor" in out["user_message"]
     out = hooks.pre_hook({"tool_name": "exec_command", "tool_input": {"cmd": "cargo test 2>&1 | head"}, "cwd": str(tmp_path), "model": "gpt-5"}, agent="codex")
     assert out["hookSpecificOutput"]["permissionDecision"] == "deny" and "Codex (gpt-5)" in out["systemMessage"]

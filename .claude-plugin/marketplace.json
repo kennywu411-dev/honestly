@@ -8,7 +8,7 @@
     {
       "name": "honestly",
       "source": "./",
-      "description": "Blocks \"tests pass\" / \"fixed\" / \"pushed\" replies with no check after the last edit, refuses test runs piped through tail, and writes the real test evidence into your PR."
+      "description": "Blocks \"tests pass\" / \"fixed\" / \"pushed\" replies with no check after the last edit, refuses pipes that hide the test result, and writes the real test evidence into your PR."
     }
   ]
 }

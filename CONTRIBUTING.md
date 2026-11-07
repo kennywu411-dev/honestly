@@ -13,7 +13,7 @@ pytest -q
 
 No other dependencies: honestly uses the Python standard library only (3.9+), and new code should too.
 
-If you have honestly's guard installed, it will refuse `pytest | tail` in your own agent sessions. Run the suite without a pipe, or with `set -o pipefail;` in front.
+If you have honestly's guard installed, it will refuse a test run whose result a pipe hides (`pytest | head`, `| grep -c`) in your own agent sessions. Run the suite without such a pipe, or with `set -o pipefail;` in front.
 
 ## Where things live
 

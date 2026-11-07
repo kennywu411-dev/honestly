@@ -15,6 +15,7 @@ from dataclasses import dataclass
 CLAIM_PATTERNS = [
     ("tests_pass", re.compile(
         r"((?:all (?:the )?)?tests? (?:are |all )?(?:now )?pass(?:es|ed|ing)?\b(?!\s+(?:a|an|the|its|this|that|my|our|your|each|every|some|any|\w+ (?:to|into|through|as|along|down))\b)"
+        r"|\btest suite (?:now )?pass(?:es|ed)?\b|\btests? (?:are|is) (?:all |now )?green\b"
         r"|\b\d+ (tests? )?passed\b|\d+ 个?(测试|用例)(全部|都|均)?通过|测试(全部|都|已|已经|均)?通过|用例(全部|都)?通过)", re.I), {"test"}),
     ("checks_pass", re.compile(
         r"(checks? (all )?pass(es|ed)?\b|lint(ing)? pass(es|ed)?\b|type ?check(s|ing)? pass(es|ed)?\b|build pass(es|ed)?\b|检查(结果)?[:：]?\s*(全部|都|均)?通过|全部通过|lint (全部)?通过|\b0 (错误|warnings?|errors?))", re.I), {"test", "build"}),   # "10 errors" is not "0 errors"
@@ -42,7 +43,7 @@ NOT_A_CLAIM = re.compile(
     r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|not yet|haven'?t|hasn'?t|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|^running|^re-running|^checking|^verifying|^now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|^next|syntax[- ]?check|只做了语法检查"
     r"|需要你|请你|你可以|you can|\?|？|待验证"
     r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"  # honest partial results are not a pass claim
-    r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经"  # someone else fixed it, somewhere else
+    r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经|\b(?:pass(?:ed|es)?|green|succeeded)\s+(?:\w+\s+){0,2}?(?:earlier|previously)\b|\b(?:earlier|previously)[, ]+(?:the |all )?(?:tests?|checks?|runs?)\b"  # someone else fixed it, somewhere else
     r"|通过率|通过的(条件|用例|标准)|position:\s*fixed|transaction"
     r"|我也会|我还会|我再|完成后会|之后会|会出现在|默认保存|通常保存|一般保存|会保存到|核实过的|核对过的|验证过的|下载完成后|不会丢"  # future, generic behaviour, adjectives, state
     r"|^(意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
@@ -122,6 +123,27 @@ QUOTED_PATH = re.compile(r"['\"]([^'\"\n]+\.(?:py|js|mjs|cjs|ts|tsx|jsx|html|css
 HEADER_PATH = re.compile(r"(?:^|\s)\"?((?:~|/|\.{1,2}/)?[\w./~\-\u4e00-\u9fff]+/[\w.\-\u4e00-\u9fff]+\.[A-Za-z0-9]{1,5})\"?")
 COMMIT_MSG = re.compile(r"(-m\s+(\"[^\"]*\"|'[^']*')|<[^<>\s]+@[^<>\s]+>)")
 HEREDOC_HEAD = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
+_QUOTE_SPAN = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
+PIPEFAIL_ON = re.compile(r"\bset\b[^;&|\n]*?\s-[a-zA-Z]*o\s+pipefail\b|\b(?:ba|z|k|da)?sh\s+(?:-\S+\s+)*-o\s+pipefail\b|\bsetopt\s+pipe_?fail\b", re.I)
+PIPEFAIL_OFF = re.compile(r"\bset\s+\+o\s+pipefail\b|\bunsetopt\s+pipe_?fail\b", re.I)
+NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig)")
+
+
+def heredoc_head(line: str):
+    """The first `<<WORD` on the line that is not inside a quoted string (`echo 'a<<b'; pytest` has no heredoc)."""
+    spans = []
+    for q in _QUOTE_SPAN.finditer(line):
+        if not re.search(r"<<-?\s*$", line[:q.start()]):   # `<<'EOF'`: the quote belongs to the heredoc head
+            spans.append((q.start(), q.end()))
+    for m in HEREDOC_HEAD.finditer(line):
+        if not any(a <= m.start() < b for a, b in spans):
+            return m
+    return None
+
+
+def pipe_stages(text: str) -> list:
+    """`a | b |& c` -> ["a ", " b ", " c"]; `||` is a list operator, not a pipe (segments() splits on it already)."""
+    return re.split(r"(?<!\|)\|&?(?!\|)", text)
 
 
 def path_is_doc(path: str) -> bool:
@@ -193,7 +215,10 @@ def segments(cmd: str):
     i = 0
     while i < len(lines):
         line = lines[i]
-        m = HEREDOC_HEAD.search(line)
+        while line.rstrip().endswith("\\") and i + 1 < len(lines):   # `pytest tests/ \` + newline + `  -q | tail`
+            line = line.rstrip()[:-1] + " " + lines[i + 1]
+            i += 1
+        m = heredoc_head(line)
         if m:
             term = m.group(1)
             block = [line[m.start():]]
@@ -301,12 +326,12 @@ def bash_is_edit(cmd: str) -> bool:
 # ------------------------------------------------------------ verification
 VERIFY = {
     "test": re.compile(r"(\bpytest\b|python3? -m pytest|python3? -m unittest|\bunittest\b|\btox\b|\bnox\b|hatch test|poetry run pytest|uv run pytest"
-                       r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun test|deno test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
+                       r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun (run )?test|deno test|manage\.py test|(?:bin/)?rails test|artisan test|\bjust test|hatch run test|pdm (run )?test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
                        r"|\bgo test\b|cargo test|cargo nextest|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check"
                        r"|src/eval\.py|\beval\.py|_test\.(go|py|ts|js)\b|scripts?/[\w-]*test[\w-]*\.(sh|py)|\bcheck\.sh|run_tests|gh pr checks|gh run (view|list|watch)|statusCheckRollup|validate[\w_]*\.py|check[\w_]*\.py|verify[\w_]*\.py|gate\.py)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
-                        r"|npm run build|pnpm (run )?build|yarn (run )?build|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
-                        r"|mvnw? (compile|package|verify)|gradlew? (build|assemble|check)|dotnet build|swift build|xcodebuild|\bmake\b|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
+                        r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
+                        r"|mvnw? (compile|package|verify)|gradlew? (build|assemble|check)|dotnet build|swift build|xcodebuild|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format)\b)|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
                         r"|hyperframes(@[\w.]+)? check|tectonic|xelatex|latexmk|pdflatex|pdftotext|pdfinfo|python3? -m py_compile|python3? -c ['\"]import |validate[\w_]*\.py|check[\w_]*\.py|verify[\w_]*\.py|lint[\w_]*\.py|qc\.py|build\.log)", re.I),
     "render": re.compile(r"(hyperframes(@[\w.]+)? (render|build)|\bffmpeg\b|\bffprobe\b|npx remotion render|manim |blender |music[\w-]*\.sh|render[\w-]*\.sh)", re.I),
     "push": re.compile(r"(git push|kaggle kernels push|kaggle competitions submit|kernels push)", re.I),
@@ -318,7 +343,7 @@ NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pyt
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|\bdev\b|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 
@@ -341,6 +366,8 @@ def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
             continue
         if SERVER.search(probe) and not re.search(r"(pytest|test|check)", probe):
             continue
+        if NOT_A_RUN.search(QUOTED_ARG.sub(" ", probe)):
+            continue   # `pytest --collect-only`, `--version`: nothing was tested
         if not INTERP_INLINE.search(probe):   # `uv run python -c "..."`, `bash -c "..."`: the quoted text is what runs
             probe = QUOTED_ARG.sub(" ", probe)   # `gh pr create --title "... pytest ..."` names a test tool but runs none
         if any(VERIFY[k].search(probe) for k in kinds if k in VERIFY):

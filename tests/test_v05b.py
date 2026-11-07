@@ -1,7 +1,7 @@
 """0.5.0 second pass: hooks never crash, tail parsing, cache, relaxed background rule, wider pipe check, several claims, zh output, overview, project filter."""
-import io, json, os, sys
-from honestly import hooks, cache, config, support, cli, rules
-from honestly.claude_code import Event, Turn, parse_session, TAIL_THRESHOLD
+import json
+from honestly import hooks, cache, config, support, cli
+from honestly.claude_code import Event, Turn, parse_session
 from honestly.audit import audit_turn, Finding
 
 
@@ -59,10 +59,11 @@ def test_background_output_read_is_fine_once_the_subagent_is_merged():
     assert [f.verdict for f in audit_turn(t2) if f.category == "sent"] == ["unverifiable"]
 
 
-def test_pipes_through_grep_awk_wc_also_count_as_swallowed():
-    for cmd in ["pytest -q | grep -E 'passed|failed'", "npm test 2>&1 | wc -l", "cargo test | awk '/result/'", "go test ./... | tee out.txt"]:
+def test_pipes_that_drop_the_verdict_are_refused_and_the_rest_are_not():
+    for cmd in ["npm test 2>&1 | wc -l", "pytest -q | grep -c passed", "pytest -q | grep SKIP", "go test ./... | tail -3"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is not None, cmd
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "set -o pipefail; pytest -q | grep passed"}}) is None
+    for cmd in ["pytest -q | grep -E 'passed|failed'", "cargo test | awk '/result/'", "go test ./... | tee out.txt", "set -o pipefail; pytest -q | grep SKIP"]:
+        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
 
 
 def test_stop_message_mentions_further_unbacked_sentences(tmp_path, monkeypatch):
@@ -121,8 +122,8 @@ def test_project_filter_and_rule_in_chinese(tmp_path, monkeypatch):
 def test_quoted_test_command_passed_as_an_argument_is_not_a_pipeline():
     for cmd in ['codex exec "run exactly: pytest -q 2>&1 | tail -3"', "echo 'pytest | tail -3' > notes.txt", 'claude -p "npm test | head"']:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": 'bash -c "pytest -q | tail -3"'}}) is not None
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q 2>&1 | tail -3"}}) is not None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": 'bash -c "pytest -q | head -3"'}}) is not None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q 2>&1 | head -3"}}) is not None
 
 
 def test_doctor_sees_a_traceback_longer_than_the_old_tail(tmp_path, monkeypatch):

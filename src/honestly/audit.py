@@ -1,7 +1,7 @@
 """Core audit: for each claim, decide backed / unbacked / unverifiable."""
 from __future__ import annotations
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from . import rules, noncode
 from .claude_code import Turn, Event
 
@@ -46,7 +46,7 @@ TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)
                        r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b", re.I | re.M)
 TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
                        r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
-SUMMARY_LINE = re.compile(r"(\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
+SUMMARY_LINE = re.compile(r"((?<!Found )\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
 IMAGE_READ = re.compile(r"\.(png|jpe?g|gif|webp)$", re.I)
 VISUAL_CMD = re.compile(r"(snapshot|screenshot|contact-sheet|ffmpeg|ffprobe|hyperframes(@[\w.]+)? (render|build)|blender )", re.I)
 
@@ -62,7 +62,7 @@ def _last_summary(out: str) -> str:
 # a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet
 ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
                         r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
-                        r"|\btest result: ok\. 0 passed\b", re.I | re.M)
+                        r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))", re.I | re.M)
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 
 
@@ -83,6 +83,8 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
             return "contradicted", "last test summary shows failures alongside passes"
         if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b", summ):
             return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
+        if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out):
+            return "unbacked", "test command errored and printed no pass/fail summary"
         if TEST_PASS.search(summ) or (category == "checks_pass" and not TEST_FAIL.search(out) and not ev.is_error):
             if rules.NARROWED_TEST.search(seg) and category == "tests_pass":
                 claimed = re.search(r"(\d+)\s*(个|项)?\s*(测试|用例|tests?)", claim_text or "")
@@ -91,7 +93,7 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
                     return "backed", f"narrowed run matches the claimed count ({passed.group(1)} passed): {seg[:60]}"
                 return "unverifiable", "narrowed test run reported as passing"
             return "backed", f"test output confirms: {seg[:80]}"
-        if rules.PIPE_SWALLOW.search(seg) and "pipefail" not in seg:
+        if rules.PIPE_SWALLOW.search(seg) and not rules.PIPEFAIL_ON.search(seg):
             return "unverifiable", "test piped through tail/head and output shows no pass/fail line"
         if ev.is_error:
             return "unbacked", "test command errored"
@@ -104,7 +106,7 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         return "unbacked", f"verification command errored: {seg[:60]}"
     if category in ("build_ok", "rendered") and re.search(r"(Traceback|\berror\b|fatal)", out, re.I) and not re.search(r"0 errors?|no errors?", out, re.I):
         return "contradicted", "verification output contains errors"
-    if rules.PIPE_SWALLOW.search(seg) and "pipefail" not in seg and not out.strip():
+    if rules.PIPE_SWALLOW.search(seg) and not rules.PIPEFAIL_ON.search(seg) and not out.strip():
         return "unverifiable", "piped verification with empty output"
     return "backed", f"verified by: {seg[:80]}"
 

@@ -1,0 +1,11 @@
+# Lint for real defects only (undefined names, unused code, bugbear patterns, syntax errors).
+# Style is left to review: the code favours dense, commented regex tables that formatters would reflow badly.
+target-version = "py39"
+line-length = 200
+
+[lint]
+select = ["F", "B", "E9", "PLE"]
+ignore = ["B008"]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011", "F841"]
