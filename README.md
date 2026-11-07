@@ -128,6 +128,10 @@ honestly feedback                        # the latest catch; `honestly feedback 
 
 An agent's "all tests pass" in a PR description is its word. `honestly pr-note` replaces it with what the transcript shows: the last code edit on this branch, every test and build that ran after it, the summary line each one printed, and the claims that had nothing behind them.
 
+![The block honestly pr-note wrote into this release's own pull request](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/pr-note.png)
+
+<sub>The block on [honestly's own 0.6.2 pull request](https://github.com/kennywu411-dev/honestly/pull/4).</sub>
+
 ```bash
 gh pr create --fill          # or let the agent open it
 honestly pr-note --gh        # adds the block to this branch's PR; run again after more work and it replaces itself

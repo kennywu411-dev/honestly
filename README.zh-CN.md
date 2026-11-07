@@ -127,6 +127,10 @@ honestly feedback                        # 最近一次；honestly feedback 2 �
 
 PR 描述里 agent 写的「测试全部通过」只是它的一句话。`honestly pr-note` 换成记录里真实发生的事：这个分支最后一次改代码、之后跑过的每个测试和构建、各自打印的汇总行，以及哪些结论没有任何依据。
 
+![honestly pr-note 写进本项目 0.6.2 PR 的证据块](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/pr-note.png)
+
+<sub>本项目自己 [0.6.2 的 PR](https://github.com/kennywu411-dev/honestly/pull/4) 里的证据块。</sub>
+
 ```bash
 gh pr create --fill          # 或者让 agent 自己开
 honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再改再跑，会替换旧的那块
