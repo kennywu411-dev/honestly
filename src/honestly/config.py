@@ -47,10 +47,40 @@ def _read(path: str) -> dict:
 
 
 def _write(path: str, d: dict) -> None:
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(d, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
+    write_json_atomic(path, d, backup=False)
+
+
+def write_json_atomic(path: str, obj, backup: bool = True) -> None:
+    """Write JSON so that a crash or a concurrent writer never leaves a half-written file.
+
+    The temporary file is created next to the real target (a symlinked dotfile is written through, not replaced),
+    then moved over it with os.replace. With backup=True the previous file is copied to a backup whose name is never
+    reused, so an install followed by an uninstall in the same second keeps the original.
+    """
+    import shutil, tempfile, time
+    target = os.path.realpath(path)
+    folder = os.path.dirname(target) or "."
+    os.makedirs(folder, exist_ok=True)
+    if backup and os.path.exists(target):
+        stem = target + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S")
+        bak, n = stem, 1
+        while os.path.exists(bak):
+            bak, n = f"{stem}-{n}", n + 1
+        shutil.copy2(target, bak)
+    fd, tmp = tempfile.mkstemp(prefix=".honestly-", suffix=".json", dir=folder)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+        if os.path.exists(target):
+            shutil.copymode(target, tmp)
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass   # the temporary file is already gone; the original error below is the one that matters
+        raise
 
 
 def _clean(d: dict) -> dict:
@@ -84,6 +114,7 @@ def apply(cfg: dict) -> None:
     rules.VERIFY["test"] = re.compile(_BASE_TEST.pattern + ("|" + "|".join(extra) if extra else ""), _BASE_TEST.flags)
     from . import hooks, audit   # rebuilt tables that were derived from VERIFY at import time
     hooks.TEST_LIKE = re.compile("|".join(p.pattern for k, p in rules.VERIFY.items() if k in ("test", "build")), re.I)
+    hooks.PRE_EXTRA = re.compile("|".join(extra)) if extra else None
     audit.rebuild_verified_spec()
 
 

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "honestly"
-version = "0.6.3"
-description = "Stops a coding agent from claiming \"tests pass\", \"fixed\", \"sent\" or \"deployed\" without evidence on the transcript. Hooks for Claude Code, Codex, Cursor and Gemini CLI; audits past sessions. Deterministic rules, no model, no API key."
+version = "0.7.0"
+description = "Blocks a coding agent's \"tests pass\" / \"fixed\" / \"pushed\" reply when no check ran after its last edit. Hooks for Claude Code and Codex (Cursor, Gemini CLI experimental); audits past sessions. Standard-library Python, no model calls."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

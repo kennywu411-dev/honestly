@@ -9,7 +9,7 @@ import glob
 import json
 import os
 import re
-from .claude_code import Event, Turn
+from .claude_code import Event, Turn, clip_output
 
 CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
@@ -127,7 +127,7 @@ def parse_session(path: str):
                 out = str(out or "")
                 ev = pending.get(str(p.get("call_id") or ""))
                 if ev is not None:
-                    ev.result = out[:3000]
+                    ev.result = clip_output(out)
                     ev.is_error = bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
     if cur is not None:
         turns.append(cur)

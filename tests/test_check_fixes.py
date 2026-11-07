@@ -16,8 +16,8 @@ def _tool(name, text="", err=False, result=""):
 def test_pre_hook_ignores_test_script_names_used_as_arguments():
     for cmd in ["sed -n 1,60p src/eval.py | grep -n -i -A20 'LABELS' | head -40", "awk '/def/' tests/test_x.py | head", "diff a_test.go b_test.go | head"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "python src/eval.py 2>&1 | tail -3"}}) is not None
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}}) is not None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "python src/eval.py 2>&1 | tail -3"}}) is None   # a project script prints no known verdict
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}}) is not None
 
 
 def test_topic_drops_harness_tags_and_boilerplate():
@@ -29,11 +29,11 @@ def test_topic_drops_harness_tags_and_boilerplate():
 
 
 def test_pre_message_without_a_recognised_tool_reads_cleanly():
-    zh = hooks._plain_pre("python src/eval.py | tail -3", True, "Claude Code")
-    en = hooks._plain_pre("python src/eval.py | tail -3", False, "Claude Code")
-    assert "把检查命令的结果接进了 tail" in zh and "  " not in zh
-    assert "piped a check through tail" in en and "  " not in en
-    assert "把 pytest 的结果接进了 tail" in hooks._plain_pre("pytest | tail", True, "")
+    zh = hooks._plain_pre("python src/eval.py | head -3", True, "Claude Code")
+    en = hooks._plain_pre("python src/eval.py | head -3", False, "Claude Code")
+    assert "用 head 截掉了检查命令输出的末尾" in zh and "  " not in zh
+    assert "cut off the end of a check's output with head" in en and "  " not in en
+    assert "用 head 截掉了 pytest 输出的末尾" in hooks._plain_pre("pytest | head", True, "")
 
 
 def test_ci_status_read_after_real_test_run_does_not_hide_the_result():

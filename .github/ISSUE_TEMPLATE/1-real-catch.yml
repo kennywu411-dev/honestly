@@ -1,0 +1,51 @@
+name: "✅ It caught something real"
+description: honestly stopped your agent and it was right. Real cases are the best evidence we have; share one in two minutes.
+title: "Real catch: "
+labels: ["real-catch"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing. Run `honestly catches` (or `honestly feedback` for one specific catch) and paste the output below.
+        Both redact your home path, tokens and e-mail addresses. Please check the text before posting anyway.
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Coding agent
+      options: [Claude Code, Codex, Cursor, Gemini CLI, Other]
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model (if you know it)
+      placeholder: e.g. claude-sonnet-5-5, gpt-5.x
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What did it stop?
+      options:
+        - A "tests pass / fixed / done" claim with no check after the last edit
+        - A test or build command piped through tail / head / grep
+        - A "sent / pushed / deployed / saved" claim with nothing behind it
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of `honestly catches` or `honestly feedback`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: What happened next? (optional)
+      description: e.g. the agent reran the tests and found 2 failures.
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Use
+      options:
+        - label: The redacted text above may be quoted in honestly's docs and turned into a regression test.

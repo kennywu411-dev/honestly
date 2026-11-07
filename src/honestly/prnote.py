@@ -63,7 +63,7 @@ def window_start(root: str, base: str, since: str | None) -> tuple[str, str]:
         try:
             return _utc(since), f"since {since}"
         except ValueError:
-            raise SystemExit("honestly pr-note: --since takes 30m, 2h, 3d, 1w or an ISO time such as 2026-10-31T09:00")
+            raise SystemExit("honestly pr-note: --since takes 30m, 2h, 3d, 1w or an ISO time such as 2026-10-31T09:00") from None
     mb = _git(["merge-base", "HEAD", base], root) if base else ""
     ref = mb or "HEAD"
     when = _git(["log", "-1", "--format=%cI", ref], root)
@@ -325,7 +325,7 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
     events.sort(key=lambda x: x[0])
     edited = []
     last_edit_i = -1
-    for i, (ts, e, target) in enumerate(events):
+    for i, (ts, _e, target) in enumerate(events):
         if target is not None:
             last_edit_i = i
             if target not in edited:
@@ -347,8 +347,12 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
             if not segs:
                 continue
             seg = segs[-1].text.strip().split("\n")[0]
-            if kind == "test" and commit_here and audit.SUMMARY_LINE.search(e.result or ""):
-                seg = "git commit"   # `ruff check x && git commit`: the test summary in the output is the commit hook's
+            if commit_here and audit.SUMMARY_LINE.search(e.result or ""):
+                # `ruff check x && git commit`: the test summary in the output is the commit hook's
+                ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
+                                       after_edit=same or i > last_edit_i >= 0))
+                found = True
+                break
             ev.checks.append(Check(kind, _show(seg)[:160], _judge(kind, seg, e), _summary_line(kind, e.result), ts,
                                    after_edit=same or i > last_edit_i >= 0))
             found = True
@@ -447,7 +451,11 @@ def splice(body: str, block: str) -> str:
 # --------------------------------------------------------------------- gh
 def update_pr(root: str, block: str, pr: str | None = None) -> str:
     args = ["gh", "pr", "view", *( [pr] if pr else [] ), "--json", "number,body,url"]
-    r = subprocess.run(args, cwd=root, capture_output=True, text=True)
+    try:
+        r = subprocess.run(args, cwd=root, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit("honestly pr-note: --gh needs the GitHub CLI (https://cli.github.com), which was not found on PATH.\n"
+                         "Without it: honestly pr-note > pr-note.md, then paste the file into the pull request.") from None
     if r.returncode != 0:
         msg = (r.stderr or r.stdout).strip().splitlines()
         raise SystemExit("honestly pr-note: no pull request found for this branch"

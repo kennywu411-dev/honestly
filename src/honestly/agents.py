@@ -15,13 +15,13 @@ import json
 import os
 import re
 
-from .claude_code import Event, Turn
+from .claude_code import Event, Turn, clip_output
 
 MARK = "honestly hook"
 NAMES = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
 SUPPORTED = tuple(NAMES)
 SHELL_TOOLS = {"Bash", "shell", "shell_command", "exec", "exec_command", "local_shell", "container.exec", "run_shell_command", "Shell", "run_terminal_cmd", "terminal"}
-EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "write_file", "replace", "edit_file", "edit", "apply_patch", "StrReplace", "Write"}
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "write_file", "replace", "edit_file", "edit", "apply_patch", "StrReplace"}
 
 
 # ------------------------------------------------------------ transcripts: Cursor
@@ -157,7 +157,7 @@ def gemini_parse(path: str):
                 res = call.get("result")
                 if isinstance(res, dict):
                     res = res.get("llmContent") or res.get("output") or res.get("content") or json.dumps(res, ensure_ascii=False)
-                ev.result = _parts_text(res)[:3000] if not isinstance(res, str) else res[:3000]
+                ev.result = clip_output(_parts_text(res) if not isinstance(res, str) else res)
                 st = str(call.get("status") or "").lower()
                 ev.is_error = True if st in ("error", "failed", "cancelled") else (False if st in ("success", "ok", "done") else None)
                 cur.events.append(ev)
@@ -217,6 +217,13 @@ def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
                                                            "permissionDecisionReason": plain + "\n" + instruction}}
 
 
+def warn(agent: str, plain: str) -> dict | None:
+    """A message for the user that does not stop the assistant (used when a held reply is answered without evidence)."""
+    if agent == "cursor":
+        return None   # Cursor's stop hook can only send the agent another turn, which would be a second block
+    return {"systemMessage": plain}
+
+
 def parser_for(agent: str, tail: bool = False):
     """Transcript parser for an agent; tail=True asks for the cheap end-of-file read used by the hooks."""
     if agent == "claude-code" and tail:
@@ -235,8 +242,10 @@ def parser_for(agent: str, tail: bool = False):
 
 # --------------------------------------------------------------- installers
 def config_path(agent: str) -> str:
-    return {"codex": "~/.codex/hooks.json", "cursor": "~/.cursor/hooks.json", "gemini": "~/.gemini/settings.json",
-            "claude-code": "~/.claude/settings.json"}[agent].replace("~", os.path.expanduser("~"), 1)
+    if agent == "claude-code":
+        from .hooks import settings_path
+        return settings_path()
+    return {"codex": "~/.codex/hooks.json", "cursor": "~/.cursor/hooks.json", "gemini": "~/.gemini/settings.json"}[agent].replace("~", os.path.expanduser("~"), 1)
 
 
 def _is_ours(h) -> bool:
@@ -316,12 +325,8 @@ def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
                     del hooks[ev]
     if dry_run:
         return f"honestly guard would write this `hooks` section into {path}:\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2)
-    if os.path.exists(path):
-        import shutil, time
-        shutil.copy(path, path + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S"))
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, ensure_ascii=False, indent=2)
+    from . import config as _config
+    _config.write_json_atomic(path, cfg)
     note = {"codex": "  Codex asks you to review new hooks once: run /hooks inside Codex.",
             "cursor": "  Cursor shows hook-visible transcripts only when they are enabled; the stop hook needs them to see what was said.",
             "gemini": ""}[agent]

@@ -135,7 +135,7 @@ def cmd_catches(a):
         out = a.out or os.path.expanduser("~/.honestly")
         for p in write_catches_card(load_catches(a.days), a.days, out):
             print("wrote", p)
-    note = update_note(__version__, zh=_is_zh(os.environ.get("LANG", "")))   # once a day, CLI only, never from the hooks
+    note = update_note(__version__, zh=_is_zh(""))   # once a day, CLI only, never from the hooks
     if note:
         print("\n" + note)
 
@@ -277,7 +277,7 @@ def main(argv=None):
             except Exception:
                 pass
     from . import __version__
-    p = argparse.ArgumentParser(prog="honestly", description="Audit how often your coding agent verified what it claimed.")
+    p = argparse.ArgumentParser(prog="honestly", description="Block unverified \"tests pass / fixed / pushed\" claims from coding agents, and audit past sessions.")
     p.add_argument("--version", action="version", version=f"honestly {__version__}")
     sub = p.add_subparsers(dest="cmd", required=False)
     pa = sub.add_parser("audit", help="scan Claude Code, Codex, Cursor and Gemini CLI session logs and print the report")

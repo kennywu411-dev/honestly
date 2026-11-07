@@ -42,7 +42,7 @@ def test_custom_verify_command_counts_as_a_test(tmp_path, monkeypatch):
         assert [f.verdict for f in audit_turn(t) if f.category == "tests_pass"] == ["unbacked"]
         config.add_to("verify_commands", "make verify"); config.apply(load())
         assert [f.verdict for f in audit_turn(t) if f.category == "tests_pass"] == ["backed"]
-        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "make verify | tail -3"}, "cwd": str(tmp_path)}) is not None
+        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "make verify | head -3"}, "cwd": str(tmp_path)}) is not None
     finally:
         config.apply(config.DEFAULTS)
 
@@ -63,7 +63,7 @@ def test_strictness_changes_what_guard_blocks(tmp_path, monkeypatch):
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | tail"}, "cwd": str(tmp_path / "proj")}) is None
         config.set_value("strictness", "strict"); config.set_value("language", "en")
         out = hooks.stop_hook(dict(data))
-        assert out["decision"] == "block" and "stepped in" in out["systemMessage"]   # language forced to English
+        assert out["decision"] == "block" and "blocked this reply" in out["systemMessage"]   # language forced to English
         assert "strict" in config.show()
     finally:
         config.apply(config.DEFAULTS)

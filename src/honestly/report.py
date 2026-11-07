@@ -1,6 +1,5 @@
 """Human-readable audit report and the shareable card."""
 from __future__ import annotations
-import html
 import os
 import pathlib
 import re
