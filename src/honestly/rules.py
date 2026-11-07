@@ -62,6 +62,26 @@ NOT_A_CLAIM_START = re.compile(r"(?:running|re-running|checking|verifying|now (?
                                r"|(?:意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b)", re.I)
 # forward-looking words only disqualify a claim when they come BEFORE it ("if tests pass" vs "tests pass, even if X")
 PREFIX_NOT_CLAIM = re.compile(r"(准备|will |I'll|I’ll|we'll|next,? I|let me|going to|while |如果|\bif |一旦|\bonce |^then |直到|\buntil\b|\bbefore (?:I|we|my|the|this)\b|make sure|\bensure\b)", re.I)   # "make sure tests pass" is an instruction; "tests pass, make sure to…" still a claim
+# a step written for the reader: what they will see and what it means ("跑测试，看到 12 passed 就说明环境配好了", "you should see 12 passed").
+# Judged around the match: an expectation verb right before it, or "see X" right before and "就说明 / means" right after.
+_ZH_GAP, _EN_GAP = r"\s*[:：]?\s*[「“\"'`]?[^，。；;:：！!？?\n]{0,8}$", r"\s*[:\"“'`]?[^.,;:!?\n]{0,24}$"   # "看到测试全部通过", "see all 12 tests pass"
+READER_SEES = re.compile(r"(?:会|将|应该|应当|就能|才能)[^，。；;！!？?\n]{0,12}?(?:看到|看见|显示|打印出?|输出|出现|提示)" + _ZH_GAP +
+                         r"|\b(?:you|they|it|this|that|the (?:output|terminal|console|page|screen|command|script|run))(?:'ll|’ll| will| should| would)\s+"
+                         r"(?:see|get|notice|print|show|display|output|say)\b" + _EN_GAP + r"|\bwhen (?:you|they) (?:see|get)\b", re.I)
+SEE_BEFORE = re.compile(r"(?:看到|看见)(?!了)" + _ZH_GAP + r"|\bseeing\b" + _EN_GAP, re.I)   # the reader sees; "输出 12 passed，就说明…" is the agent's output
+MEANS_AFTER = re.compile(r"^\s*[」”\"'`]?\s*(?:的话|[，,]?\s*(?:就|即|便|则|才)(?:说明|代表|表示|意味着|证明|是|行|算|可|好|对|成功|没问题|完成|OK\b))"
+                         r"|^\s*[\"”'`]?\s*(?:means|tells you|shows|confirms|indicates)\b", re.I)
+OWN_RUN = re.compile(r"(?:我|我们)(?:刚才|刚刚|已经|已|也|又|再|先)?(?:跑|运行|执行|测|试|看到|看了)|(?:刚才|刚刚|刚)(?:跑|运行|执行|测)|(?:跑|运行|执行|测试)(?:了|过)|看到了"
+                     r"|\bI (?:ran|re-?ran|saw|got|just|have)\b|\bI'?ve\b|\bwe (?:ran|saw|got)\b|\bran\b", re.I)   # the agent's own run: still a claim
+
+
+def _reader_step(sent: str, start: int, end: int) -> bool:
+    if OWN_RUN.search(sent):
+        return False
+    before = sent[:start]
+    return bool(READER_SEES.search(before) or (SEE_BEFORE.search(before) and MEANS_AFTER.search(sent[end:])))
+
+
 REMOTE_RUN = re.compile(r"(kaggle|冒烟|压力测试|\bCI\b|notebook|公榜|提交版|提交前检查|runpod|colab|github actions|workflow run)", re.I)
 QUOTES = "\"“”「」『』"
 APOSTROPHE_QUOTE = re.compile(r"(?<!\w)['’]|['’](?!\w)")   # a straight or curly quote that is not inside a word (I've, user's)
@@ -115,7 +135,8 @@ def find_claims(text: str):
             if name in DISABLED:
                 continue
             m = pat.search(sent)
-            if m and not _inside_quotes(sent, m.start(), m.end()) and not _inside_link(sent, m.start(), m.end()) and not PREFIX_NOT_CLAIM.search(sent[:m.start()]):
+            if m and not _inside_quotes(sent, m.start(), m.end()) and not _inside_link(sent, m.start(), m.end()) and not PREFIX_NOT_CLAIM.search(sent[:m.start()]) \
+                    and not _reader_step(sent, m.start(), m.end()):
                 hits.append(ClaimHit(name, sent, kinds))
                 break
     return hits
@@ -129,7 +150,7 @@ DOC_DIRS = re.compile(
     r"(^docs?/|/docs?/|/memory/|/scratchpad/|/(?:reports?|notes?|research_notes)/[^/]*\.(?:md|txt|rst|csv|json|html|pdf)$|/\.claude/projects/"
     r"|(?:^|/)(?:README|CHANGELOG|HANDOFF|PROMPTS?)(?:[^/]*\.(?:md|txt|rst))?$|(?:^|/)(?:AGENTS|CLAUDE|GEMINI)\.md$|(?:^|/)\.env(?:\.[\w.-]+)?$|(?:^|/)\.gitignore$|(?:^|/)\.gitattributes$|(?:^|/)\.git/|(?:^|/)\.\w+ignore$|(?:^|/)LICENSE[^/]*$"
     r"|(?:^|/)(?:data|datasets|live|runs|outputs?|results|logs|cache)/(?:[^/]+/)*[^/]+\.(?:json|csv|tsv|parquet|xml)$"   # data and state files a script writes, not code
-    r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.claude/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
+    r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.(?:claude|vscode|idea)/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
     r"|^/tmp/|^/private/tmp/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
 TMP_CWD = re.compile(r"(^|\s)cd (/private/tmp|/tmp|\S*scratchpad)")
 INTERP = re.compile(r"(python3?|node|bash|zsh|\bsh|ruby|perl|psql|sqlite3|uv run|\.venv/bin/python3?)\b[^\n]*<<")
@@ -382,7 +403,19 @@ def writes_only_scratch(seg: Segment, whole_cmd: str = "") -> bool:
         if path is None:
             return False
         targets.append(os.path.expanduser(resolve(path)))
+    targets = _under_cd(targets, seg, whole_cmd)
     return bool(targets) and all(TEMP_PATH.search(t) or path_is_doc(t) for t in targets)
+
+
+def _under_cd(paths: list, seg: Segment, whole_cmd: str) -> list:
+    """Relative paths placed under the `cd` before the segment: `cd proj/.claude && python3 - <<EOF ... open('launch.json', 'w')`
+    writes proj/.claude/launch.json, which is tool config, not `launch.json` of unknown kind."""
+    if not whole_cmd or all(not p or os.path.isabs(os.path.expanduser(p)) for p in paths):
+        return paths
+    here = seg_dir(whole_cmd, seg.text)
+    if not here:
+        return paths
+    return [p if not p or os.path.isabs(os.path.expanduser(p)) else os.path.join(here, p) for p in paths]
 
 
 def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
@@ -401,7 +434,7 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
         if not PLAIN_EDIT.search(bare):   # `echo "name <a@b>"`: a ">" inside quotes redirects nothing
             return False
         raw = [t.strip("\"'") for t in re.findall(r"(?<![0-9&>])>>?\s*(\"[^\"]+\"|'[^']+'|[^\s;&|<>]+)", c) if t != "/dev/null"]
-        if raw and "sed -i" not in c and all(path_is_doc(t) for t in raw):
+        if raw and "sed -i" not in c and all(path_is_doc(t) for t in _under_cd(raw, seg, whole_cmd)):
             return False   # `echo .claude/ >> .git/info/exclude`: no code file is written
         # a plain `cmd > file` only authors a file when the verb writes agent-authored content;
         # `pytest > log`, `honestly audit > summary.json`, `ffmpeg ... > x` are program output, not code edits
@@ -409,7 +442,7 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
             if not re.match(r"\s*(cat|echo|printf|tee|sed|awk|perl|jq|cp|mv)\b", c):
                 return False
     targets = [t.strip() for t in segment_targets(seg, whole_cmd)]
-    if targets and all(path_is_doc(t) for t in targets):
+    if targets and all(path_is_doc(t) for t in _under_cd(targets, seg, whole_cmd)):
         return False
     head = seg.text.split("\n", 1)[0]
     if not targets and re.search(r"(cat >>?|\btee\b|[\s)]>>?)\s*\"?\$", head):
