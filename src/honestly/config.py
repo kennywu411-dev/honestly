@@ -79,7 +79,7 @@ def write_json_atomic(path: str, obj, backup: bool = True) -> None:
         try:
             os.unlink(tmp)
         except OSError:
-            pass
+            pass   # the temporary file is already gone; the original error below is the one that matters
         raise
 
 

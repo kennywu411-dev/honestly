@@ -1,6 +1,8 @@
 """0.7.0 precision pass: every would-be block in 60 days of real sessions was read by hand.
 Each test below is one false block found that way (or a true catch that must survive the fix)."""
 
+import os
+
 import pytest
 
 from honestly import rules as R
@@ -142,14 +144,15 @@ def test_a_background_task_output_read_after_the_edit_is_unverifiable():
 
 
 # ------------------------------------------------------------------ projects
-def test_an_edit_in_another_project_does_not_make_a_test_run_stale(tmp_path):
-    a, b = tmp_path / "evalkit", tmp_path / "site"
-    for d in (a, b):
-        (d / ".git").mkdir(parents=True)
-    t = _turn(_tool("Edit", f"{a}/src/x.py"), _tool("Bash", f"cd {a} && pytest -q", result="69 passed in 4.0s"),
-              _tool("Edit", f"{b}/README.md.tmpl.py"), _say("evalkit: 69 tests pass."))
+def test_an_edit_in_another_project_does_not_make_a_test_run_stale(monkeypatch):
+    a, b = os.path.abspath(os.path.join(os.sep, "w", "evalkit")), os.path.abspath(os.path.join(os.sep, "w", "site"))   # not under a temp dir
+    gits = {os.path.join(a, ".git"), os.path.join(b, ".git")}
+    monkeypatch.setattr(R.os.path, "exists", lambda p: os.path.normpath(p) in gits)
+    R._ROOTS.clear()
+    t = _turn(_tool("Edit", os.path.join(a, "src", "x.py")), _tool("Bash", f"cd {a} && pytest -q", result="69 passed in 4.0s"),
+              _tool("Edit", os.path.join(b, "README.md.tmpl.py")), _say("evalkit: 69 tests pass."))
     assert _v(t) == [("tests_pass", "backed")]
-    t = _turn(_tool("Bash", f"cd {a} && pytest -q", result="69 passed in 4.0s"), _tool("Edit", f"{a}/src/x.py"), _say("69 tests pass."))
+    t = _turn(_tool("Bash", f"cd {a} && pytest -q", result="69 passed in 4.0s"), _tool("Edit", os.path.join(a, "src", "x.py")), _say("69 tests pass."))
     assert _v(t) == [("tests_pass", "unbacked")]   # the same project: stale
 
 

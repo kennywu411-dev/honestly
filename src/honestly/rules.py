@@ -42,14 +42,14 @@ CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in _noncode.CLAIMS]
 
 
 NOT_A_CLAIM = re.compile(
-    r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|未经验证|not yet|haven'?t|hasn'?t|(?:AI|助手|智能体|模型|Claude|Codex|agent)[^。！？\n]{0,30}?(?:就说|又说|说了|声称|宣称|谎称|报告说)|\b(?:the|your|my|an?) (?:agent|AI|assistant|model)\b[^.!?\n]{0,40}?\b(?:says|said|claims|claimed|reports|reported|insists|insisted)\b|不能说|不敢说|没法说|无法(?:确认|保证|断言|说)|不能(?:确认|保证|断言)|还不能|(?:没有|没)(?:实际)?(?:运行|跑)(?:过)?(?:任何)?(?:测试|pytest|用例)(?![^。！？.!?]*(?:现在|刚才|已经|然后|随后))|can'?t (?:say|claim|confirm|promise|guarantee)|cannot (?:say|claim|confirm|guarantee)|\bunverified\b|\bnot verified\b|(?:did not|didn'?t|do not|don'?t) (?:run|execute) (?:the |any )?(?:tests?|pytest|test suite)\b(?![^.!?]*\b(?:now|then|after that|so I ran)\b)|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|^running|^re-running|^checking|^verifying|^now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|^next|syntax[- ]?check|只做了语法检查"
+    r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|未经验证|not yet|haven'?t|hasn'?t|(?:AI|助手|智能体|模型|Claude|Codex|agent)[^。！？\n]{0,30}?(?:就说|又说|说了|声称|宣称|谎称|报告说)|\b(?:the|your|my|an?) (?:agent|AI|assistant|model)\b[^.!?\n]{0,40}?\b(?:says|said|claims|claimed|reports|reported|insists|insisted)\b|不能说|不敢说|没法说|无法(?:确认|保证|断言|说)|不能(?:确认|保证|断言)|还不能|(?:没有|没)(?:实际)?(?:运行|跑)(?:过)?(?:任何)?(?:测试|pytest|用例)(?![^。！？.!?]*(?:现在|刚才|已经|然后|随后))|can'?t (?:say|claim|confirm|promise|guarantee)|cannot (?:say|claim|confirm|guarantee)|\bunverified\b|\bnot verified\b|(?:did not|didn'?t|do not|don'?t) (?:run|execute) (?:the |any )?(?:tests?|pytest|test suite)\b(?![^.!?]*\b(?:now|then|after that|so I ran)\b)|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|syntax[- ]?check|只做了语法检查"
     r"|需要你|请你|你可以|you can|\?|？|待验证"
     r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"
   # honest partial results are not a pass claim
     r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经|\b(?:pass(?:ed|es)?|green|succeeded)\s+(?:\w+\s+){0,2}?(?:earlier|previously)\b(?![^.!?]*\b(?:now|still|again|after)\b)|\b(?:earlier|previously)[, ]+(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]*\b(?:now|still|again|after)\b)"  # someone else fixed it, somewhere else
     r"|通过率|通过的(条件|用例|标准)|position:\s*fixed|transaction"
     r"|我也会|我还会|我再|完成后会|之后会|会出现在|默认保存|通常保存|一般保存|会保存到|核实过的|核对过的|验证过的|下载完成后|不会丢"  # future, generic behaviour, adjectives, state
-    r"|^(意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
+    r"|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
     r"|\bprevious(?:ly| (?:run|session|turn|attempt|time|conversation))\b(?![^.!?]*\b(?:now|still|again)\b)|yesterday|last (?:week|run|time)|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
     r"|\[J\]|\bet al\b|\bdoi\b|\bvol\.\s*\d|\bpp\.\s*\d|\bISBN\b|\bISSN\b"  # bibliography entries
     r"|\bI'?m re-?(running|rendering|testing|checking)\b|\bto (check|verify|confirm)\b"  # says a check is still coming
@@ -57,6 +57,9 @@ NOT_A_CLAIM = re.compile(
     r"|\d[\d.,]*\s*[KMGT]i?B\s*(?:/|of)\s*\d[\d.,]*\s*[KMGT]i?B"  # a progress fraction such as 635 GB / 680 GB
     r"|\b(?:the|a|stop|honestly(?:'s)?)\s+hook\s+(?:stopped|blocked|held|caught|flagged)\s+(?:me|this|the|my|it)\b|\bhonestly\s+(?:stopped|blocked|held|caught|flagged|stepped in)\b|被\s*(?:honestly|hook|钩子|stop ?hook)\s*拦|(?:我|回复|这条回复|上一条回复)(?:刚才|之前)?被拦(?:下|截|住)?|拦(?:截|下)(?:的)?原因"
     r"|\bbecause I (?:had )?(?:said|claimed)\b|\bI (?:had )?(?:said|claimed)\b[^.!?\n]{0,80}\b(?:without|before (?:I|running|re-?checking|checking)|but (?:hadn'?t|had not|didn'?t|did not))\b)", re.I)  # explaining a block: "the hook stopped me because I said..."
+# sentences that open with a progress word or an explanation ("Running the tests now.", "That means ...")
+NOT_A_CLAIM_START = re.compile(r"(?:running|re-running|checking|verifying|now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|next"
+                               r"|(?:意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b)", re.I)
 # forward-looking words only disqualify a claim when they come BEFORE it ("if tests pass" vs "tests pass, even if X")
 PREFIX_NOT_CLAIM = re.compile(r"(准备|will |I'll|I’ll|we'll|next,? I|let me|going to|while |如果|\bif |一旦|\bonce |^then |直到|\buntil\b|\bbefore (?:I|we|my|the|this)\b|make sure|\bensure\b)", re.I)   # "make sure tests pass" is an instruction; "tests pass, make sure to…" still a claim
 REMOTE_RUN = re.compile(r"(kaggle|冒烟|压力测试|\bCI\b|notebook|公榜|提交版|提交前检查|runpod|colab|github actions|workflow run)", re.I)
@@ -103,7 +106,7 @@ def _inside_link(sent: str, start: int, end: int) -> bool:
 def find_claims(text: str):
     hits = []
     for sent in split_sentences(text):
-        if len(sent) > 400 or NOT_A_CLAIM.search(sent):
+        if len(sent) > 400 or NOT_A_CLAIM.search(sent) or NOT_A_CLAIM_START.match(sent):
             continue
         low = sent.lower()
         if any(p in low for p in IGNORE_PHRASES):
@@ -596,9 +599,9 @@ NOT_PROJECT = frozenset("pip pipx venv virtualenv ensurepip pytest build twine s
                         "matplotlib scipy sklearn torch transformers bs4 lxml openpyxl docx pptx fitz pypdf cv2 tqdm rich click typer playwright "
                         "selenium boto3 anthropic openai".split())
 PY_RUN = re.compile(r"^\s*(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?)(?:\s+-(?![cm]\b)[A-Za-z]+)*\s+(?P<rest>\S.*)", re.S)
-EXERCISE_CMD = re.compile(r"^\s*(?:\S*/)?(?:node|deno run|bun(?:\s+run)?|tsx|ts-node|npx\s+(?:tsx|ts-node))\s+(?:-\S+\s+)*[\w./~-]+\.(?:m?js|cjs|tsx?)\b"
-                          r"|^\s*(?:go run|cargo run|dotnet run|swift run|java\s+-jar)\b|^\s*(?:ruby|php)\s+[\w./~-]+\.(?:rb|php)\b|^\s*\.{1,2}/[\w./-]+"
-                          r"|^\s*(?:curl|wget|https?)\b[^|;&]*\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])", re.I)
+EXERCISE_CMD = re.compile(r"\s*(?:(?:\S*/)?(?:node|deno run|bun(?:\s+run)?|tsx|ts-node|npx\s+(?:tsx|ts-node))\s+(?:-\S+\s+)*[\w./~-]+\.(?:m?js|cjs|tsx?)\b"
+                          r"|(?:go run|cargo run|dotnet run|swift run|java\s+-jar)\b|(?:ruby|php)\s+[\w./~-]+\.(?:rb|php)\b|\.{1,2}/[\w./-]+"
+                          r"|(?:curl|wget|https?)\b[^|;&]*\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]))", re.I)   # used with .match: anchored at the start
 
 
 def _project_imports(code: str) -> bool:
@@ -632,7 +635,7 @@ def exercises_code(probe: str, seg: Segment) -> bool:
             return _project_imports(seg.text.split("\n", 1)[1] if "\n" in seg.text else "")
         script = re.match(r"([\w./~-]+\.py)\b", rest)
         return bool(script) and "site-packages" not in script.group(1)
-    return bool(EXERCISE_CMD.search(probe))
+    return bool(EXERCISE_CMD.match(probe))
 SHELL_HEAD = re.compile(r"^\s*(?:\S*/)?(?:bash|sh|zsh|dash)\b[^<\n]*<<")
 LOOP_HEAD = re.compile(r"^(?:\s*(?:for|select)\s+\w+\s+in\b[^;]*(?:;\s*do\b\s*|$))+")   # nested loops too
 
