@@ -11,7 +11,7 @@ def test_pipe_ampersand_and_brace_group_are_denied():
                 "npm test |& head -40",
                 "{ pytest; } | head",
                 "{ cd app && pytest -q; } 2>&1 | head -5",
-                "{ CI=1 go test ./...; } |& grep -v ok"]:
+                "{ CI=1 go test ./...; } |& grep -c ok"]:
         assert _deny(cmd), cmd
 
 

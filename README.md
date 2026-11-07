@@ -66,20 +66,20 @@ The hook writes one plain sentence into the chat, in the language of the convers
 
 ```
 ⚠️ honestly blocked this reply: Claude Code (claude-opus-5-5) in project docpilot, answering "fix the login bug"
-said "Fixed the login bug, all 12 tests pass" but ran no check after editing login.py.
-It has been asked to run one first.
+said "Fixed the login bug, all 12 tests pass" but no test runner ran after editing login.py.
+It has been asked to run the tests first.
 ```
 
-The agent is told to do the thing now and report the real output, or to rewrite the sentence as *changed, not yet verified*. Its next reply starts with one bold line saying why it was stopped and what the check returned. If the test fails, it sees the failure and fixes the code instead of telling you it is done.
+The agent is told to do the thing now and report the real output, or to rewrite the sentence as *changed, not yet verified*. Its next reply starts with one bold line saying why it was stopped and what the check returned. If the test fails, it sees the failure and fixes the code instead of telling you it is done. Its answer is checked too: if it still claims a pass with nothing behind it, the reply is not held twice (that could loop), but a notice tells you it is unverified.
 
-A second hook runs before each shell command and stays out of the way unless a pipe would keep the result from the agent: `pytest | head` cuts off the summary printed at the end, `| grep -c` or `| wc` discards the output, `pytest -rs | grep SKIP` filters the summary out, and `go test ./... | tail` (one result per package) can scroll an early failure away. Those are refused with a one-line fix. `pytest | tail`, `| tee log`, lint output piped into `head`, and anything run with `set -o pipefail` or `${PIPESTATUS[0]}` are left alone; the stop check still reads the summary line before the agent may say the tests pass. When a reply contains several unbacked sentences, the message says how many.
+A second hook runs before each shell command and stays out of the way unless a pipe would keep the result from the agent: `pytest | head` cuts off the summary printed at the end, `| grep -c` or `| wc` discards the output, `pytest -rs | grep SKIP` filters the summary out, `npm run build | head` cuts off the final error, and `npm test --workspaces | tail` can scroll an early failing workspace away. Those are refused with a one-line fix. `pytest | tail`, `go test ./... | tail` (Go repeats a failure on the last line), `| tee log`, a `grep` that keeps the failure lines, compiler and lint output piped into `head`, and anything run with `set -o pipefail` or `${PIPESTATUS[0]}` are left alone; the stop check still reads the summary line before the agent may say the tests pass. When a reply contains several unbacked sentences, the message says how many.
 
 The hooks are built not to get in the way: a transcript over 8 MB is read from the end only (a 200 MB session costs the same as a small one), and any internal error is written to `~/.honestly/hook-errors.log` and lets the assistant continue; `honestly doctor` shows it.
 
 ```bash
 honestly catches              # everything guard stopped this week, by project and assistant (--lang zh)
 honestly catches --card       # the same as a 1200×630 image you can post
-honestly guard notify on      # also show each catch as a desktop notification (macOS, Linux, Windows)
+honestly guard notify on      # desktop notification when a reply is held (macOS, Linux, Windows; at most one every 5 minutes)
 ```
 
 Every catch is appended to `~/.honestly/catches.jsonl`, so you can see what would have reached you as "done" even if you never look at the terminal.
@@ -228,7 +228,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Their hooks are implemented from the vendors' documentation and covered by tests against the documented payloads, but have not yet been exercised on a real machine; `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off. `pr-note --gh` writes to your own pull request, and only when you run it.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 239 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 272 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 

@@ -189,7 +189,7 @@ def test_hook_blocks_carry_a_plain_language_message_for_the_user():
     assert out["systemMessage"].startswith("⚠️ honestly 已拦截：Claude Code（m）在「shop-api」项目回复「fix it」这个问题时声称「登录接口的 bug 已修复") and "login.py" in out["systemMessage"]
     assert out["reason"].startswith("⚠️ honestly 已拦截") and "给助手" in out["reason"]   # user line first, then one line for the agent
     pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "transcript_path": p, "cwd": "/Users/me/Documents/shop-api"})
-    assert pre["systemMessage"].startswith('⚠️ honestly blocked this command: Claude Code (m) in project shop-api, answering "fix it" cut off the end of pytest')
+    assert pre["systemMessage"].startswith('⚠️ honestly blocked this command: Claude Code (m) in project shop-api, answering "fix it", cut off the end of pytest')
 
 
 def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):

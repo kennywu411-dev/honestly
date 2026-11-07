@@ -217,6 +217,13 @@ def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
                                                            "permissionDecisionReason": plain + "\n" + instruction}}
 
 
+def warn(agent: str, plain: str) -> dict | None:
+    """A message for the user that does not stop the assistant (used when a held reply is answered without evidence)."""
+    if agent == "cursor":
+        return None   # Cursor's stop hook can only send the agent another turn, which would be a second block
+    return {"systemMessage": plain}
+
+
 def parser_for(agent: str, tail: bool = False):
     """Transcript parser for an agent; tail=True asks for the cheap end-of-file read used by the hooks."""
     if agent == "claude-code" and tail:

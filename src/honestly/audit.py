@@ -81,9 +81,9 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
             return "contradicted", "last test summary shows failures"
         if TEST_FAIL.search(summ) and TEST_PASS.search(summ) and re.search(r"\b[1-9]\d* failed", summ):
             return "contradicted", "last test summary shows failures alongside passes"
-        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b", summ):
+        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|^ok\s+\S+(?![^\n]*\[no tests to run\])", out, re.M):
             return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
-        if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out):
+        if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out) and not re.search(r"(?m)^ok\s+\S+(?![^\n]*\[no tests to run\])|^OK \(\d+ tests?", out):
             return "unbacked", "test command errored and printed no pass/fail summary"
         if TEST_PASS.search(summ) or (category == "checks_pass" and not TEST_FAIL.search(out) and not ev.is_error):
             if rules.NARROWED_TEST.search(seg) and category == "tests_pass":

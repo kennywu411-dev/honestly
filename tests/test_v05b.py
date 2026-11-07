@@ -60,9 +60,9 @@ def test_background_output_read_is_fine_once_the_subagent_is_merged():
 
 
 def test_pipes_that_drop_the_verdict_are_refused_and_the_rest_are_not():
-    for cmd in ["npm test 2>&1 | wc -l", "pytest -q | grep -c passed", "pytest -q | grep SKIP", "go test ./... | tail -3"]:
+    for cmd in ["npm test 2>&1 | wc -l", "pytest -q | grep -c passed", "pytest -q | grep SKIP", "npm test --workspaces | tail -3"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is not None, cmd
-    for cmd in ["pytest -q | grep -E 'passed|failed'", "cargo test | awk '/result/'", "go test ./... | tee out.txt", "set -o pipefail; pytest -q | grep SKIP"]:
+    for cmd in ["pytest -q | grep -E 'passed|failed'", "cargo test | awk '/result/'", "go test ./... | tee out.txt", "go test ./... | tail -3", "set -o pipefail; pytest -q | grep SKIP"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
 
 

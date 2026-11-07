@@ -31,7 +31,7 @@ def test_topic_drops_harness_tags_and_boilerplate():
 def test_pre_message_without_a_recognised_tool_reads_cleanly():
     zh = hooks._plain_pre("python src/eval.py | head -3", True, "Claude Code")
     en = hooks._plain_pre("python src/eval.py | head -3", False, "Claude Code")
-    assert "用 head 截掉了 检查命令 输出的末尾" in zh and "  " not in zh
+    assert "用 head 截掉了检查命令输出的末尾" in zh and "  " not in zh
     assert "cut off the end of a check's output with head" in en and "  " not in en
     assert "用 head 截掉了 pytest 输出的末尾" in hooks._plain_pre("pytest | head", True, "")
 

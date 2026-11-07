@@ -115,24 +115,51 @@ def _who_where(data: dict, turn, zh: bool) -> str:
     if zh:
         where = (f"在「{project}」项目" if project else "") + (f"回复「{topic}」这个问题时" if topic else "")
         return who + (where or "")
-    where = (f" in project {project}" if project else "") + (f', answering "{topic}"' if topic else "")
+    where = (f" in project {project}" if project else "") + (f', answering "{topic}",' if topic else "")
     return who + where
 
 
+STOP_NOUN = {"tests_pass": ("test", "测试"), "checks_pass": ("check", "检查"), "build_ok": ("build", "构建"), "rendered": ("render", "渲染"),
+             "pushed": ("push", "推送"), "committed": ("commit", "提交")}
+
+
 def _plain_stop(f, zh: bool, who: str = "") -> str:
-    """What the user sees. No jargon: what the agent said, what it skipped, what happens next."""
+    """What the user sees. No jargon: what the agent said, what actually happened after its last edit, what happens next."""
     claim = re.sub(r"\s{2,}", " ", f.claim.strip().rstrip("。．.!！;；"))[:60]
     edited = (f.last_edit.splitlines()[0] if f.last_edit else "")
     edited = re.split(r"[\\/]", edited.split(":", 1)[-1].strip())[-1][:40] if edited else ""
+    en_noun, zh_noun = STOP_NOUN.get(f.category, ("test or check", "测试或检查"))
+    failed = f.verdict == "contradicted"
+    errored = not failed and "errored" in (f.reason or "")
+    image_only = f.verdict == "weak"
     if zh:
-        where = f"改完 {edited} 之后" if edited else "改完代码之后"
+        who = who or "AI"
         if not edited:
-            return f"⚠️ honestly 已拦截：{who or 'AI'}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
-        return f"⚠️ honestly 已拦截：{who or 'AI'}声称「{claim}」，但{where}没有运行任何检查。已要求其先运行检查再回复。"
-    where = f"after editing {edited}" if edited else "after editing the code"
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
+        where = f"改完 {edited} 之后"
+        if failed:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}结果显示失败。已要求其修复，或如实报告失败。"
+        if errored:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}运行的{zh_noun}报错了。已要求其处理后重新运行。"
+        if image_only:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}只看了截图，没有运行{zh_noun}。已要求其先运行再回复。"
+        if f.category == "tests_pass":
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}没有运行测试命令。已要求其先运行测试再回复。"
+        return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}没有运行{zh_noun}。已要求其先运行再回复。"
+    who = who or "the agent"
     if not edited:
-        return f'⚠️ honestly blocked this reply: {who or "the agent"} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
-    return f'⚠️ honestly blocked this reply: {who or "the agent"} said "{claim}" but ran no check {where}. It has been asked to run one first.'
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
+    where = f"after editing {edited}"
+    if failed:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} reported a failure. It has been asked to fix it or report the failure.'
+    if errored:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} it ran {where} errored. It has been asked to deal with that and run it again.'
+    if image_only:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but only looked at a screenshot {where}. It has been asked to run a {en_noun} first.'
+    if f.category == "tests_pass":   # a snippet that calls test functions is not a test run
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no test runner ran {where}. It has been asked to run the tests first.'
+    article = "an" if en_noun[0] in "aeiou" else "a"
+    return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no {en_noun} ran {where}. It has been asked to run {article} {en_noun} first.'
 
 
 def _pipe_name(cmd: str) -> str:
@@ -141,22 +168,27 @@ def _pipe_name(cmd: str) -> str:
     return os.path.basename(nxt[0].strip("\"'")) if nxt else "tail"
 
 
-def _plain_pre(cmd: str, zh: bool, who: str = "", pipe: str = "", why: str = "head") -> str:
-    m = re.search(r"(pytest|npm test|npm run \w+|cargo test|go test|make \w+|yarn test|pnpm test|mvn \w+|gradle \w+|tox|ruff|mypy|tsc|eslint)", cmd)
+def _plain_pre(cmd: str, zh: bool, who: str = "", pipe: str = "", why: str = "head", kind: str = "test", tool: str = "") -> str:
+    m = re.search(r"(pytest|npm test|npm run [\w:-]+|cargo test|cargo build|go test|go build|make(?: [A-Za-z][\w-]*)?|yarn test|pnpm test|mvn [\w-]+|gradle [\w-]+|tox|ruff|mypy|tsc|eslint)", cmd)
     pipe = pipe or _pipe_name(cmd)
-    tool = m.group(1) if m else ""
+    tool = (m.group(1) if m else tool).strip()
+    test_like = kind in ("test", "multi")
     if zh:
-        t = tool or "检查命令"
-        what = {"head": f"用 {pipe} 截掉了 {t} 输出的末尾，而测试结果正是在末尾打印的",
-                "silent": f"用 {pipe} 丢弃了 {t} 的输出，输出和退出码都看不到结果",
-                "filter": f"用 {pipe} 过滤了 {t} 的输出，通过/失败的汇总行会被滤掉",
-                "tail": f"用 {pipe} 只保留了 {t} 输出的最后几行，前面套件的失败会看不到"}.get(why, f"用 {pipe} 截断了 {t} 的输出")
+        t = f" {tool} " if tool else "检查命令"
+        res = "测试结果" if test_like else "结果"
+        what = {"head": f"用 {pipe} 截掉了{t}输出的末尾，而{res}就打印在末尾",
+                "silent": f"用 {pipe} 丢弃了{t}的输出，输出和退出码都看不到结果",
+                "count": f"用 {pipe} 把{t}的输出变成了计数，看不到通过/失败的汇总",
+                "filter": f"用 {pipe} 过滤了{t}的输出，通过/失败的汇总行会被滤掉",
+                "tail": f"用 {pipe} 只保留了{t}输出的最后几行，前面的失败会看不到"}.get(why, f"用 {pipe} 截断了{t}的输出")
         return f"⚠️ honestly 已拦截该命令：{who or 'AI'}{what}。已要求其重新运行并显示真实结果。"
     t = tool or "a check"
-    what = {"head": f"cut off the end of {t}'s output with {pipe}, and the test result is printed at the end",
+    res = "test result" if test_like else "result"
+    what = {"head": f"cut off the end of {t}'s output with {pipe}, where the {res} is printed",
             "silent": f"discarded {t}'s output with {pipe}, so neither the output nor the exit status shows the result",
+            "count": f"reduced {t}'s output to a count with {pipe}, so the pass/fail summary is not shown",
             "filter": f"filtered {t}'s output with {pipe}, which drops the pass/fail summary",
-            "tail": f"kept only the last lines of {t} with {pipe}, so a failing suite earlier in the run would not show"}.get(why, f"cut {t}'s output with {pipe}")
+            "tail": f"kept only the last lines of {t}'s output with {pipe}, so a failure earlier in the run would not show"}.get(why, f"cut {t}'s output with {pipe}")
     return f"⚠️ honestly blocked this command: {who or 'the agent'} {what}. It has been asked to rerun it so the real result is visible."
 
 
@@ -187,7 +219,7 @@ def _notify(title: str, body: str) -> None:
         pass
 
 
-NOTIFY_GAP = 30   # seconds between two desktop notifications
+NOTIFY_GAP = 300   # seconds between two desktop notifications; only a held reply notifies, never a refused command
 
 
 def _notify_due() -> bool:
@@ -337,8 +369,7 @@ def _short(path: str) -> str:
 
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
-    if data.get("stop_hook_active"):
-        return None
+    second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
     cfg = config.load(data.get("cwd") or None)
     config.apply(cfg)
     final = data.get("last_assistant_message") or ""
@@ -354,6 +385,11 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         if turns:
             turn = turns[-1]
             prev = turns[-2] if len(turns) > 1 else None
+            if prev is not None and (turn.prompt or "").lstrip().startswith("Stop hook feedback"):
+                # Claude Code feeds the block back as a new message; the work it answers is the turn before it
+                import dataclasses
+                turn = dataclasses.replace(prev, events=[e for e in prev.events if e.kind != "text"] + list(turn.events))   # judge only the new reply, with the earlier edits as context
+                prev = turns[-3] if len(turns) > 2 else None
         elif os.path.getsize(path) == 0:
             _note("stop", f"transcript is empty, only the final message was checked: {path}")
     elif path:
@@ -366,9 +402,14 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
     if not bad:
         return None
     zh = _lang_zh(cfg, bad[0].claim)
+    if second_pass:
+        claim = re.sub(r"\s{2,}", " ", bad[0].claim.strip().rstrip("。．.!！;；"))[:60]
+        note = (f"⚠️ honestly 提醒：这条回复仍然声称「{claim}」，但最后一次改动之后仍没有可核实的依据。为避免反复拦截，这次没有再拦，请把它当作未经验证。" if zh else
+                f'⚠️ honestly: this reply still says "{claim}" with nothing after the last edit to back it. It was not held a second time; treat it as unverified.')
+        return agents.warn(agent, note)
     plain = _plain_stop(bad[0], zh, _who_where(data, turn, zh))
     if len(bad) > 1:
-        plain += f"（这条回复里还有 {len(bad) - 1} 句同样没有依据。）" if zh else f" ({len(bad) - 1} more sentence{'s' if len(bad) > 2 else ''} in this reply have the same problem.)"
+        plain += f"（这条回复里还有 {len(bad) - 1} 句同样没有依据。）" if zh else f" ({len(bad) - 1} more sentence{'s' if len(bad) > 2 else ''} in this reply {'have' if len(bad) > 2 else 'has'} the same problem.)"
     _record("stop", data, turn, plain, claim=bad[0].claim, reason=bad[0].reason, tools=bad[0].tools_after_edit)
     _notify("honestly", plain)
     # Claude Code shows `reason` to the user as "Stop hook feedback", so the plain sentence goes first and the
@@ -411,64 +452,202 @@ def _runs_check(t: str) -> bool:
 # from the agent: cutting the end of the output, discarding it, filtering out the summary, or (for runners that print one
 # result per package or suite) keeping only the last lines. `pytest | tail` keeps the summary line, so it is left alone;
 # the stop check still reads that line before the agent may say the tests pass.
-PRE_TEST = re.compile(r"(\bpytest\b|-m pytest|-m unittest|\btox\b|\bnox\b|hatch (?:run )?test|pdm (?:run )?test|(?:npm|pnpm|yarn|bun)(?:\s+-\S+)*(?: run)? test\b|deno test|\bjest\b|\bvitest\b|\bmocha\b|playwright test|cypress run"
-                      r"|\bgo test\b|cargo (?:test|nextest)|mvnw? (?:test|verify)|gradlew? (?:test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b"
-                      r"|make (?:test|check)\b|manage\.py test|rails test|artisan test|\bjust test\b)", re.I)
-PRE_MULTI = re.compile(r"(\bgo test\b|cargo (?:test|nextest)|\btox\b|\bnox\b|make (?:test|check)\b|\s(?:-r|--recursive|--workspaces?)\b|\bturbo\b|\bnx run-many\b|\blerna\b)", re.I)
-PRE_BUILD = re.compile(r"((?:npm|pnpm|yarn)(?: run)? build\b|vite build|next build|cargo (?:build|check|clippy)\b|\bgo (?:build|vet)\b|mvnw? (?:compile|package)|gradlew? (?:build|assemble)|dotnet build|swift build|xcodebuild\b|docker build"
-                       r"|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format)\b))", re.I)
+_PM_TEST = r"(?:npm|pnpm|yarn|bun)\b[^|;&]*?\s(?:run\s+)?test\b(?![-.\w/])"   # npm test, pnpm --filter web test, yarn workspace web test
+_MAKE = r"(?<![\w./-])make(?![\w.-])"
+PRE_TEST = re.compile(r"(\bpytest\b|\bpy\.test\b|-m pytest|-m unittest|\bnpm t\b|\bcargo t\b|\bbazel test\b|\bgotestsum\b|\bsbt\b[^|;&]*\btest\b|\bdart test\b|\btox\b|\bnox\b|hatch (?:run )?test|pdm (?:run )?test|" + _PM_TEST + r"|deno test|\bjest\b|\bvitest\b|\bmocha\b|playwright test|cypress run"
+                      r"|node\s+(?:-\S+\s+)*--test\b|\bgo test\b|cargo (?:test|nextest)|mvnw?\b[^|;&]*\s(?:test|verify)\b|gradlew?\b[^|;&]*\s(?:test|check)\b|dotnet test|swift test|xcodebuild test|flutter test|mix test"
+                      r"|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|" + _MAKE + r"(?:\s+-[-\w=]+)*\s+(?:test|check)\b|manage\.py test|rails test|artisan test|\bjust test\b)", re.I)
+# Runners that keep going after a failing package and do not repeat it at the end. Go, Cargo and make print the
+# failure again last (`FAIL`, `error: test failed`, `make: *** ... Error`), so `| tail` keeps it and is not refused.
+PRE_MULTI = re.compile(r"(?:npm|yarn)\b[^|;&]*\s(?:--workspaces\b|-ws\b)|\s--no-bail\b|yarn workspaces foreach", re.I)
+PRE_BUILD = re.compile(r"((?:npm|pnpm|yarn)\b[^|;&]*?\s(?:run\s+)?build\b(?![-.\w/])|vite build|next build|mvnw?\b[^|;&]*\s(?:compile|package)\b|gradlew?\b[^|;&]*\s(?:build|assemble)\b"
+                       r"|dotnet build|xcodebuild\b(?![^|;&]*\s-(?:list|showsdks|showBuildSettings|showdestinations|version|help|usage)\b)|docker build"
+                       r")", re.I)
+# Compilers print each error as it happens, so the start of the output shows them: `| head` keeps the result, like a linter.
+PRE_COMPILE = re.compile(r"(cargo (?:build|check)\b|\bgo build\b|swift build|" + _MAKE + r"(?!(?:\s+-[-\w=]+)*\s+(?:-n\b|--dry-run|--just-print|clean|distclean|install|uninstall|help|fmt|format|run|dev|serve|start|watch|docs?|migrate|deploy|publish|up|down|logs|shell|lint|typecheck|test|check)\b))", re.I)
 PRE_LINT = re.compile(r"(\bruff\b|\bmypy\b|\bpyright\b|\beslint\b|\bflake8\b|\bpylint\b|black --check|isort --check|\bbiome\b|prettier --check|\brubocop\b|\bphpstan\b|\bpsalm\b|\bshellcheck\b|golangci-lint|staticcheck|\btsc\b"
-                      r"|(?:npm|pnpm|yarn)(?: run)? (?:lint|typecheck|type-check)\b)", re.I)
+                      r"|\bgo vet\b|cargo clippy\b|" + _MAKE + r"(?:\s+-[-\w=]+)*\s+(?:lint|typecheck)\b|(?:npm|pnpm|yarn)\b[^|;&]*?\s(?:run\s+)?(?:lint|typecheck|type-check)\b)", re.I)
 PRE_EXTRA = None   # the user's `verify_commands`, set by config.apply
-VERDICT_WORDS = re.compile(r"pass|fail|error|\bok\b|result|summary|✓|✗|✔|✘", re.I)
-INSTALLER = re.compile(r"^\s*(?:brew|cargo install|go install|gem install|uvx|pipx run)\b")
-SEVERITY = {"keep": 0, "tail": 1, "filter": 2, "head": 3, "silent": 4}
+NOT_A_CHECK = re.compile(r"^\s*(?:brew|cargo install|go install|gem install|uvx|pipx run|pgrep|pkill|git (?:show|blame|grep|cat-file|ls-files|log|diff))\b")
+SEVERITY = {"keep": 0, "select": 0, "tail": 1, "filter": 2, "count": 3, "head": 4, "silent": 5}   # "select": a filter that keeps the failure lines
+# Lines a test, build or lint run prints when something failed; a grep that keeps one of these keeps the verdict.
+VERDICT_SAMPLES = [
+    "=========== 1 failed, 2 passed in 0.12s ===========",
+    "=========== 1 failed, 2 passed, 1 warning in 0.12s ===========",
+    "FAILED tests/test_a.py::test_x - assert 1 == 2",
+    "Tests:       1 failed, 2 passed, 3 total",
+    " Test Files  1 failed | 2 passed (3)",
+    "      Tests  1 failed | 2 passed (3)",
+    "3 examples, 1 failure",
+    "Tests run: 3, Failures: 1, Errors: 0, Skipped: 0",
+    "[ERROR] Tests run: 3, Failures: 1, Errors: 0, Skipped: 0",
+    "test result: FAILED. 2 passed; 1 failed; 0 ignored",
+    "FAIL\tgithub.com/acme/app/pkg\t0.012s",
+    "--- FAIL: TestPrice (0.00s)",
+    "error: test failed, to rerun pass `--lib`",
+    "  1 failing",
+    "FAILED (failures=1)",
+    "Tests: 3, Assertions: 3, Failures: 1.",
+    "# fail 1",
+    "BUILD FAILED",
+    "make: *** [test] Error 1",
+    "error[E0308]: mismatched types",
+    "src/app.ts(3,7): error TS2322: Type 'string' is not assignable to type 'number'.",
+    "Found 3 errors.",
+    "Failed!  - Failed:     1, Passed:     3, Skipped:     0, Total:     4, Duration: 12 ms",
+    "Total tests: 4",
+    "     Failed: 1",
+    "=================================== FAILURES ===================================",
+]
+GREP_NAMES = {"grep", "egrep", "fgrep", "rg", "ag", "ack"}
 
 
 def _stage_kind(stage: str):
-    """What a pipeline stage runs: "test", "multi" (a runner that prints one result per package or suite), "build", "lint", or None."""
+    """What a pipeline stage runs: "test", "multi" (a runner that does not repeat an early failure at the end), "build", "lint", or None."""
     bare = STAGE_PREFIX.sub("", ENV_ASSIGN.sub("", stage))
     word = re.sub(r"^(\s*)\S*/(?=[^\s/]+(?:\s|$))", r"\1", bare)   # `/path/.venv/bin/pip install pytest` is pip
-    if READ_ONLY.search(word) or rules.NON_VERIFY_VERB.match(word) or INSTALLER.match(word) or re.match(r"\s*git (commit|push|tag|add)\b", word):
-        return None   # `grep pytest log`, `gh repo edit --add-topic pytest`, `brew install ruff`
+    if READ_ONLY.search(word) or rules.NON_VERIFY_VERB.match(word) or NOT_A_CHECK.match(word) or re.match(r"\s*git (commit|push|tag|add)\b", word):
+        return None   # `grep pytest log`, `gh repo edit --add-topic pytest`, `git show HEAD:tox.ini`, `brew install ruff`
     if NOT_A_RUN.search(bare):
-        return None   # `pytest --collect-only`, `--version`: nothing can fail
+        return None   # `pytest --collect-only`, `--version`, `cargo test --no-run`: nothing can fail
     if PRE_TEST.search(bare) or (PRE_EXTRA is not None and PRE_EXTRA.search(bare)):
         return "multi" if PRE_MULTI.search(bare) else "test"
+    if PRE_LINT.search(bare) or PRE_COMPILE.search(bare):
+        return "lint"
     if PRE_BUILD.search(bare):
         return "build"
-    if PRE_LINT.search(bare):
-        return "lint"
     return None
+
+
+def _grep_parts(stage: str):
+    """(name, flags, patterns) of a grep-like command; patterns is None when they cannot be known (`-f file`)."""
+    import shlex
+    try:
+        toks = shlex.split(STAGE_PREFIX.sub("", stage), posix=True)
+    except ValueError:
+        toks = STAGE_PREFIX.sub("", stage).split()
+    if not toks:
+        return "", set(), None
+    name = os.path.basename(toks[0])
+    flags, pats, i = set(), [], 1
+    long_flags = {"--count": "c", "--quiet": "q", "--silent": "q", "--files-with-matches": "l", "--files-without-match": "L",
+                  "--invert-match": "v", "--ignore-case": "i", "--fixed-strings": "F", "--extended-regexp": "E", "--only-matching": "o",
+                  "--word-regexp": "w", "--line-regexp": "x", "--perl-regexp": "E"}
+    while i < len(toks):
+        t = toks[i]
+        if t == "--":
+            if not pats and i + 1 < len(toks):
+                pats.append(toks[i + 1])
+            break
+        if t.startswith("--"):
+            key = t.split("=", 1)[0]
+            if key == "--regexp":
+                pats.append(t.split("=", 1)[1] if "=" in t else (toks[i + 1] if i + 1 < len(toks) else ""))
+                i += 1 if "=" in t else 2
+                continue
+            if key == "--file":
+                return name, flags, None
+            if key in long_flags:
+                flags.add(long_flags[key])
+            i += 1
+            continue
+        if t.startswith("-") and len(t) > 1 and not pats:
+            j = 1
+            while j < len(t):
+                c = t[j]
+                if c in "ABCmefg":   # options that take a value
+                    val = t[j + 1:] or (toks[i + 1] if i + 1 < len(toks) else "")
+                    if not t[j + 1:]:
+                        i += 1
+                    if c == "e":
+                        pats.append(val)
+                    if c == "f":
+                        return name, flags, None
+                    break
+                flags.add(c)
+                j += 1
+            i += 1
+            continue
+        if not pats:
+            pats.append(t)
+        i += 1
+    return name, flags, pats
+
+
+def _py_regex(pattern: str, flags: set, name: str) -> str:
+    if "F" in flags or name == "fgrep":
+        return re.escape(pattern)
+    out = pattern.replace("[[:digit:]]", r"\d").replace("[[:space:]]", r"\s").replace("[[:alpha:]]", "[A-Za-z]") \
+                 .replace("[[:upper:]]", "[A-Z]").replace("[[:lower:]]", "[a-z]").replace("[[:alnum:]]", "[A-Za-z0-9]")
+    if "E" in flags or name in ("egrep", "rg", "ag", "ack"):
+        return out
+    res, k = [], 0   # basic regex: `\|` `\(` `\+` are operators, bare `|` `(` `+` are literal characters
+    while k < len(out):
+        ch = out[k]
+        if ch == "\\" and k + 1 < len(out) and out[k + 1] in "|()+?{}":
+            res.append(out[k + 1]); k += 2; continue
+        res.append("\\" + ch if ch in "|()+?{}" else ch)
+        k += 1
+    return "".join(res)
+
+
+def _grep_keeps_verdict(stage: str):
+    """For a grep stage: "silent", "count", "filter" or "keep", judged by running its pattern over typical failure lines."""
+    name, flags, pats = _grep_parts(stage)
+    if flags & {"q", "l", "L"}:
+        return "silent"
+    if "c" in flags:
+        return "count"
+    if not pats:
+        return "keep"   # patterns we cannot see: give it the benefit of the doubt
+    try:
+        rx = re.compile("|".join(_py_regex(p, flags, name) for p in pats), re.I if "i" in flags else 0)
+    except re.error:
+        return "keep"
+    if "x" in flags:
+        hit = any(rx.fullmatch(line.strip()) for line in VERDICT_SAMPLES)
+    else:
+        hit = any(rx.search(line) for line in VERDICT_SAMPLES)
+    if "v" in flags:
+        return "filter" if hit else "keep"   # `grep -v warning` drops "1 failed, 2 passed, 1 warning"
+    return "select" if hit else "filter"
 
 
 def _consumer(stage: str) -> str:
     """How a command after the pipe treats the output it receives."""
-    s = STAGE_PREFIX.sub("", stage).strip()
+    s = STAGE_PREFIX.sub("", stage.strip().lstrip("{( ")).strip()   # `| { head -5; }` is still head
     parts = s.split()
     name = os.path.basename(parts[0].strip("\"'")) if parts else ""
     rest = s[len(parts[0]):] if parts else ""
-    if name == "head" or (name == "sed" and re.search(r"(?:^|\s)-n\b|\b\d+q\b", rest)):
+    if name == "awk" and re.search(r"\bNR\s*(?:<=?|==)\s*\d+", rest):
+        return "head"   # `awk 'NR<=10'`
+    if name in ("jq", "awk") and re.search(r"fail|error|FAIL", rest):
+        return "select"   # `jq 'select(.Action=="fail")'`
+    if name == "head":
         return "head"
+    if name == "sed":
+        if "$" in rest:
+            return "keep"   # `sed -n '/FAILURES/,$p'` prints through to the end
+        return "head" if re.search(r"(?:^|\s)-n\b|\b\d+q\b", rest) else "keep"
     if name == "wc":
-        return "silent"
-    if name in ("grep", "egrep", "fgrep", "rg", "ag"):
-        if re.search(r"(?:^|\s)-[a-zA-Z]*[qclL][a-zA-Z]*\b|--(?:quiet|silent|count|files-with(?:out)?-matches)\b", rest):
-            return "silent"
-        if re.search(r"(?:^|\s)-[a-zA-Z]*v[a-zA-Z]*\b|--invert-match\b", rest):   # dropping some lines keeps the summary unless it matches
-            return "filter" if VERDICT_WORDS.search(rest) or re.search(r"warn", rest, re.I) else "keep"
-        return "keep" if VERDICT_WORDS.search(rest) else "filter"
+        return "count"
+    if name in GREP_NAMES:
+        return _grep_keeps_verdict(s)
     if name == "tail":
         return "tail"
-    return "keep"   # tee, cat, sort, less, tr, ...: the output still shows the result
+    return "keep"   # tee, cat, sort, less, tr, jq, ...: the output still shows the result
 
 
-def _hides(kind: str, how: str) -> bool:
+def _hides(kind: str, chain: list) -> bool:
+    """chain: consumer kinds in pipeline order after the verdict-printing stage."""
+    worst = max(chain, key=SEVERITY.get)
+    if worst == "head" and "select" in chain[: chain.index("head")]:
+        return False   # `pytest | grep -A20 FAILURES | head`, `cargo build | grep '^error' | head`: the failures are what is left
     if kind in ("test", "multi"):
-        return how in ("silent", "head", "filter") or (how == "tail" and kind == "multi")
+        return worst in ("silent", "head", "count", "filter") or (worst == "tail" and kind == "multi")
     if kind == "build":
-        return how in ("silent", "head")
-    return kind == "lint" and how == "silent"
+        return worst in ("silent", "head")
+    return kind == "lint" and worst == "silent"
 
 
 def _expand_groups(cmd: str) -> str:
@@ -487,8 +666,12 @@ def find_hidden_status(cmd: str):
     that turns on pipefail before the pipe (`set -o pipefail`, `set -euo pipefail`, `bash -o pipefail -c`, zsh `setopt pipefail`)
     or reads each stage's status (`${PIPESTATUS[0]}`), and any tool that prints no verdict.
     """
-    if re.search(r"\bPIPESTATUS\b|\bpipestatus\b", cmd):
+    if re.search(r"\$\{?(?:PIPESTATUS|pipestatus)\b", rules._strip_comments(cmd)):
         return None
+    for body in re.findall(r"\$\(([^()]*)\)", cmd):   # `result=$(pytest -q | head -5)`
+        hit = find_hidden_status(body)
+        if hit:
+            return hit
     pf = False
     for seg in rules.segments(_expand_groups(cmd)):
         if seg.heredoc:
@@ -509,11 +692,14 @@ def find_hidden_status(cmd: str):
                 kind = _stage_kind(st)
                 if not kind:
                     continue
-                how = max((_consumer(r) for _, r in stages[i + 1:]), key=SEVERITY.get)
-                if _hides(kind, how):
-                    nxt = STAGE_PREFIX.sub("", stages[i + 1][1]).strip().split()
-                    pipe = os.path.basename(nxt[0].strip("\"'")) if nxt else "tail"
-                    return raw.strip(), pipe or "tail", how
+                cons = [(_consumer(r), r) for _, r in stages[i + 1:]]
+                chain = [c for c, _ in cons]
+                if _hides(kind, chain):
+                    how, culprit = max(cons, key=lambda c: SEVERITY[c[0]])
+                    words = STAGE_PREFIX.sub("", culprit).strip().split()
+                    pipe = os.path.basename(words[0].strip("\"'")) if words else "tail"
+                    tool = " ".join(STAGE_PREFIX.sub("", ENV_ASSIGN.sub("", st)).split()[:2])
+                    return raw.strip(), pipe or "tail", how, kind, tool
                 break   # the first verdict-printing stage decides; later stages only consume its output
         if rules.PIPEFAIL_OFF.search(blank):
             pf = False
@@ -534,7 +720,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     hit = find_hidden_status(cmd)
     if not hit:
         return None
-    t, pipe, why = hit
+    t, pipe, why, kind, tool = hit
     zh = _lang_zh(cfg, cmd)
     turn = None
     tp = data.get("transcript_path") or ""
@@ -546,11 +732,10 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             turn = None
     if turn is not None and not zh and cfg.get("language", "auto") == "auto":
         zh = _is_zh(turn.prompt)
-    plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why)
+    plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
     _record("pre", data, turn, plain, command=t)
-    _notify("honestly", plain)
-    fix = (f"给助手：请去掉 `| {pipe}` 重新运行（或在命令前加上 `set -o pipefail;`），并报告最后的汇总行。" if zh else
-           f"To the agent: rerun without `| {pipe}` (or prefix the command with `set -o pipefail;`) and report the summary line.")
+    fix = (f"给助手：请重新运行并让输出末尾可见（去掉 `| {pipe}`，或改用 `| tail -n 40`），然后引用最后的汇总行。" if zh else
+           f"To the agent: rerun it so the end of the output is visible (drop `| {pipe}`, or use `| tail -n 40`), then quote the final summary line.")
     return agents.emit(agent, "pre", plain, fix)
 
 

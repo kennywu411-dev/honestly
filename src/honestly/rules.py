@@ -20,7 +20,7 @@ CLAIM_PATTERNS = [
     ("checks_pass", re.compile(
         r"(checks? (all )?pass(es|ed)?\b|lint(ing)? pass(es|ed)?\b|type ?check(s|ing)? pass(es|ed)?\b|build pass(es|ed)?\b|检查(结果)?[:：]?\s*(全部|都|均)?通过|全部通过|lint (全部)?通过|\b0 (错误|warnings?|errors?))", re.I), {"test", "build"}),   # "10 errors" is not "0 errors"
     ("build_ok", re.compile(
-        r"(build (succeeded|passed|passes|is green|ok)|compiles? (cleanly|fine|ok)|编译通过|构建(成功|通过)|打包(成功|完成)|类型检查通过|lint 通过|ruff 也?通过)", re.I), {"build", "test", "run"}),
+        r"(build (succeeded|succeeds|passed|passes|is green|ok)|compiles? (cleanly|fine|ok)|编译通过|构建(成功|通过)|打包(成功|完成)|类型检查通过|lint 通过|ruff 也?通过)", re.I), {"build", "test", "run"}),
     ("rendered", re.compile(
         r"(render(ed|ing)? (is )?(complete|finished|done)(?!\s+(?:on|by|in|at|before)\b)|渲染(完成|成功|好了|出来了)|已渲染|成片(渲染)?(完成|已出)|已经渲染)", re.I), {"render", "run"}),
     ("pushed", re.compile(
@@ -42,12 +42,13 @@ CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in _noncode.CLAIMS]
 NOT_A_CLAIM = re.compile(
     r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|not yet|haven'?t|hasn'?t|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|^running|^re-running|^checking|^verifying|^now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|^next|syntax[- ]?check|只做了语法检查"
     r"|需要你|请你|你可以|you can|\?|？|待验证"
-    r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"  # honest partial results are not a pass claim
-    r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经|\b(?:pass(?:ed|es)?|green|succeeded)\s+(?:\w+\s+){0,2}?(?:earlier|previously)\b|\b(?:earlier|previously)[, ]+(?:the |all )?(?:tests?|checks?|runs?)\b"  # someone else fixed it, somewhere else
+    r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"
+    r"|\bfail(?:s|ed)? (?:on|against|without|before) (?:main|master|origin|the base|the old code|the fix)\b|(?:修复前|改之前|主分支上|main 上).{0,12}(?:失败|不通过|会挂)"   # a test that fails on main proves the test, not a failure  # honest partial results are not a pass claim
+    r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经|\b(?:pass(?:ed|es)?|green|succeeded)\s+(?:\w+\s+){0,2}?(?:earlier|previously)\b(?![^.!?]*\b(?:now|still|again|after)\b)|\b(?:earlier|previously)[, ]+(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]*\b(?:now|still|again|after)\b)"  # someone else fixed it, somewhere else
     r"|通过率|通过的(条件|用例|标准)|position:\s*fixed|transaction"
     r"|我也会|我还会|我再|完成后会|之后会|会出现在|默认保存|通常保存|一般保存|会保存到|核实过的|核对过的|验证过的|下载完成后|不会丢"  # future, generic behaviour, adjectives, state
     r"|^(意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
-    r"|\bprevious|yesterday|last (?:week|run|time)|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
+    r"|\bprevious(?:ly| (?:run|session|turn|attempt|time|conversation))\b|yesterday|last (?:week|run|time)|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
     r"|\[J\]|\bet al\b|\bdoi\b|\bvol\.\s*\d|\bpp\.\s*\d|\bISBN\b|\bISSN\b"  # bibliography entries
     r"|\bI'?m re-?(running|rendering|testing|checking)\b|\bto (check|verify|confirm)\b)", re.I)  # says a check is still coming
 # forward-looking words only disqualify a claim when they come BEFORE it ("if tests pass" vs "tests pass, even if X")
@@ -124,13 +125,16 @@ HEADER_PATH = re.compile(r"(?:^|\s)\"?((?:~|/|\.{1,2}/)?[\w./~\-\u4e00-\u9fff]+/
 COMMIT_MSG = re.compile(r"(-m\s+(\"[^\"]*\"|'[^']*')|<[^<>\s]+@[^<>\s]+>)")
 HEREDOC_HEAD = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
 _QUOTE_SPAN = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
-PIPEFAIL_ON = re.compile(r"\bset\b[^;&|\n]*?\s-[a-zA-Z]*o\s+pipefail\b|\b(?:ba|z|k|da)?sh\s+(?:-\S+\s+)*-o\s+pipefail\b|\bsetopt\s+pipe_?fail\b", re.I)
+PIPEFAIL_ON = re.compile(r"\bset\b[^;&|\n]{0,80}?\s-[a-zA-Z]*o\s+pipefail\b|\b(?:ba|z|k|da)?sh\s+(?:-\S+\s+){0,8}-o\s+pipefail\b|\bsetopt\s+pipe_?fail\b", re.I)
 PIPEFAIL_OFF = re.compile(r"\bset\s+\+o\s+pipefail\b|\bunsetopt\s+pipe_?fail\b", re.I)
-NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig)")
+NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig|--fixtures\b|--markers\b|--no-run\b|(?:^|\s)-list\b|\bgo test\s+(?:-\S+\s+)*-c\b"
+                       r"|\b(?:tox|nox)\s+(?:-\S+\s+)*-l\b|\bmake\b[^|;&]*\s(?:-n|--just-print)\b)")
 
 
 def heredoc_head(line: str):
     """The first `<<WORD` on the line that is not inside a quoted string (`echo 'a<<b'; pytest` has no heredoc)."""
+    if "<<" not in line:
+        return None
     spans = []
     for q in _QUOTE_SPAN.finditer(line):
         if not re.search(r"<<-?\s*$", line[:q.start()]):   # `<<'EOF'`: the quote belongs to the heredoc head
@@ -327,7 +331,7 @@ def bash_is_edit(cmd: str) -> bool:
 VERIFY = {
     "test": re.compile(r"(\bpytest\b|python3? -m pytest|python3? -m unittest|\bunittest\b|\btox\b|\bnox\b|hatch test|poetry run pytest|uv run pytest"
                        r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun (run )?test|deno test|manage\.py test|(?:bin/)?rails test|artisan test|\bjust test|hatch run test|pdm (run )?test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
-                       r"|\bgo test\b|cargo test|cargo nextest|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check"
+                       r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check"
                        r"|src/eval\.py|\beval\.py|_test\.(go|py|ts|js)\b|scripts?/[\w-]*test[\w-]*\.(sh|py)|\bcheck\.sh|run_tests|gh pr checks|gh run (view|list|watch)|statusCheckRollup|validate[\w_]*\.py|check[\w_]*\.py|verify[\w_]*\.py|gate\.py)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
                         r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"

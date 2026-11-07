@@ -9,7 +9,7 @@ def _deny(cmd):
 def test_env_prefixed_piped_test_is_denied():
     for cmd in ["CI=1 pytest | head",
                 "NODE_ENV=test npm test | head -20",
-                "cd app && CI=1 go test ./... | tail",
+                "cd app && CI=1 go test ./... | head",
                 "FOO=1 BAR=2 cargo test 2>&1 | head",
                 'PYTHONPATH="src lib" pytest -q | head -3',
                 "RUST_LOG= cargo test | grep -v warn"]:

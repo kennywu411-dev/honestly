@@ -116,7 +116,7 @@ def test_log_flags_do_not_disarm_the_pipe_check_and_listing_is_not_a_run():
 
 def test_pre_message_names_the_actual_pipe():
     out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "cargo test 2>&1 | grep -c ok"}})
-    assert out and "output with grep" in out["systemMessage"] and "`| grep`" in json.dumps(out, ensure_ascii=False)
+    assert out and "with grep" in out["systemMessage"] and "`| grep`" in json.dumps(out, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------- guard / settings

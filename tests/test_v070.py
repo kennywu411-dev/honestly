@@ -14,13 +14,10 @@ BLOCK = [   # each one keeps the pass/fail verdict from the agent
     "pytest | grep -v warning",                         # "2 failed, 1 warning" contains the excluded word
     "pytest | wc -l",                                   # nothing of the output is left
     "npm test | grep -q PASS",
-    "go test ./... | tail -5",                          # one result per package: an early FAIL scrolls away
-    "cargo test 2>&1 | tail -3",
-    "tox | tail",
-    "make test | tail -5",
-    "pnpm -r test | tail",
+    "npm test --workspaces | tail -5",                  # each workspace prints its own result; an early failure scrolls away
+    "npm test -ws 2>&1 | tail",
     "npm run build 2>&1 | head",                        # a build error is printed at the end
-    "ruff check . | wc -l",                             # a lint result is hidden only when nothing is shown
+    "ruff check . | grep -q error",                     # a lint result is hidden only when nothing is shown
     "pytest | head # pipefail",                         # a comment is not pipefail
     "echo pipefail; pytest | head",                     # neither is the word
     "set +o pipefail; pytest | head",
@@ -38,6 +35,12 @@ BLOCK = [   # each one keeps the pass/fail verdict from the agent
     "echo 'x<<y'; pytest | head",                       # `<<` inside quotes is not a heredoc
     "(pytest) | head",
     "pytest | tee log | head -3",                       # the last consumer decides what is visible
+    "mvn -q clean test | head",
+    "./gradlew clean test | head",
+    "pnpm --filter web test | head",
+    "yarn workspace web test | head",
+    "node --test | head",
+    "rg PIPESTATUS docs/; pytest | head",               # the word, not the variable
 ]
 ALLOW = [
     "pytest -q | tail -3",                              # the summary line survives tail; the stop check reads it
@@ -70,6 +73,27 @@ ALLOW = [
     "cat <<'EOF' > s.sh\npytest | head\nEOF",           # writing a script is not running it
     "/tmp/venv/bin/pip -q install pytest 2>&1 | head -1",
     "brew install ruff | tail",
+    "go test ./... | tail -30",                         # Go prints FAIL again on the last line
+    "cargo test 2>&1 | tail -20",                       # Cargo stops at the first failing binary and says so last
+    "make test 2>&1 | tail -40",                        # make ends with "make: *** [test] Error 1"
+    "go test ./... | grep -v '^ok'",                    # show only the failures
+    "pytest | grep -v DeprecationWarning",
+    "npx jest | grep -E 'Tests:'",
+    "mvn test | grep 'Tests run:'",
+    "cargo build 2>&1 | grep -E '^error' | head -30",   # the errors are what is left
+    "tsc --noEmit | grep -c error",                     # a count of lint errors is the result
+    "ruff check . | wc -l",
+    "make run | head",
+    "make -n test | head",
+    "python make.py | head",
+    "xcodebuild -list | head",
+    "pytest --fixtures | head",
+    "cargo test --no-run 2>&1 | head",
+    "git show HEAD:tox.ini | head",
+    "pgrep -f pytest | head",
+    "npx mocha -r ts-node/register test/a.ts | tail",
+    "pytest -n 4 | tail -3",
+    "rg PIPESTATUS docs/ | head",
 ]
 
 
@@ -87,8 +111,10 @@ def test_message_says_how_the_result_was_lost():
     out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -20"}, "cwd": "/tmp"})
     text = json.dumps(out, ensure_ascii=False)
     assert "cut off the end of pytest's output with head" in text and "`| head`" in text
-    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "go test ./... | tail -5"}, "cwd": "/tmp"})
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "npm test --workspaces | tail -5"}, "cwd": "/tmp"})
     assert "earlier in the run would not show" in json.dumps(out, ensure_ascii=False)
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | tee log | head -3"}, "cwd": "/tmp"})
+    assert "`| head`" in json.dumps(out, ensure_ascii=False)   # the pipe that hides the result, not the first one
 
 
 # ------------------------------------------------------------------ stop check
@@ -220,3 +246,77 @@ def test_clip_keeps_a_summary_printed_in_the_middle():
 def test_a_lint_tool_count_after_the_tests_is_not_the_test_summary(tmp_path):
     out = "....\n39 passed in 1.00s\nE501 Line too long\nFound 4 errors."
     assert _stop(tmp_path, [EDIT, ("bash", "set -o pipefail; uv run pytest -q 2>&1; ruff check", out, True)], "39 tests pass.") is None
+
+
+def test_a_refused_command_never_pops_a_desktop_notification(monkeypatch):
+    calls = []
+    monkeypatch.setattr(hooks, "_notify", lambda *a, **k: calls.append(a))
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "cwd": "/tmp"}) is not None
+    assert calls == []
+    assert hooks.NOTIFY_GAP >= 300
+
+
+def test_stop_message_says_what_actually_happened(tmp_path):
+    out = _stop(tmp_path, [EDIT, ("bash", "python3 -c 'from app import f; print(f(1))'", "1", False)], "All 4 tests pass.")
+    assert "no test runner ran after editing app.py" in out["systemMessage"]   # a quick snippet is not the test suite
+    out = _stop(tmp_path, [EDIT, ("bash", "pytest -q", "1 failed, 3 passed in 0.1s", True)], "All 4 tests pass.")
+    assert "reported a failure" in out["systemMessage"]                 # a failing run is not "no check"
+    out = _stop(tmp_path, [EDIT, ("bash", "npm run build", "Error: Cannot find module", True)], "The build succeeds.")
+    assert "build" in out["systemMessage"] and "no test ran" not in out["systemMessage"]
+
+
+def test_tests_that_fail_on_main_are_proof_not_a_failure():
+    # found on a real session: the agent ran the new tests on main to show they catch the bug
+    assert rules.NOT_A_CLAIM.search("The new tests pass with the fix and fail on main.")
+    assert rules.NOT_A_CLAIM.search("新测试在修复前失败，修复后通过。")
+    assert not rules.NOT_A_CLAIM.search("All tests pass on main.")
+
+
+def test_more_sentences_note_agrees_in_number(tmp_path):
+    out = _stop(tmp_path, [EDIT], "Fixed the bug. All tests pass.")
+    assert "1 more sentence in this reply has the same problem" in out["systemMessage"]
+
+
+@pytest.mark.parametrize("out", ["?   \tacme/cmd\t[no test files]\nok  \tacme/pkg\t0.012s\n", "test result: ok. 12 passed; 0 failed\n   Doc-tests app\nrunning 0 tests\ntest result: ok. 0 passed; 0 failed\n"])
+def test_go_and_rust_runs_with_an_empty_package_still_back_a_pass(tmp_path, out):
+    cmd = "go test ./..." if "acme" in out else "cargo test"
+    assert _stop(tmp_path, [EDIT, ("bash", cmd, out, False)], "All tests pass.") is None
+
+
+def test_earlier_does_not_hide_a_claim_about_now():
+    assert not rules.NOT_A_CLAIM.search("The flaky test passed earlier; I fixed the race and all tests pass now.")
+    assert not rules.NOT_A_CLAIM.search("Fixed the regression from the previous commit; all tests pass.")
+
+
+def _stop_after_block(tmp_path, first, then, final, active=True):
+    """A held reply, Claude Code's "Stop hook feedback" message, then the agent's answer."""
+    recs = [{"type": "user", "message": {"role": "user", "content": "fix the bug"}, "cwd": "/w/proj"}]
+    def tools(events, base):
+        out = []
+        for i, e in enumerate(events):
+            tid = f"t{base}{i}"
+            if e[0] == "edit":
+                out.append({"type": "assistant", "message": {"model": "m", "content": [{"type": "tool_use", "id": tid, "name": "Edit", "input": {"file_path": e[1]}}]}})
+                out.append({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": tid, "content": "ok"}]}})
+            else:
+                out.append({"type": "assistant", "message": {"model": "m", "content": [{"type": "tool_use", "id": tid, "name": "Bash", "input": {"command": e[1]}}]}})
+                out.append({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": tid, "content": e[2], "is_error": e[3]}]}})
+        return out
+    recs += tools(first, "a")
+    recs.append({"type": "assistant", "message": {"model": "m", "content": [{"type": "text", "text": "Fixed, all 4 tests pass."}]}})
+    recs.append({"type": "user", "message": {"role": "user", "content": "Stop hook feedback: ⚠️ honestly blocked this reply: ..."}})
+    recs += tools(then, "b")
+    recs.append({"type": "assistant", "message": {"model": "m", "content": [{"type": "text", "text": final}]}})
+    p = tmp_path / "after.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+    return hooks.stop_hook({"transcript_path": str(p), "last_assistant_message": final, "cwd": "/w/proj", "stop_hook_active": active})
+
+
+def test_answer_to_a_block_without_a_test_run_gets_a_warning_not_a_second_block(tmp_path):
+    out = _stop_after_block(tmp_path, [EDIT], [("bash", "python3 -c 'import test_app; test_app.test_a()'", "PASS", False)], "Re-checked: all 4 tests pass.")
+    assert out is not None and "decision" not in out and "still says" in out["systemMessage"]
+
+
+def test_answer_to_a_block_with_a_real_test_run_passes_quietly(tmp_path):
+    out = _stop_after_block(tmp_path, [EDIT], [("bash", "pytest -q", "4 passed in 0.01s", False)], "I ran pytest: 4 passed. All 4 tests pass.")
+    assert out is None

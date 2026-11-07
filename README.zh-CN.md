@@ -66,19 +66,19 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 
 ```
 ⚠️ honestly 已拦截：Claude Code（claude-opus-5-5）在「docpilot」项目回复「修一下登录接口的 bug」这个问题时
-声称「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有运行任何检查。已要求其先运行检查再回复。
+声称「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有运行测试命令。已要求其先运行测试再回复。
 ```
 
-助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。
+助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。它的这次回答同样会被检查：如果仍然没有依据就说通过，为避免反复拦截不会再拦第二次，但会显示一条提醒，告诉你这句话未经验证。
 
-第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`pytest -rs | grep SKIP` 把汇总行滤掉了，`go test ./... | tail`（每个包各出一个结果）可能把前面的失败挤出去。这些命令会被拒绝，并附上一行改法。`pytest | tail`、`| tee log`、lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令都直接放行；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
+第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`pytest -rs | grep SKIP` 把汇总行滤掉了，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令都直接放行；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
 
 hook 不影响正常使用：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
 
 ```bash
 honestly catches --lang zh    # 本周拦截记录，按项目和助手汇总
 honestly catches --card       # 同样的内容做成一张 1200×630 的图，可以直接发
-honestly guard notify on      # 每次拦截同时弹桌面通知（macOS、Linux、Windows）
+honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linux、Windows；最多每 5 分钟一次）
 ```
 
 每次拦截都追加到 `~/.honestly/catches.jsonl`，不看终端也能回顾那些原本会被当作"已完成"报告给你的结论。
@@ -223,7 +223,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，239 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，272 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 
