@@ -3,6 +3,9 @@
 ## Unreleased
 
 - The pre hook's pattern for a piped `{ ...; }` group no longer backtracks exponentially on a long run of redirections such as `9>9>9>...`; a 26-step run took 6 s and each extra step quadrupled it (CodeQL py/redos). `2>&-` is now recognised as a redirection, so `{ pytest; } 2>&- | head` is held like `2>&1 | head`.
+- A step written for the reader is not a claim: "跑测试，看到 `12 passed` 就说明环境配好了", "你会看到 12 passed", "练习页会打印 12 passed", "you should see 12 passed", "when you see 12 passed, …", "seeing 12 passed means …". The sentence has to frame the result as something the reader will see (an expectation verb right before it, or "see X" followed by "就说明 / 即可 / means"). The agent's own result is still a claim: "12 passed，环境配好了", "跑了测试，看到 12 passed，说明…", "我跑了测试…", "看到了 12 passed", "pytest 输出 12 passed，就说明…". Replayed over 60 days of the author's sessions, the only two sentences that stop counting are the ones from the held reply.
+- A write to a relative path is placed under the `cd` before it: `cd proj/.claude && python3 - <<'EOF' … open('launch.json', 'w')` edits `.claude/launch.json`, tool config rather than code, so it no longer makes a later sentence need a test run. The same holds for scripts that `cd` into a scratch or temp folder and write there. Editor settings under `.vscode/` and `.idea/` are not code, like `.claude/`.
+- A held reply names the project, not the tool folder the shell was in (「notes」, not 「.claude」), and names the file a shell edit wrote (`launch.json`), not the folder it `cd`'d into.
 
 ## 0.7.0 (2026-11-07)
 

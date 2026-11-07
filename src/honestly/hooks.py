@@ -109,8 +109,7 @@ def _who_where(data: dict, turn, zh: bool) -> str:
     agent = AGENT_NAMES.get(getattr(turn, "agent", "") or "claude-code", "Claude Code")
     model = getattr(turn, "model", "") or ""
     who = f"{agent}（{model}）" if (zh and model) else (f"{agent} ({model})" if model else agent)
-    cwd = (data.get("cwd") or getattr(turn, "project", "") or "").rstrip("/\\")
-    project = re.split(r"[\\/]", cwd)[-1] if cwd else ""
+    project = _short(data.get("cwd") or getattr(turn, "project", "") or "")
     topic = _topic(getattr(turn, "prompt", "") or "")
     if zh:
         where = (f"在「{project}」项目" if project else "") + (f"回复「{topic}」这个问题时" if topic else "")
@@ -125,7 +124,11 @@ def _edited_name(last_edit: str) -> str:
     kind, _, rest = first.partition(":")
     rest = rest.strip()
     if kind.strip().lower() == "bash":
-        files = re.findall(r"[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", QUOTED.sub(" ", rest))
+        cmd = (last_edit or "").partition(":")[2].strip()
+        written = [t.strip() for s in rules.segments(cmd) if rules.segment_is_edit(s, cmd) for t in rules.segment_targets(s, cmd) if t.strip()]
+        if written:   # `cd proj/.claude && python3 - <<EOF ... open('launch.json', 'w')` wrote launch.json, not ".claude"
+            return re.split(r"[\\/]", written[-1])[-1][:40]
+        files = re.findall(r"[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", QUOTED.sub(" ", rules.CD_DIR.sub(" ", rest)))   # a `cd` folder is not the file
         return re.split(r"[\\/]", files[-1])[-1][:40] if files else ""
     return re.split(r"[\\/]", rest)[-1][:40] if rest else ""
 
@@ -374,7 +377,12 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
 
 
 def _short(path: str) -> str:
-    return re.split(r"[\\/]", (path or "").rstrip("/\\"))[-1] if path else ""
+    """The project's folder name; a tool's config folder the shell happened to be in (.claude, .vscode, .git) is not a project."""
+    parts = [p for p in re.split(r"[\\/]", path or "") if p]
+    home = [p for p in re.split(r"[\\/]", os.path.expanduser("~")) if p]
+    while len(parts) > 1 and parts[-1].startswith(".") and parts[:-1] != home:   # ~/.claude itself is the user's global config
+        parts.pop()
+    return parts[-1] if parts else ""
 
 
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:

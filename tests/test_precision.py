@@ -299,3 +299,99 @@ def test_review_long_commands_stay_fast():
     body = "\n".join(f"open('/private/tmp/x/scratchpad/f{i}.txt','w').write('a')" for i in range(3000))
     R.bash_is_edit(f"python3 - <<'EOF'\n{body}\nEOF")
     assert time.time() - t0 < 3
+
+
+# ------------------------------------------------------------------ steps written for the reader (0.7.1)
+# A walkthrough tells the reader what they will see ("看到 12 passed 就说明环境配好了"); it does not say the agent ran anything.
+WALKTHROUGH = ("4. **配开发环境**\n"
+               "   - 从密码管理器复制密钥，填进 .env 文件。装依赖，跑测试，看到 `12 passed` 就说明环境配好了。\n")
+
+
+@pytest.mark.parametrize("text", [
+    WALKTHROUGH,
+    "装依赖，跑测试，看到 12 passed 就说明环境配好了。",
+    "跑测试，看到测试全部通过就说明环境没问题。",
+    "看到 12 passed 即可。",
+    "看到 12 passed 的话，环境就配好了。",
+    "你会看到 12 passed。",
+    "你在模拟终端里运行 pytest 后，练习页会打印 12 passed。",
+    "装好依赖后运行 pytest，终端会显示 12 passed。",
+    "Run pytest; you should see `12 passed`.",
+    "Install the dependencies and run the tests: you'll see 12 passed.",
+    "When you see 12 passed, the environment is ready.",
+    "Seeing 12 passed means the setup worked.",
+    "The terminal will print 12 passed.",
+])
+def test_a_step_for_the_reader_is_not_a_claim(text):
+    assert R.find_claims(text) == []
+
+
+@pytest.mark.parametrize("text", [
+    "测试通过了。",
+    "12 passed，环境配好了。",
+    "跑了测试，看到 12 passed，说明环境配好了。",       # the agent's own run, no "if you see"
+    "我跑了测试，看到 12 passed 就说明环境配好了。",    # first person, past
+    "跑完测试看到了 12 passed，环境没问题。",           # 看到了: something that happened
+    "看到 12 passed 了，环境配好了。",
+    "12 passed. The environment is set up.",
+    "I ran the tests and saw 12 passed.",
+    "All tests pass; you'll see the green check in CI.",
+    "修好了，现在运行 pytest 会显示 12 passed。",        # the 12 passed is a forecast, the 修好了 is still a claim
+    "pytest 输出 12 passed，就说明修复有效。",          # the agent's output, not what the reader will see
+    "测试跑完，显示 12 passed 就说明没问题了。",
+    "刚跑完，看到 12 passed 就说明修好了。",
+    "运行后出现 12 passed 就说明修好了。",
+])
+def test_the_agents_own_result_is_still_a_claim(text):
+    assert R.find_claims(text)
+
+
+def test_a_walkthrough_after_a_code_edit_is_not_held_but_a_real_claim_is():
+    assert not _blocked(_turn(EDIT, _say(WALKTHROUGH)))
+    assert _blocked(_turn(EDIT, _say("测试通过了。")))
+    assert _blocked(_turn(EDIT, _say("12 passed，环境配好了。")))
+    assert _blocked(_turn(EDIT, _say("I ran the tests and saw 12 passed.")))
+
+
+# the turn that was held: a dev-server entry added to and removed from .claude/launch.json, a page in the scratchpad
+LAUNCH_JSON = ("cd /Users/u/Documents/notes/.claude && python3 - <<'EOF'\nimport json\np='launch.json'\nd=json.load(open(p))\n"
+               "d['configurations']=[c for c in d['configurations'] if c['name']!='practice-page']\n"
+               "open(p,'w').write(json.dumps(d,indent=2,ensure_ascii=False)+'\\n')\nEOF\n"
+               "rm -f /private/tmp/claude-501/x/scratchpad/practice/test.html")
+
+
+def test_a_relative_write_under_cd_is_placed_in_that_folder():
+    assert not R.bash_is_edit(LAUNCH_JSON)                      # .claude/launch.json is tool config, not code
+    assert not R.bash_is_edit("cd /w/proj/.claude && echo '{}' > launch.json")
+    assert R.bash_is_edit("cd /w/proj/src && python3 - <<'EOF'\np='app.py'\nopen(p,'w').write('x')\nEOF")
+    assert R.bash_is_edit("cd /w/proj && echo 'x = 1' > app.py")
+    assert not R.bash_is_edit("P=/private/tmp/c/scratchpad/parts; cd $P && python3 - <<'EOF'\np='open.mjs'\nopen(p,'w').write('x')\nEOF")
+
+
+def test_editor_settings_are_not_code():
+    for p in ("/w/proj/.claude/launch.json", "/w/proj/.vscode/launch.json", "/w/proj/.vscode/settings.json", "/w/proj/.idea/workspace.xml"):
+        assert R.path_is_doc(p), p
+    for p in ("/w/proj/src/app.py", "/w/proj/.github/workflows/ci.yml", "/w/proj/package.json"):
+        assert not R.path_is_doc(p), p
+
+
+def test_the_held_turn_is_not_held():
+    page = "/private/tmp/claude-501/x/scratchpad/practice/git-vscode-practice.html"
+    t = _turn(_tool("Edit", page), _tool("Bash", LAUNCH_JSON, result="['feehunter-dev']"), _tool("mcp__ccd_turn__wrap_up"),
+              _say("练习页加好了第三关，链接没变。\n\n" + WALKTHROUGH))
+    assert not _blocked(t)
+    # the same work with a real "tests pass" is not a code edit either: nothing to hold
+    t = _turn(_tool("Edit", page), _tool("Bash", LAUNCH_JSON), _say("测试通过了。"))
+    assert _v(t) == [("tests_pass", "not_this_turn")]
+
+
+def test_a_tool_config_folder_is_not_named_as_the_project():
+    from honestly import hooks
+    turn = _turn(prompt="")
+    assert "「notes」" in hooks._who_where({"cwd": "/Users/u/Documents/notes/.claude"}, turn, True)
+    assert "「notes」" in hooks._who_where({"cwd": "C:\\Users\\u\\notes\\.vscode"}, turn, True)
+    assert hooks._short(os.path.expanduser("~/.claude")) == ".claude"   # the global config folder keeps its name
+    assert "「notes」" in hooks._who_where({"cwd": "/Users/u/Documents/notes"}, turn, True)
+    assert hooks._short("/Users/u/Documents/notes/.claude") == "notes"
+    assert hooks._edited_name("Bash: " + LAUNCH_JSON) != ".claude"
+    assert hooks._edited_name("Bash: cd /w/proj/src && python3 - <<'EOF'\np='app.py'\nopen(p,'w').write('x')\nEOF") == "app.py"
