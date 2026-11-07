@@ -1,6 +1,6 @@
 {
   "name": "honestly",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Stops 'tests pass' / 'fixed' / 'sent' claims that nothing in the turn backs, refuses test runs piped through tail, and writes the real test evidence into your PR.",
   "author": {
     "name": "Kenny Wu"

@@ -63,3 +63,10 @@ def test_quoted_test_words_are_not_a_check_but_inline_code_is():
 def test_pr_note_shows_command_without_subshell_env_prefix():
     from honestly import prnote
     assert prnote._show("HOME=$(mktemp -d) .venv/bin/python -m pytest -q") == ".venv/bin/python -m pytest -q"
+
+
+def test_group_or_pipe_quoted_in_an_argument_is_not_a_run():
+    notes = 'gh release create v1 --notes "- refuses \\`pytest |& tail\\` and \\`{ cd app && pytest; } | tail\\`.\n- see this release\'s PR (#4)" | tail -1'
+    assert not _deny(notes)
+    assert not _deny("git commit -m 'catch { pytest; } | tail' | head -1")
+    assert _deny('{ pytest -q; } | tail -3 && gh release create v1 --notes "done"')

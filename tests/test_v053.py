@@ -165,6 +165,7 @@ def test_notification_text_never_becomes_code(monkeypatch):
     calls = []
     import subprocess
     monkeypatch.setenv("HONESTLY_NOTIFY", "1")
+    monkeypatch.setattr(hooks, "_notify_due", lambda: True)   # this test is about escaping, not rate limiting
     monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw)))
     body = ",1);iex 'calc';# all tests pass \"quoted\" \\ back"
     monkeypatch.setattr(sys, "platform", "win32")

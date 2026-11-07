@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3 (2026-11-07)
+
+- Desktop notifications (`honestly guard notify on`) are limited to one every 30 seconds, so a burst of catches no longer stacks up dozens of them.
+- Fixes a false catch added in 0.6.2: a `{ ...; } | tail` group written inside a quoted argument (a release note, a commit message) was read as a command that runs. Groups are now looked for outside quotes only.
+
 ## 0.6.2 (2026-11-07)
 
 - **Claude Code plugin.** The repository is now also a plugin marketplace: `/plugin install honestly --marketplace kennywu411-dev/honestly` installs the two hooks plus `/honestly:pr-note` and `/honestly:catches`, running honestly from the plugin's own copy with no pip install. When `honestly guard install` has already added the hooks, the plugin's hooks step aside so a reply is not checked twice.
