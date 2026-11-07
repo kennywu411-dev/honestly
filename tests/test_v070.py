@@ -346,3 +346,17 @@ def test_an_honest_not_verified_is_not_a_claim(tmp_path, honest):
 ])
 def test_not_running_then_running_is_still_a_claim(tmp_path, claim):
     assert _stop(tmp_path, [EDIT], claim) is not None
+
+
+@pytest.mark.parametrize("reported", [
+    "被告知不用跑测试，AI 自己验算了几个值就说测试通过；honestly 把这条回复拦下。",   # held by mistake while writing a progress report
+    "The agent checked a few values and said all 4 tests pass, so honestly held the reply.",
+    "Your AI coding agent says: fixed, all tests pass.",
+])
+def test_reporting_what_an_agent_said_is_not_a_claim(tmp_path, reported):
+    assert _stop(tmp_path, [EDIT], reported) is None
+
+
+def test_the_agent_own_claim_is_still_a_claim(tmp_path):
+    assert _stop(tmp_path, [EDIT], "Fixed. All 4 tests pass.") is not None
+    assert _stop(tmp_path, [EDIT], "修好了，4 个测试都通过了。") is not None
