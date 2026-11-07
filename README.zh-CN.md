@@ -16,7 +16,7 @@
 
 助手改了 `login.py`，记得十分钟前测试是通过的，于是写下"修好了，12 个测试全部通过"。改完之后其实什么都没跑。这句话和真的一模一样，所以错误要到后面才暴露：CI 里、同事机器上、线上。"邮件已发给维护者""已部署到 staging""已保存到 report.csv""我查过文档了"也是同一回事。`honestly` 读取当前这一轮的记录，找到这句结论，在最后一次代码修改之后找对应的命令或工具调用，读它的输出，没有依据就拦下。全部是确定性规则，不调模型、不要 API key、不上传任何东西。
 
-## 一分钟装好
+## 一分钟安装
 
 作为 Claude Code 插件安装（不用 pip，只要系统里有 Python 3.9 以上的 `python3`），在 Claude Code 里输入：
 
@@ -51,7 +51,7 @@ honestly guard install --agent gemini    # ~/.gemini/settings.json
 honestly guard status                    # 四家一起看；guard uninstall [--agent …] 只删 honestly 自己写的条目
 ```
 
-## 拦到时你看到什么
+## 拦截时你会看到什么
 
 ![honestly 拦下一条没跑测试的"测试通过"](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo.zh.gif)
 
@@ -101,7 +101,7 @@ honestly guard notify on      # 每次拦截同时弹桌面通知（macOS、Linu
 
 子代理做的事也算：`Agent` 调用里跑的测试是主助手结论的依据，后台命令的输出从任务文件里读回来。和主助手并行运行的后台子代理所做的修改，不会让主助手自己的检查作废。
 
-## 按你的习惯调
+## 按你的习惯配置
 
 一次误拦的代价应该是一条命令，不是等下一版。
 
@@ -171,6 +171,16 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 ![honestly audit 在作者会话上的结果](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
 报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）。
+
+## 分享真实案例
+
+honestly 的规则只能和测试它的会话记录一样可靠，而这些记录大多来自一个开发者。其他人的真实案例是最有价值的贡献，每条大约两分钟：
+
+- **[拦对了](https://github.com/kennywu411-dev/honestly/issues/new?template=1-real-catch.yml)**：贴上 `honestly catches` 的输出。真实的拦截记录，是这个工具值得安装的证据。
+- **[误判](https://github.com/kennywu411-dev/honestly/issues/new?template=2-false-catch.yml)**：运行 `honestly feedback --issue`，打开它给出的预填链接。每一条都会变成回归测试。
+- **[漏判](https://github.com/kennywu411-dev/honestly/issues/new?template=3-missed-claim.yml)**：助手说"做完了"其实没做，honestly 却放过了。
+
+两个命令输出前都会先把家目录路径、token 和邮箱打码。除非你自己发出去，任何内容都不会上传。问题和建议请发到 [Discussions](https://github.com/kennywu411-dev/honestly/discussions)。
 
 ## 一条结论是怎么判的
 

@@ -1,1 +1,8 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/kennywu411-dev/honestly/discussions
+    about: How to set it up, whether it fits your workflow, what it should check next.
+  - name: Security issue
+    url: https://github.com/kennywu411-dev/honestly/security/advisories/new
+    about: Report privately, not in a public issue.

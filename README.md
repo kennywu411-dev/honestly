@@ -177,6 +177,16 @@ honestly share                # a card in ~/.honestly/ (SVG, plus PNG when Chrom
 
 The report breaks the number down by assistant and model, by project, by week (so you can see whether a new model or a new rule file changed anything), and lists why each *could not check* happened. Those are the author's own numbers with the 0.5.3 rules: 125 sessions, 334 of 352 decided claims verified. On the code claims: 167 verified, 16 flagged, 17 could not check, 10 judged only from a screenshot. On the non-code claims: 167 verified, 2 flagged, 63 could not check. One GitHub issue reports the same pattern from another team's logs: of 357 "tests pass" claims in 150 Claude Code sessions, [80 had no run behind them](https://github.com/anthropics/claude-code/issues/104504) (one team's sessions, not a population estimate, as the issue itself says).
 
+## Share a real case
+
+honestly's rules are only as good as the transcripts they were tested on, and most of those come from one developer. Real cases from other people's agents are the most useful contribution, and each takes about two minutes:
+
+- **[It caught something real](https://github.com/kennywu411-dev/honestly/issues/new?template=1-real-catch.yml)**: paste `honestly catches`. Real catches are the evidence that the tool is worth installing.
+- **[False catch](https://github.com/kennywu411-dev/honestly/issues/new?template=2-false-catch.yml)**: run `honestly feedback --issue` and open the pre-filled link. Each one becomes a regression test.
+- **[Missed claim](https://github.com/kennywu411-dev/honestly/issues/new?template=3-missed-claim.yml)**: the agent said "done" without doing it and honestly let it through.
+
+Both commands redact your home path, tokens and e-mail addresses before you see the text. Nothing is sent anywhere unless you post it yourself. Questions and ideas go to [Discussions](https://github.com/kennywu411-dev/honestly/discussions).
+
 ## How a claim is judged
 
 1. **Scope: one turn.** Everything the agent did between your prompt and its reply, including what its subagents did.
