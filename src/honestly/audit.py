@@ -66,6 +66,10 @@ ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brun
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 
 
+# "the new tests fail on main / failed before the fix": a failing run on the old code proves the test, it does not contradict the claim
+FAILS_BEFORE = re.compile(r"\bfail(?:s|ed|ing)? (?:on|against|without|before) (?:main|master|origin|the base|the old code|the fix)\b|(?:修复前|改之前|主分支上|main 上|旧代码上).{0,12}(?:失败|不通过|会挂)", re.I)
+
+
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output; fall back to exit status / pipes."""
     out = ev.result or ""
@@ -178,6 +182,13 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
                             v2, r2 = judge_output(hit.category, csegs[-1].text, cand, hit.sentence)
                             if v2 in ("backed", "contradicted"):
                                 last, seg, verdict, reason = cand, csegs[-1].text, v2, r2
+                                break
+                    if verdict == "contradicted" and FAILS_BEFORE.search(hit.sentence):
+                        for cand, csegs in reversed(verifying[:-1]):   # the claim itself says the old code fails: look for the passing run on the new code
+                            v2, r2 = judge_output(hit.category, csegs[-1].text, cand, hit.sentence)
+                            if v2 == "backed":
+                                last, seg, verdict = cand, csegs[-1].text, "backed"
+                                reason = "a run after the edit passed; the failing run was on the old code, as the claim says"
                                 break
             vb = locals().get("seg", "") if verdict in ("backed", "unverifiable", "contradicted") and edit_idx >= 0 else ""
             out_snip = (locals().get("last").result[:300].replace("\n", " ") if vb and locals().get("last") else "")

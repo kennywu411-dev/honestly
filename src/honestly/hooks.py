@@ -119,6 +119,17 @@ def _who_where(data: dict, turn, zh: bool) -> str:
     return who + where
 
 
+def _edited_name(last_edit: str) -> str:
+    """A short file name for the last edit; a shell command that changed files names its last file, or nothing."""
+    first = (last_edit or "").splitlines()[0] if last_edit else ""
+    kind, _, rest = first.partition(":")
+    rest = rest.strip()
+    if kind.strip().lower() == "bash":
+        files = re.findall(r"[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", QUOTED.sub(" ", rest))
+        return re.split(r"[\\/]", files[-1])[-1][:40] if files else ""
+    return re.split(r"[\\/]", rest)[-1][:40] if rest else ""
+
+
 STOP_NOUN = {"tests_pass": ("test", "测试"), "checks_pass": ("check", "检查"), "build_ok": ("build", "构建"), "rendered": ("render", "渲染"),
              "pushed": ("push", "推送"), "committed": ("commit", "提交")}
 
@@ -126,17 +137,16 @@ STOP_NOUN = {"tests_pass": ("test", "测试"), "checks_pass": ("check", "检查"
 def _plain_stop(f, zh: bool, who: str = "") -> str:
     """What the user sees. No jargon: what the agent said, what actually happened after its last edit, what happens next."""
     claim = re.sub(r"\s{2,}", " ", f.claim.strip().rstrip("。．.!！;；"))[:60]
-    edited = (f.last_edit.splitlines()[0] if f.last_edit else "")
-    edited = re.split(r"[\\/]", edited.split(":", 1)[-1].strip())[-1][:40] if edited else ""
+    edited = _edited_name(f.last_edit)
     en_noun, zh_noun = STOP_NOUN.get(f.category, ("test or check", "测试或检查"))
     failed = f.verdict == "contradicted"
     errored = not failed and "errored" in (f.reason or "")
     image_only = f.verdict == "weak"
     if zh:
         who = who or "AI"
-        if not edited:
+        if not f.last_edit:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
-        where = f"改完 {edited} 之后"
+        where = f"改完 {edited} 之后" if edited else "改完代码之后"
         if failed:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}结果显示失败。已要求其修复，或如实报告失败。"
         if errored:
@@ -147,9 +157,9 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}没有运行测试命令。已要求其先运行测试再回复。"
         return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}没有运行{zh_noun}。已要求其先运行再回复。"
     who = who or "the agent"
-    if not edited:
+    if not f.last_edit:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
-    where = f"after editing {edited}"
+    where = f"after editing {edited}" if edited else "after editing the code"
     if failed:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} reported a failure. It has been asked to fix it or report the failure.'
     if errored:

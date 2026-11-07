@@ -13,9 +13,9 @@ Hooks for Claude Code and Codex · deterministic rules, no model calls · nothin
 
 </div>
 
-![A real Claude Code session: the agent pipes pytest into tail, honestly refuses the command, the agent reruns it and only then says the tests pass](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-en.gif)
+![A real Claude Code session: asked to skip pytest, the agent checks a few values itself and says the tests pass; honestly holds the reply; the agent runs the tests and only then answers](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-en.gif)
 
-<sub>Real Claude Code session (Sonnet 5.5), captions added: the agent pipes pytest into tail, which hides failures; honestly refuses the command; the agent reruns it and reports the real result. Reproduce it with [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo).</sub>
+<sub>Real Claude Code session (Sonnet 5.5), captions added. Told it did not have to run pytest, the agent checked a few values itself and said all 4 tests pass. honestly held the reply because no test runner ran after the edit; the agent ran pytest, got 4 passed, and only then answered. Reproduce it with [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo).</sub>
 
 **Install:** `/plugin install honestly --marketplace kennywu411-dev/honestly` in Claude Code, or `pip install honestly && honestly guard install` for Codex and the CLI.
 
@@ -228,7 +228,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Their hooks are implemented from the vendors' documentation and covered by tests against the documented payloads, but have not yet been exercised on a real machine; `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off. `pr-note --gh` writes to your own pull request, and only when you run it.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 272 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 279 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 

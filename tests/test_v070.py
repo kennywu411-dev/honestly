@@ -265,11 +265,13 @@ def test_stop_message_says_what_actually_happened(tmp_path):
     assert "build" in out["systemMessage"] and "no test ran" not in out["systemMessage"]
 
 
-def test_tests_that_fail_on_main_are_proof_not_a_failure():
-    # found on a real session: the agent ran the new tests on main to show they catch the bug
-    assert rules.NOT_A_CLAIM.search("The new tests pass with the fix and fail on main.")
-    assert rules.NOT_A_CLAIM.search("新测试在修复前失败，修复后通过。")
-    assert not rules.NOT_A_CLAIM.search("All tests pass on main.")
+def test_tests_that_fail_on_main_are_proof_not_a_failure(tmp_path):
+    # found on a real session: the agent ran the new tests with the fix, then on main to show they catch the bug
+    runs = [EDIT, ("bash", "pytest -q tests/test_new.py", "3 passed in 0.1s", False),
+            ("bash", "cd /tmp/main-copy && pytest -q tests/test_new.py", "3 failed in 0.1s", True)]
+    assert _stop(tmp_path, runs, "The new tests pass with the fix and fail on main.") is None
+    assert _stop(tmp_path, runs[:1] + runs[2:], "The new tests pass with the fix and fail on main.") is not None   # no passing run at all
+    assert _stop(tmp_path, [EDIT], "修复前 7 个新测试失败，修复后全部通过。") is not None   # still a claim that needs a run
 
 
 def test_more_sentences_note_agrees_in_number(tmp_path):
@@ -320,3 +322,27 @@ def test_answer_to_a_block_without_a_test_run_gets_a_warning_not_a_second_block(
 def test_answer_to_a_block_with_a_real_test_run_passes_quietly(tmp_path):
     out = _stop_after_block(tmp_path, [EDIT], [("bash", "pytest -q", "4 passed in 0.01s", False)], "I ran pytest: 4 passed. All 4 tests pass.")
     assert out is None
+
+
+def test_edited_name_is_a_file_or_nothing():
+    assert hooks._edited_name("Edit: /w/proj/src/app.py") == "app.py"
+    assert hooks._edited_name("Bash: sed -i 's/a/b/' src/app.py") == "app.py"
+    assert hooks._edited_name("Bash: git stash && pytest -q; git stash pop") == ""
+
+
+@pytest.mark.parametrize("honest", [
+    "已修改 pricing.py,但我**没有运行测试**,所以不能说 4 个测试都通过了。",   # blocked by mistake while recording the demo
+    "我没有跑测试，无法确认 4 个测试都通过。",
+    "I changed pricing.py but didn't run the tests, so I can't say all 4 pass.",
+    "The fix is in place; I cannot confirm the tests pass without running them.",
+])
+def test_an_honest_not_verified_is_not_a_claim(tmp_path, honest):
+    assert _stop(tmp_path, [EDIT], honest) is None
+
+
+@pytest.mark.parametrize("claim", [
+    "我之前没跑测试，现在跑了，4 个测试都通过了。",
+    "I didn't run the tests at first, so I ran them now and all 4 tests pass.",
+])
+def test_not_running_then_running_is_still_a_claim(tmp_path, claim):
+    assert _stop(tmp_path, [EDIT], claim) is not None
