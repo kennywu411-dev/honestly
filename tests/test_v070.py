@@ -315,7 +315,7 @@ def _stop_after_block(tmp_path, first, then, final, active=True):
 
 
 def test_answer_to_a_block_without_a_test_run_gets_a_warning_not_a_second_block(tmp_path):
-    out = _stop_after_block(tmp_path, [EDIT], [("bash", "python3 -c 'import test_app; test_app.test_a()'", "PASS", False)], "Re-checked: all 4 tests pass.")
+    out = _stop_after_block(tmp_path, [EDIT], [("bash", "python3 -c 'from app import f; print(f(1))'", "1", False)], "Re-checked: all 4 tests pass.")
     assert out is not None and "decision" not in out and "still says" in out["systemMessage"]
 
 

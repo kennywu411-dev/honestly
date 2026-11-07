@@ -211,7 +211,8 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 | 2 | 22 | 10/19 | 11/21 | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
 | 6 | 12 | 12/12 | 11/11（+1 不确定） | 识别引号的多行切句；写文件的 heredoc 永远不算验证 |
 | 非代码 | 41 | 0/41 | 5/41 | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
-| 0.5.3（现行规则） | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
+| 0.5.3 | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
+| 0.7.0（现行规则） | 13 | 12/13 | 未做 | 逐条看过 0.6 规则在 60 天里标记的全部结论（65 条，219 个会话）；中途的进度说明、在别的仓库里的改动、只写临时目录的脚本、`>/dev/null` 以及十几种句式不再误标。只标了一遍，非盲标 |
 
 第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不误报。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
 
@@ -223,7 +224,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，283 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，356 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 

@@ -347,8 +347,12 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
             if not segs:
                 continue
             seg = segs[-1].text.strip().split("\n")[0]
-            if kind == "test" and commit_here and audit.SUMMARY_LINE.search(e.result or ""):
-                seg = "git commit"   # `ruff check x && git commit`: the test summary in the output is the commit hook's
+            if commit_here and audit.SUMMARY_LINE.search(e.result or ""):
+                # `ruff check x && git commit`: the test summary in the output is the commit hook's
+                ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
+                                       after_edit=same or i > last_edit_i >= 0))
+                found = True
+                break
             ev.checks.append(Check(kind, _show(seg)[:160], _judge(kind, seg, e), _summary_line(kind, e.result), ts,
                                    after_edit=same or i > last_edit_i >= 0))
             found = True

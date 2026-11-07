@@ -53,10 +53,10 @@ SPECS: dict[str, Spec] = {
 
 # Each claim regex is deliberately narrow: a completed, first-hand action, not a description or a plan.
 CLAIMS: list[tuple[str, re.Pattern]] = [
-    ("sent", re.compile(r"(已发送|发送成功|已发出|已回复|邮件已发|已发给你|发给你了|(图|截图|文件|对比图|视频|成片)已发|(已|已经)发到对话|发到对话里|\bsent (you|the|an|a|it|them|out|over)\b|\bI('ve| have)? ?(emailed|replied|posted)\b|\breplied to\b|\bposted (to|the|it|in)\b)", _I)),
-    ("deployed", re.compile(r"(已部署|部署成功|部署完成|已上线|上线成功|已发布到|发布成功|\bdeployed\b|\bis (now )?live\b|went live|\bpublished to\b)", _I)),
+    ("sent", re.compile(r"(已发送|发送成功|已发出|已回复|邮件已发|已发给你|发给你了|(图|截图|文件|对比图|视频|成片|抽帧图?)(已|已经)发|\bsent (you|the|an|a|it|them|out|over)\b|\bI('ve| have)? ?(emailed|replied|posted)\b|\breplied to\b|\bposted (to|the|it|in)\b)", _I)),
+    ("deployed", re.compile(r"(已部署|部署成功|部署完成|已上线|上线成功|已发布到|发布成功|(?<!forward )(?<!forward-)(?<!\bthe )(?<!\ba )(?<!\ban )(?<!\bour )(?<!\byour )(?<!\btheir )(?<!\bnewly )(?<!\bcurrently )\bdeployed\b(?!\s+(?:engineers?|engineering|models?|versions?|apps?|services?|systems?|roles?|positions?|instances?|environments?|code|state|contracts?|artifacts?|builds?)\b)|\bis (now )?live\b|went live|\bpublished to\b)", _I)),
     ("downloaded", re.compile(r"(已下载|下载完成|下载好了|下载成功|下载到了|\bdownloaded\b(?!\s+(?:data|files?|models?|assets?|imagery|copy|version|package|archive)\b))", _I)),
-    ("saved", re.compile(r"(已保存|保存到|保存在|已导出|导出到|已写入|写入了|已存到|存到了|已存为|已放到|放到了|\bsaved (to|at|as|in)\b|\bexported (to|as)\b|\bwritten to\b|\bwrote (it |them )?to\b)", _I)),
+    ("saved", re.compile(r"(已保存(?!的)|保存到|保存在(?!.{0,6}的)|已导出(?!的)|导出到|已写入(?!的)|写入了|已存到|存到了|已存为|已放到|放到了|\bsaved (to|at|as|in)\b|\bexported (to|as)\b|\bwritten to\b|\bwrote (it |them )?to\b)", _I)),
     ("scheduled", re.compile(r"((定时|任务|提醒|闹钟|cron|自动检查).{0,8}(已设好|已设定|已安排|已建好|已创建|设好了|建好了)|(已设好|已设定|已安排好?|已建好?|建好了|设好了).{0,8}(定时|任务|提醒|闹钟|自动检查)|定时任务(已|已经)?(建|设|创建|加)好?|已建(好)?定时|设置好了定时|已经定时|\bI('ve| have)? ?scheduled\b|\bscheduled (a|the|an|it)\b|cron (job )?(created|added|set up|installed))", _I)),
     ("checked", re.compile(r"(我核对过|核对过了|核实过|已核实|查过了|我查了|我查过|确认过了|我确认过|对照过|我核对了|已核对|翻过了|\bI('ve| have)? ?(checked|confirmed|looked (it )?up|double-checked|cross-checked|looked at|read through)\b|\bchecked against\b|\bverified against\b)", _I)),
 ]
@@ -79,7 +79,7 @@ def _shell_text(cmd: str) -> str:
     """The command itself without heredoc bodies: a script that *writes* the word curl is not a download."""
     from . import rules
     try:
-        return "\n".join(seg.text for seg in rules.segments(cmd) if not seg.heredoc)
+        return "\n".join(seg.text.split("\n", 1)[0] if seg.heredoc else seg.text for seg in rules.segments(cmd))   # keep `cat > f.md <<EOF`, drop the body
     except Exception:
         return cmd
 
@@ -96,9 +96,18 @@ def _hits(spec: Spec, tools: list, must_mention: str = "") -> list:
     return out
 
 
-def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None) -> tuple[str, str, str, str]:
+def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False) -> tuple[str, str, str, str]:
     """Return (verdict, reason, verified_by, output) for a non-code claim given the tool events earlier in the turn
-    (and the previous turn's tools: a reply often opens by summarising what the previous turn did)."""
+    (and the previous turn's tools: a reply often opens by summarising what the previous turn did).
+    `automated`: the turn answers a task notification or another session's message, and such a reply
+    usually summarises work from several turns back, so a missing action there is unverifiable, not unbacked."""
+    verdict = _judge(category, sentence, tools, opaque, prev_tools, remote)
+    if automated and verdict[0] == "unbacked":
+        return "unverifiable", "a reply to an automated message summarises earlier turns; " + verdict[1], verdict[2], verdict[3]
+    return verdict
+
+
+def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None) -> tuple[str, str, str, str]:
     spec = SPECS[category]
     tools = [t for t in tools if t.kind == "tool"]
     prev_tools = [t for t in (prev_tools or []) if t.kind == "tool"]
@@ -120,6 +129,14 @@ def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: li
             if not named:
                 if any(BROWSER_TOOL.search(t.name or "") for t in tools):
                     return "unverifiable", "saved through a browser; the file write is not on the transcript", "", ""
+                seen = [t for t in tools if t.name == "Bash" and EXISTS.search(t.text or "") and base in (t.text or "").lower() and not t.is_error]
+                if seen:   # `python3 make_chart.py && ls -la out/chart.png`: the script wrote it, `ls` shows it
+                    last = seen[-1]
+                    return "backed", f"file seen on disk: {last.name}: {(last.text or '')[:80]}", f"{last.name}: {(last.text or '')[:80]}", (last.result or "")[:300]
+                prev_named = [t for t in _hits(spec, [t for t in (prev_tools or []) if t.kind == "tool"], base) if not t.is_error]
+                if prev_named:
+                    last = prev_named[-1]
+                    return "backed", f"written in the previous turn: {last.name}: {(last.text or '')[:80]}", f"{last.name}: {(last.text or '')[:80]}", (last.result or "")[:300]
                 return "unbacked", f"nothing in this turn wrote {path.group(1)}", "", ""
             hits = named
     if category == "sent" and SEND_SELF.search(sentence):

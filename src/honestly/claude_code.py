@@ -139,7 +139,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                     str(b.get("text") or "") for b in content if isinstance(b, dict) and b.get("type") == "text")
                 if cur is not None:
                     turns.append(cur)
-                cur = Turn(session=session, index=len(turns), version=version, prompt=prompt[:200], ts=ts, project=project)
+                cur = Turn(session=session, index=len(turns), version=version, prompt=prompt[:2000], ts=ts, project=project)
         elif t == "assistant" and isinstance(content, list):
             if cur is None:
                 cur = Turn(session=session, index=0, version=version, prompt="", ts=ts)

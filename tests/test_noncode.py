@@ -106,6 +106,6 @@ def test_heredoc_body_is_not_evidence_and_previous_turn_must_name_the_file():
     prev = _turn(_tool("Bash", "python3 - <<'EOF'\nprint('notify-send curl -o x')\nopen('README.md','w').write('x')\nEOF"))
     cur = _turn(_tool("Bash", "ls docs"), Event("text", text="话术已保存到 docs/试用话术.md，并且已经发到对话里了。"))
     vs = _verdicts(cur, prev)
-    assert ("sent", "unbacked", "no send tool or command in this turn before the claim") in vs
+    assert not any(v[0] == "sent" for v in vs)   # "已经发到对话里了" means "it is in this reply", not a send
     cur2 = _turn(_tool("Bash", "ls docs"), Event("text", text="已保存到 docs/试用话术.md。"))
     assert ("saved", "unbacked", "nothing in this turn wrote docs/试用话术.md") in _verdicts(cur2, prev)
