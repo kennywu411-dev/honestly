@@ -439,7 +439,7 @@ READ_ONLY = re.compile(r"(gh (run|pr) (view|list|watch|checks)|statusCheckRollup
 
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
 NOT_A_RUN = rules.NOT_A_RUN
-GROUP_PIPE = re.compile(r"\{(?P<body>[^{}]*)\}(?:\s*\d?>&?\d?)*\s*\|&?\s*(?P<pipe>[^;&|]+)")   # a `{ ...; }` group piped into another command
+GROUP_PIPE = re.compile(r"\{(?P<body>[^{}]*)\}(?:\s*\d?>(?:&[\d-])?)*\s*\|&?\s*(?P<pipe>[^;&|]+)")   # a `{ ...; }` group piped into another command; a target fd only follows `&`, so `9>9>...` has one parse and cannot backtrack exponentially
 ENV_ASSIGN = re.compile(r"^(?:\s*\w+=\S*\s+)+")   # leading `VAR=value ` assignments; a quoted value is already blanked by QUOTED
 RUNNER = re.compile(r"\s*(?:\w+=\S+\s+)*(?:\S*/)?(?:python3?|uv|poetry|hatch|pipenv|node|npx|bun|deno|go|bash|sh|zsh|make|ruby|bundle|php|dotnet|swift|cargo)\b")
 SHELL_INLINE = re.compile(r"\s*(?:\S*/)?(?:bash|sh|zsh|dash)\s+(?:-\S+\s+)*?-[a-z]*c\b")   # `bash -c "..."`, `bash -e -lc "..."`: the quoted text runs

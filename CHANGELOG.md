@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The pre hook's pattern for a piped `{ ...; }` group no longer backtracks exponentially on a long run of redirections such as `9>9>9>...`; a 26-step run took 6 s and each extra step quadrupled it (CodeQL py/redos). `2>&-` is now recognised as a redirection, so `{ pytest; } 2>&- | head` is held like `2>&1 | head`.
+
 ## 0.7.0 (2026-11-07)
 
 A pre-release review reproduced every item below before it was fixed; each one is now a regression test (`tests/test_v070.py`, `tests/test_precision.py`).
