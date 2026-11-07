@@ -107,6 +107,32 @@ def test_a_run_that_collects_no_tests_does_not_back_a_pass_claim():
     assert audit.judge_output("tests_pass", "npx mocha", ev)[0] == "backed"
 
 
+@pytest.mark.parametrize("cmd, out", [
+    ("phpunit", "No tests executed!\n"),
+    ("dotnet test", "No test is available in /project/tests/bin/Debug/net8.0/tests.dll.\n"),
+    ("deno test", "ok | 0 passed | 0 failed (1ms)\n"),
+    ("bundle exec rspec", "0 examples, 0 failures\n"),
+])
+def test_more_runners_with_no_tests_do_not_back_a_pass_claim(cmd, out):
+    ev = Event("tool", name="Bash", text=cmd, result=out, is_error=False)
+    verdict, why = audit.judge_output("tests_pass", cmd, ev)
+    assert verdict == "unbacked" and "no tests" in why
+
+
+@pytest.mark.parametrize("cmd, out", [
+    ("phpunit", "OK (3 tests, 3 assertions)\n"),
+    ("dotnet test", "Passed! - Failed: 0, Passed: 3, Skipped: 0, Total: 3\n"),
+    ("deno test", "ok | 3 passed | 0 failed (1ms)\n"),
+    ("deno test", "ok | 10 passed | 0 failed (1ms)\n"),
+    ("bundle exec rspec", "1 example, 0 failures\n"),
+    ("bundle exec rspec", "5 examples, 0 failures\n"),
+    ("bundle exec rspec", "10 examples, 0 failures\n"),
+])
+def test_more_runners_with_passing_tests_still_back_a_pass_claim(cmd, out):
+    ev = Event("tool", name="Bash", text=cmd, result=out, is_error=False)
+    assert audit.judge_output("tests_pass", cmd, ev)[0] == "backed"
+
+
 # ---------------------------------------------------------------- pre hook
 def test_log_flags_do_not_disarm_the_pipe_check_and_listing_is_not_a_run():
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest --log-cli-level=INFO tests/ 2>&1 | tail -20"}}) is not None

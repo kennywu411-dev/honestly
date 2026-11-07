@@ -19,7 +19,7 @@ CASES = [
     ("App.java", "./mvnw test", "Tests run: 14, Failures: 0, Errors: 0, Skipped: 0\nBUILD SUCCESS", "14 tests pass", "backed"),
     ("App.java", "./mvnw test", "Tests run: 14, Failures: 2, Errors: 0", "tests pass", "contradicted"),
     ("Program.cs", "dotnet test", "Passed!  - Failed:     0, Passed:     9, Skipped:     0", "9 tests pass", "backed"),
-    ("lib/x.rb", "bundle exec rspec", "20 examples, 0 failures", "tests pass", "unverifiable"),  # no recognised summary line → not claimed as a pass
+    ("lib/x.rb", "bundle exec rspec", "20 examples, 0 failures", "tests pass", "backed"),
     ("src/a.ts", "npx tsc --noEmit", "", "类型检查通过", "backed"),
     ("src/a.ts", "npx tsc --noEmit", "src/a.ts(3,5): error TS2322: Type 'string' is not assignable", "类型检查通过", "contradicted"),
     ("main.go", "go vet ./...", "", "check passed", "backed"),
