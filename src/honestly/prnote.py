@@ -278,7 +278,7 @@ def _edit_place(e, turn) -> tuple:
 
 
 SHELL_WORDS = {"done", "fi", "then", "do", "else", "esac", "EOF"}
-ENV_PREFIX = re.compile(r"^(\s*(?:export\s+)?\w+=(\"[^\"]*\"|'[^']*'|\S+)\s+)+")
+ENV_PREFIX = re.compile(r"^(\s*(?:export\s+)?\w+=(\$\([^)]*\)|\"[^\"]*\"|'[^']*'|\S+)\s+)+")   # `HOME=$(mktemp -d) pytest` shows as `pytest`
 
 
 def _show(seg: str) -> str:

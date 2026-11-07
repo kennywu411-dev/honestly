@@ -320,6 +320,7 @@ READ_ONLY = re.compile(r"(gh (run|pr) (view|list|watch|checks)|statusCheckRollup
 
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
 NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig)")
+GROUP_PIPE = re.compile(r"\{(?P<body>[^{}]*)\}(?:\s*\d?>&?\d?)*\s*\|&?\s*(?P<pipe>[^;&|]+)")   # a `{ ...; }` group piped into another command
 ENV_ASSIGN = re.compile(r"^(?:\s*\w+=\S*\s+)+")   # leading `VAR=value ` assignments; a quoted value is already blanked by QUOTED
 RUNNER = re.compile(r"\s*(?:\w+=\S+\s+)*(?:\S*/)?(?:python3?|uv|poetry|hatch|pipenv|node|npx|bun|deno|go|bash|sh|zsh|make|ruby|bundle|php|dotnet|swift|cargo)\b")
 
@@ -344,7 +345,9 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     if cfg.get("strictness") == "lenient":
         return None
     cmd = (data.get("tool_input") or {}).get("command", "") or ""
-    for seg in rules.segments(cmd):
+    # `{ cd app && pytest; } | tail`: the group's pipe applies to each command inside it
+    flat = GROUP_PIPE.sub(lambda m: " ; ".join(f"{g.text} | {m.group('pipe')}" for g in rules.segments(m.group("body"))), cmd)
+    for seg in rules.segments(flat):
         t = rules.COMMIT_MSG.sub("", seg.text)   # text quoted in a commit message is not a command
         if not re.match(r"\s*(?:\S*/)?(?:bash|sh|zsh|dash)\s+-l?c\b", t):
             t = QUOTED.sub(" ", t)   # `codex exec "run pytest | tail"`: a quoted test command is an argument, not a pipeline that runs here

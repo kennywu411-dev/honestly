@@ -12,6 +12,16 @@
 
 ## 一分钟装好
 
+作为 Claude Code 插件安装（不用 pip，只要系统里有 Python 3.9 以上的 `python3`），在 Claude Code 里输入：
+
+```
+/plugin install honestly --marketplace kennywu411-dev/honestly
+```
+
+Claude Code 低于 2.1.275 时分两步：先 `/plugin marketplace add kennywu411-dev/honestly`，再 `/plugin install honestly@honestly`。插件会装上两个 hook，以及 `/honestly:pr-note` 和 `/honestly:catches` 两个命令。
+
+或者用 pip 安装，这样还有 `honestly` 命令可用，支持 Codex、Cursor、Gemini CLI、历史审计和 `pr-note`：
+
 ```bash
 pip install honestly            # Python 3.9+，只用标准库（pipx install honestly / uv tool install honestly 也行）
 honestly guard install          # 往 ~/.claude/settings.json 写两个 hook（--dry-run 先看会写什么）
@@ -117,6 +127,10 @@ honestly feedback                        # 最近一次；honestly feedback 2 �
 
 PR 描述里 agent 写的「测试全部通过」只是它的一句话。`honestly pr-note` 换成记录里真实发生的事：这个分支最后一次改代码、之后跑过的每个测试和构建、各自打印的汇总行，以及哪些结论没有任何依据。
 
+![honestly pr-note 写进本项目 0.6.2 PR 的证据块](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/pr-note.png)
+
+<sub>本项目自己 [0.6.2 的 PR](https://github.com/kennywu411-dev/honestly/pull/4) 里的证据块。</sub>
+
 ```bash
 gh pr create --fill          # 或者让 agent 自己开
 honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再改再跑，会替换旧的那块
@@ -185,7 +199,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，147 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，153 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 

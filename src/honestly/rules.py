@@ -313,13 +313,17 @@ VERIFY = {
     "commit": re.compile(r"(git commit|git tag)", re.I),
     "run": re.compile(r"(python3? (-I )?\S+\.py|python3? -m (?!http)|python3? -c|python3? - <<|node \S+\.(m?js|ts)|node --check|npx (?!remotion)\S+|\bcurl\b|bash \S+\.sh|\bsh \S+\.sh|\./\S+|cargo run|go run|\bmake\b|docker (build|compose up|run)|kaggle kernels (status|output)|uv run (python|pytest|ruff|mypy|-q python|-q pytest)|\.venv/bin/python)", re.I),
 }
-PIPE_SWALLOW = re.compile(r"\|\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more)\b")   # the pipeline exits with the last command's status
+PIPE_SWALLOW = re.compile(r"\|&?\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more)\b")   # the pipeline exits with the last command's status (`|&` pipes stderr too)
 NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pytest[^|\n]*\s[\w/]+\.py::|pytest\s+[\w/]+\.py\b)", re.I)
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
 NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|\bdev\b|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
+
+
+INTERP_INLINE = re.compile(r"(?:^|[\s/])(?:bash|sh|zsh|dash|python[\d.]*|node|bun|deno|ruby|perl)\s+(?:-\w+\s+)*-l?[ce]\b")
+QUOTED_ARG = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
 
 
 def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
@@ -337,6 +341,8 @@ def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
             continue
         if SERVER.search(probe) and not re.search(r"(pytest|test|check)", probe):
             continue
+        if not INTERP_INLINE.search(probe):   # `uv run python -c "..."`, `bash -c "..."`: the quoted text is what runs
+            probe = QUOTED_ARG.sub(" ", probe)   # `gh pr create --title "... pytest ..."` names a test tool but runs none
         if any(VERIFY[k].search(probe) for k in kinds if k in VERIFY):
             out.append(s)
     return out
