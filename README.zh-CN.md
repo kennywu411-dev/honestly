@@ -13,9 +13,9 @@ honestly 会确认 AI 在最后一次改代码之后真正运行过检查，否�
 
 </div>
 
-![真实的 Claude Code 会话：AI 把 pytest 接进 tail，honestly 拒绝执行，AI 重跑之后才说测试通过](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-zh.gif)
+![真实的 Claude Code 会话：被告知不用跑 pytest，AI 自己验算了几个值就说测试通过；honestly 拦下回复；AI 运行测试后才回答](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-zh.gif)
 
-<sub>真实的 Claude Code 会话（Sonnet 5.5），只加了字幕：AI 把 pytest 的输出通过管道交给 tail，测试失败也看不出来；honestly 拒绝执行这条命令；AI 改用能显示真实结果的方式重跑并报告结果。可用 [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo) 复现。</sub>
+<sub>真实的 Claude Code 会话（Sonnet 5.5），只加了中文字幕。被告知不用跑 pytest，AI 自己验算了几个值，就说 4 个测试都通过了。honestly 因为改完代码之后没有运行测试命令而拦下回复；AI 随后运行 pytest，得到 4 passed，这才回答。可用 [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo) 复现。</sub>
 
 **安装：**在 Claude Code 里输入 `/plugin install honestly --marketplace kennywu411-dev/honestly`；用 Codex 或命令行则 `pip install honestly && honestly guard install`。
 
