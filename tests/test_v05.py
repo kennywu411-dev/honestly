@@ -63,7 +63,7 @@ def test_strictness_changes_what_guard_blocks(tmp_path, monkeypatch):
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | tail"}, "cwd": str(tmp_path / "proj")}) is None
         config.set_value("strictness", "strict"); config.set_value("language", "en")
         out = hooks.stop_hook(dict(data))
-        assert out["decision"] == "block" and "stepped in" in out["systemMessage"]   # language forced to English
+        assert out["decision"] == "block" and "blocked this reply" in out["systemMessage"]   # language forced to English
         assert "strict" in config.show()
     finally:
         config.apply(config.DEFAULTS)

@@ -186,10 +186,10 @@ def test_hook_blocks_carry_a_plain_language_message_for_the_user():
         for r in rows: fh.write(json.dumps(r, ensure_ascii=False) + "\n")
     out = hooks.stop_hook({"transcript_path": p, "cwd": "/Users/me/Documents/shop-api", "last_assistant_message": "登录接口的 bug 已修复，12 个测试全部通过。", "stop_hook_active": False})
     assert out["decision"] == "block"
-    assert out["systemMessage"].startswith("⚠️ honestly 拦了一下：Claude Code（m）在「shop-api」项目回复「fix it」这个问题时说「登录接口的 bug 已修复") and "login.py" in out["systemMessage"]
-    assert out["reason"].startswith("⚠️ honestly 拦了一下") and "给助手" in out["reason"]   # user line first, then one line for the agent
+    assert out["systemMessage"].startswith("⚠️ honestly 已拦截：Claude Code（m）在「shop-api」项目回复「fix it」这个问题时声称「登录接口的 bug 已修复") and "login.py" in out["systemMessage"]
+    assert out["reason"].startswith("⚠️ honestly 已拦截") and "给助手" in out["reason"]   # user line first, then one line for the agent
     pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}, "transcript_path": p, "cwd": "/Users/me/Documents/shop-api"})
-    assert pre["systemMessage"].startswith('⚠️ honestly stepped in: Claude Code (m) in project shop-api, answering "fix it" piped pytest through tail')
+    assert pre["systemMessage"].startswith('⚠️ honestly blocked this command: Claude Code (m) in project shop-api, answering "fix it" piped pytest through tail')
 
 
 def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):

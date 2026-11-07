@@ -2,15 +2,17 @@
 
 [![tests](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml/badge.svg)](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml) [![PyPI](https://img.shields.io/pypi/v/honestly)](https://pypi.org/project/honestly/) ![python](https://img.shields.io/badge/python-3.9%2B-blue) ![deps](https://img.shields.io/badge/dependencies-none-success)
 
-**Coding agents report "tests pass", "fixed", "sent", "deployed" without always doing it. `honestly` checks, at the moment the sentence is written, whether the action behind it actually ran in that turn, and stops the reply when it did not.**
+**AI coding agents sometimes say "tests pass" or "fixed" without having checked. `honestly` notices and holds that reply until the agent actually runs the check.**
+
+<sub>Hooks for Claude Code and Codex (Cursor and Gemini CLI experimental). Deterministic rules, no model calls, nothing leaves your machine.</sub>
 
 ![A real Claude Code session: the agent pipes pytest into tail, honestly refuses the command, the agent reruns it and only then says the tests pass](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-en.gif)
 
-<sub>A real Claude Code session (Sonnet 5.5) on a toy repo. Only the captions, a pause on the block and the trimmed ending were added. The agent piped pytest into tail, which hides a failure; honestly refused the command before it ran, and the agent reran it so the real result showed. [中文演示](README.zh-CN.md)</sub>
+<sub>Real Claude Code session (Sonnet 5.5), captions added: the agent pipes pytest into tail, which hides failures; honestly refuses the command; the agent reruns it and reports the real result. Reproduce it with [`demo/`](demo/). [中文演示](README.zh-CN.md)</sub>
 
-Install inside Claude Code: `/plugin install honestly --marketplace kennywu411-dev/honestly`
+**Install:** `/plugin install honestly --marketplace kennywu411-dev/honestly` in Claude Code, or `pip install honestly && honestly guard install` for Codex and the CLI.
 
-## The problem, in one paragraph
+## Why
 
 An agent edits `login.py`, remembers that the tests passed ten minutes ago, and writes *"Fixed, all 12 tests pass"*. Nothing was run after the edit. The reply looks identical to a true one, so the mistake surfaces later: in CI, on a colleague's machine, in production. The same happens with *"I've emailed the maintainer"*, *"deployed to staging"*, *"saved to report.csv"*, *"I checked the docs"*. `honestly` reads the transcript of the current turn, finds the claim, looks for the matching command or tool call after the last code edit, reads its output, and blocks the claim when there is nothing behind it. Deterministic rules, no model, no API key, nothing leaves your machine.
 
@@ -56,9 +58,9 @@ honestly guard status                    # all four at once; `guard uninstall [-
 The hook writes one plain sentence into the chat, in the language of the conversation, naming the assistant, the model, the project and the conversation:
 
 ```
-⚠️ honestly stepped in: Claude Code (claude-opus-5-5) in project docpilot, answering "fix the login bug"
+⚠️ honestly blocked this reply: Claude Code (claude-opus-5-5) in project docpilot, answering "fix the login bug"
 said "Fixed the login bug, all 12 tests pass" but ran no check after editing login.py.
-It has been told to run one first.
+It has been asked to run one first.
 ```
 
 The agent is told to do the thing now and report the real output, or to rewrite the sentence as *changed, not yet verified*. Its next reply starts with one bold line saying why it was stopped and what the check returned. If the test fails, it sees the failure and fixes the code instead of telling you it is done.
@@ -173,7 +175,7 @@ honestly share                # a card in ~/.honestly/ (SVG, plus PNG when Chrom
 
 ![honestly audit on the author's sessions](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
-The report breaks the number down by assistant and model, by project, by week (so you can see whether a new model or a new rule file changed anything), and lists why each *could not check* happened. Those are the author's own numbers with the 0.5.3 rules: 125 sessions, 334 of 352 decided claims verified. On the code claims: 167 verified, 16 flagged, 17 could not check, 10 judged only from a screenshot. On the non-code claims: 167 verified, 2 flagged, 63 could not check. One GitHub issue reports the same pattern from another team's logs: of 357 "tests pass" claims in 150 Claude Code sessions, [80 had no run behind them](https://github.com/anthropics/claude-code/issues/104504) (one team's sessions, not a population estimate, as the issue itself says); a benchmark reports it on ML tasks ([57% of frontier-agent runs take a planted shortcut](https://arxiv.org/abs/2608.30724), and telling the agent not to barely helps).
+The report breaks the number down by assistant and model, by project, by week (so you can see whether a new model or a new rule file changed anything), and lists why each *could not check* happened. Those are the author's own numbers with the 0.5.3 rules: 125 sessions, 334 of 352 decided claims verified. On the code claims: 167 verified, 16 flagged, 17 could not check, 10 judged only from a screenshot. On the non-code claims: 167 verified, 2 flagged, 63 could not check. One GitHub issue reports the same pattern from another team's logs: of 357 "tests pass" claims in 150 Claude Code sessions, [80 had no run behind them](https://github.com/anthropics/claude-code/issues/104504) (one team's sessions, not a population estimate, as the issue itself says).
 
 ## How a claim is judged
 
@@ -193,8 +195,8 @@ Every rule change was followed by a labelling round over every claim the audit f
 
 | Round | Flagged `unverified` | Precision, pass 1 (author) | Precision, pass 2 (LLM agent, blind) | What was fixed next |
 |---|---|---|---|---|
-| 1 | 38 | 18/32 (56%) | 22/32 (69%) | doc/log/memory edits counted as code edits; versioned `hyperframes@x check` missed |
-| 2 | 22 | 10/19 (53%) | 11/21 (52%) | variable paths, `.agent/state.json`, heredoc bodies; judge output by the last summary line |
+| 1 | 38 | 18/32 | 22/32 | doc/log/memory edits counted as code edits; versioned `hyperframes@x check` missed |
+| 2 | 22 | 10/19 | 11/21 | variable paths, `.agent/state.json`, heredoc bodies; judge output by the last summary line |
 | 6 | 12 | 12/12 | 11/11 (+1 unsure) | quote-aware multi-line splitting; writing heredocs never count as verification |
 | non-code | 41 | 0/41 | 5/41 | summaries, previous-turn work and background jobs were being flagged; now structural rules, 0 flags on the same logs |
 | 0.5.3 (current rules) | 18 | 14/18 correct, 4 unsure, 0 wrong | not done | the 0.5.3 fixes; one pass only, not blind |

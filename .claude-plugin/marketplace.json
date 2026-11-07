@@ -3,12 +3,12 @@
   "owner": {
     "name": "Kenny Wu"
   },
-  "description": "honestly: verification hooks for coding agents.",
+  "description": "honestly: blocks unverified \"tests pass\" claims from coding agents.",
   "plugins": [
     {
       "name": "honestly",
       "source": "./",
-      "description": "Stops unbacked 'done' claims from your coding agent and puts the real test evidence into the PR."
+      "description": "Blocks \"tests pass\" / \"fixed\" / \"pushed\" replies with no check after the last edit, refuses test runs piped through tail, and writes the real test evidence into your PR."
     }
   ]
 }

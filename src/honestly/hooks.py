@@ -92,12 +92,12 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     if zh:
         where = f"改完 {edited} 之后" if edited else "改完代码之后"
         if not edited:
-            return f"⚠️ honestly 拦了一下：{who or 'AI'}说「{claim}」，但这一轮的记录里没有做这件事的动作。已经要求它先做了再说。"
-        return f"⚠️ honestly 拦了一下：{who or 'AI'}说「{claim}」，但{where}没有跑过任何检查。已经要求它先跑了再说。"
+            return f"⚠️ honestly 已拦截：{who or 'AI'}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
+        return f"⚠️ honestly 已拦截：{who or 'AI'}声称「{claim}」，但{where}没有运行任何检查。已要求其先运行检查再回复。"
     where = f"after editing {edited}" if edited else "after editing the code"
     if not edited:
-        return f'⚠️ honestly stepped in: {who or "the agent"} said "{claim}" but nothing in this turn did that. It has been told to do it first.'
-    return f'⚠️ honestly stepped in: {who or "the agent"} said "{claim}" but ran no check {where}. It has been told to run one first.'
+        return f'⚠️ honestly blocked this reply: {who or "the agent"} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
+    return f'⚠️ honestly blocked this reply: {who or "the agent"} said "{claim}" but ran no check {where}. It has been asked to run one first.'
 
 
 def _pipe_name(cmd: str) -> str:
@@ -109,10 +109,10 @@ def _plain_pre(cmd: str, zh: bool, who: str = "") -> str:
     m = re.search(r"(pytest|npm test|npm run \w+|cargo test|go test|make \w+|yarn test|pnpm test|mvn \w+|gradle \w+|ruff|mypy|tsc|eslint)", cmd)
     pipe = _pipe_name(cmd)
     if zh:
-        what = f"把 {m.group(1)} 的结果接进了 {pipe}" if m else f"把检查命令的结果接进了 {pipe}"
-        return f"⚠️ honestly 拦了一下：{who or 'AI'}{what}，失败也会显示得像通过。已经要求它改成能看到真实结果的写法。"
+        what = f"将 {m.group(1)} 的输出通过管道交给了 {pipe}" if m else f"将检查命令的输出通过管道交给了 {pipe}"
+        return f"⚠️ honestly 已拦截该命令：{who or 'AI'}{what}，测试失败时也会显示为通过。已要求其改用能显示真实结果的方式运行。"
     what = f"piped {m.group(1)} through {pipe}" if m else f"piped a check through {pipe}"
-    return f"⚠️ honestly stepped in: {who or 'the agent'} {what}, so a failure would look like a pass. It has been told to run it so the real result is visible."
+    return f"⚠️ honestly blocked this command: {who or 'the agent'} {what}, so a failure would look like a pass. It has been asked to rerun it so the real result is visible."
 
 
 def _notify(title: str, body: str) -> None:
@@ -261,7 +261,7 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
     by_model = Counter((AGENT_NAMES.get(r.get("agent", ""), r.get("agent", "")) + " " + r.get("model", "")).strip() for r in rows)
     n = len(rows)
     if zh:
-        lines = [f"honestly guard：{window}拦了 {n} 次",
+        lines = [f"honestly guard：{window}已拦截 {n} 次",
                  f"  {stop:3}  说「做完了」（测试通过、修好了、已发送、已部署、已保存…）但记录里没做",
                  f"  {pre:3}  检查命令的结果被截断（接了 tail/head/grep 又没加 pipefail）", "", "按项目："]
     else:
@@ -278,10 +278,10 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
         lines.append(f"  {local_time(r.get('ts', ''))}  {r.get('message', '')[:160]}")
     lines.append("")
     if zh:
-        lines.append(f"可以直接发的一句话：honestly 在{window}拦住了我的 AI 助手 {n} 次，都是没检查就说「做完了」。")
-        lines.append("拦错了？honestly feedback 一条命令整理成反馈。")
+        lines.append(f"可以直接分享的一句话：honestly 在{window}拦截了 AI 助手 {n} 次未经检查就报告「已完成」的回复。")
+        lines.append("认为是误判？运行 honestly feedback 生成反馈。")
     else:
-        lines.append(f"One line to share: honestly stopped my coding agent {n} time{'s' if n != 1 else ''} in the {window} from saying \"done\" without checking.")
+        lines.append(f"One line to share: honestly blocked my coding agent {n} time{'s' if n != 1 else ''} in the {window} from saying \"done\" without checking.")
         lines.append("A catch looks wrong? `honestly feedback` turns it into an issue-ready text.")
     return "\n".join(lines)
 
@@ -329,8 +329,8 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
     # Claude Code shows `reason` to the user as "Stop hook feedback", so the plain sentence goes first and the
     # instruction to the agent is one short line in the same language.
     if zh:
-        ask = ("给助手：现在就做那件事（跑测试 / 构建 / 渲染 / 推送 / 发送 / 保存 / 查证）并报告真实输出，做不了就把那句话改成「已修改，尚未验证」。"
-               "回复第一行用加粗写明：被拦的原因和补跑的结果。")
+        ask = ("给助手：请立即执行对应操作（运行测试 / 构建 / 渲染 / 推送 / 发送 / 保存 / 查证）并报告真实输出；无法执行时，把该句改为「已修改，尚未验证」。"
+               "回复第一行用加粗写明：被拦截的原因和补跑结果。")
     else:
         ask = ("To the agent: do it now (run the tests / build / render / push / send / save / look it up) and report the real output, or rewrite the sentence as "
                "unverified. Start your reply with one bold line: why you were stopped and what the check returned.")
@@ -404,7 +404,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             _record("pre", data, turn, plain, command=t)
             _notify("honestly", plain)
             pipe = _pipe_name(t)
-            fix = (f"给助手：把命令前面加上 `set -o pipefail;`，或者去掉 `| {pipe}` 直接读最后一行汇总。" if zh else
+            fix = (f"给助手：请在命令前加上 `set -o pipefail;`，或去掉 `| {pipe}`，直接读取最后一行汇总。" if zh else
                    f"To the agent: prefix the command with `set -o pipefail;`, or drop the `| {pipe}` and read the summary line.")
             return agents.emit(agent, "pre", plain, fix)
     return None

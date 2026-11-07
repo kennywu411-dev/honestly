@@ -82,7 +82,7 @@ def test_catches_report_in_chinese(tmp_path, monkeypatch):
     hooks._record("stop", {"cwd": "/x/proj"}, None, "msg", claim="c", reason="r")
     hooks._record("pre", {"cwd": "/x/proj"}, None, "msg2", command="pytest | tail")
     zh = hooks.catches_report(7, zh=True); en = hooks.catches_report(7, zh=False)
-    assert "拦了 2 次" in zh and "按项目" in zh and "honestly feedback" in zh
+    assert "已拦截 2 次" in zh and "按项目" in zh and "honestly feedback" in zh
     assert "2 catches" in en and "By project" in en
 
 

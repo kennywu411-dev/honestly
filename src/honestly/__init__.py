@@ -1,2 +1,2 @@
-"""honestly: audit how often your coding agent claims work it never verified."""
-__version__ = "0.6.3"
+"""honestly: block unverified "tests pass / fixed / pushed" claims from coding agents, and audit past sessions."""
+__version__ = "0.6.4"

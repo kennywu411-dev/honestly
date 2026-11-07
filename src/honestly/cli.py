@@ -277,7 +277,7 @@ def main(argv=None):
             except Exception:
                 pass
     from . import __version__
-    p = argparse.ArgumentParser(prog="honestly", description="Audit how often your coding agent verified what it claimed.")
+    p = argparse.ArgumentParser(prog="honestly", description="Block unverified \"tests pass / fixed / pushed\" claims from coding agents, and audit past sessions.")
     p.add_argument("--version", action="version", version=f"honestly {__version__}")
     sub = p.add_subparsers(dest="cmd", required=False)
     pa = sub.add_parser("audit", help="scan Claude Code, Codex, Cursor and Gemini CLI session logs and print the report")

@@ -166,7 +166,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     for name, passed, msg in self_test():
         what = {"code": L("a fake 'All tests pass.' right after an edit, no test run", "伪造一句改完代码就说「All tests pass.」，没跑测试"),
                 "non-code": L("a fake 'I've sent you the report.' with no send tool", "伪造一句「I've sent you the report.」，没有发送动作")}[name]
-        lines.append(f"{ok if passed else bad}" + L(f"self-test ({name}): {what} → {'blocked' if passed else 'NOT blocked'}", f"自测（{'代码' if name == 'code' else '非代码'}）：{what} → {'已拦' if passed else '没拦'}"))
+        lines.append(f"{ok if passed else bad}" + L(f"self-test ({name}): {what} → {'blocked' if passed else 'NOT blocked'}", f"自测（{'代码' if name == 'code' else '非代码'}）：{what} → {'已拦截' if passed else '未拦截'}"))
         if not passed:
             problems.append(L(f"the {name} self-test was not blocked; run `honestly feedback --issue` and attach this output", f"{name} 自测没被拦；运行 honestly feedback --issue 并附上这段输出"))
     ep = hooks.errors_path()
@@ -181,9 +181,9 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         if "Traceback" in tail:
             lines.append(f"{warn}" + L(f"the hooks hit an internal error before (they let the assistant continue); last entry in {ep}:", f"hook 之前出过内部错误（当时直接放行了）；{ep} 的最后一条："))
             lines += ["         " + l for l in tail.strip().splitlines()[-4:]]
-            problems.append(L("send that log entry with `honestly feedback --issue`", "把这条日志用 honestly feedback --issue 发过来"))
+            problems.append(L("send that log entry with `honestly feedback --issue`", "请用 honestly feedback --issue 提交这条日志"))
         else:
-            lines.append(f"{ok}" + L(f"the hooks let some input through unchecked (not an error); last note in {ep}:", f"hook 有几次没看就放行了（不是错误）；{ep} 的最后一条："))
+            lines.append(f"{ok}" + L(f"the hooks let some input through unchecked (not an error); last note in {ep}:", f"hook 有部分输入未检查直接放行（非错误）；{ep} 的最后一条："))
             lines += ["         " + l for l in tail.strip().splitlines()[-1:]]
     rows = hooks.load_catches()
     lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {hooks.local_time(rows[-1].get('ts', ''))}" if rows else "") + f"  ({hooks.catches_path()})")
@@ -207,7 +207,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         lines.append(L(f"{len(problems)} problem(s):", f"{len(problems)} 个问题："))
         lines += [f"  - {p}" for p in problems]
     else:
-        lines.append(L("all good: guard is installed and blocking.", "一切正常：guard 已装上并且能拦。"))
+        lines.append(L("all good: guard is installed and blocking.", "一切正常：guard 已安装并能正常拦截。"))
     text = "\n".join(lines)
     return (text, problems) if with_problems else text
 
@@ -280,7 +280,7 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 - 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先在这一轮里跑对应的命令，并引用它的真实输出。没跑就不能说。
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
 - 测试或构建命令不要接 `tail` / `head` 又不加 `set -o pipefail`，截断的结果会把失败藏起来。
-- 被 honestly 拦下后，下一条回复第一行用加粗写明：为什么被拦、补跑的结果是什么。
+- 被 honestly 拦截后，下一条回复第一行用加粗写明：被拦截的原因和补跑结果。
 - 开或更新 pull request 之后运行 `honestly pr-note --gh`（或把 `honestly pr-note` 的输出放进描述），让审阅者看到最后一次改动之后跑了什么。
 """
 RULE_FILES = {"claude-code": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.md", "cursor": os.path.join(".cursor", "rules", "honestly.mdc")}

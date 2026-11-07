@@ -2,15 +2,17 @@
 
 [![tests](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml/badge.svg)](https://github.com/kennywu411-dev/honestly/actions/workflows/tests.yml) [![PyPI](https://img.shields.io/pypi/v/honestly)](https://pypi.org/project/honestly/) ![python](https://img.shields.io/badge/python-3.9%2B-blue) ![deps](https://img.shields.io/badge/dependencies-none-success)
 
-**AI 编程助手报告的"测试通过、已修复、已发送、已部署"，有一部分从未实际执行。`honestly` 在这句话写出来的那一刻，核对这一轮记录里有没有对应的动作，没有就拦下回复。**
+**AI 编程助手有时没做检查就说"测试通过""已修复"。`honestly` 会发现这种情况并拦下这条回复，直到它真正运行检查。**
+
+<sub>支持 Claude Code 和 Codex（Cursor、Gemini CLI 为实验性支持）。确定性规则，不调用模型，数据不离开你的电脑。</sub>
 
 ![真实的 Claude Code 会话：AI 把 pytest 接进 tail，honestly 拒绝执行，AI 重跑之后才说测试通过](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-zh.gif)
 
-<sub>真实的 Claude Code 会话（Sonnet 5.5），在一个演示用的小仓库里录制。只加了字幕、在拦截处停顿了一下、剪掉了结尾。AI 把 pytest 接进了 tail，这样测试失败也看不出来；honestly 在命令执行前拒绝了它，AI 改成能看到真实结果的跑法重跑。</sub>
+<sub>真实的 Claude Code 会话（Sonnet 5.5），只加了字幕：AI 把 pytest 的输出通过管道交给 tail，测试失败也看不出来；honestly 拒绝执行这条命令；AI 改用能显示真实结果的方式重跑并报告结果。可用 [`demo/`](demo/) 复现。[English demo](README.md)</sub>
 
-在 Claude Code 里一行安装：`/plugin install honestly --marketplace kennywu411-dev/honestly`
+**安装：**在 Claude Code 里输入 `/plugin install honestly --marketplace kennywu411-dev/honestly`；用 Codex 或命令行则 `pip install honestly && honestly guard install`。
 
-## 它解决什么问题
+## 为什么需要它
 
 助手改了 `login.py`，记得十分钟前测试是通过的，于是写下"修好了，12 个测试全部通过"。改完之后其实什么都没跑。这句话和真的一模一样，所以错误要到后面才暴露：CI 里、同事机器上、线上。"邮件已发给维护者""已部署到 staging""已保存到 report.csv""我查过文档了"也是同一回事。`honestly` 读取当前这一轮的记录，找到这句结论，在最后一次代码修改之后找对应的命令或工具调用，读它的输出，没有依据就拦下。全部是确定性规则，不调模型、不要 API key、不上传任何东西。
 
@@ -35,9 +37,9 @@ honestly doctor --lang zh       # 体检安装，并现场做两次自测
 `doctor` 全部正常时最后几行是（直接敲 `honestly` 不带参数会打印一份导览）：
 
 ```
-  ok   自测（代码）：伪造一句改完代码就说「All tests pass.」，没跑测试 → 已拦
-  ok   自测（非代码）：伪造一句「I've sent you the report.」，没有发送动作 → 已拦
-一切正常：guard 已装上并且能拦。
+  ok   自测（代码）：伪造一句改完代码就说「All tests pass.」，没跑测试 → 已拦截
+  ok   自测（非代码）：伪造一句「I've sent you the report.」，没有发送动作 → 已拦截
+一切正常：guard 已安装并能正常拦截。
 ```
 
 其他助手。Codex 已在真实机器上端到端验证（Codex CLI 0.163：guard 拒绝了接管道的 `pytest`，并写明了模型和项目）；Cursor 和 Gemini CLI 按各家 hook 文档实现，在有用户确认之前标为实验性（见[它不是什么](#它不是什么)）：
@@ -53,26 +55,26 @@ honestly guard status                    # 四家一起看；guard uninstall [--
 
 ![honestly 拦下一条没跑测试的"测试通过"](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo.zh.gif)
 
-hook 往聊天窗口写一句大白话，用对话本身的语言，写明是哪个助手、哪个模型、哪个项目、哪段对话：
+hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明是哪个助手、哪个模型、哪个项目、哪段对话：
 
 ```
-⚠️ honestly 拦了一下：Claude Code（claude-opus-5-5）在「docpilot」项目回复「修一下登录接口的 bug」这个问题时
-说「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有跑过任何检查。已经要求它先跑了再说。
+⚠️ honestly 已拦截：Claude Code（claude-opus-5-5）在「docpilot」项目回复「修一下登录接口的 bug」这个问题时
+声称「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有运行任何检查。已要求其先运行检查再回复。
 ```
 
-助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是告诉你已经搞定。
+助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。
 
 第二个 hook 在每条 shell 命令执行前检查：测试或构建命令接了 `| tail` `| head` `| grep` `| awk` `| wc` `| tee` 又没加 `set -o pipefail`，退出码就是最后那个命令的，失败会显示得像通过。这种命令会被拒绝，并附上一行改法。一条回复里有好几句没依据时，提示会说明还有几句。
 
-hook 不会碍事：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
+hook 不影响正常使用：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
 
 ```bash
-honestly catches --lang zh    # 这周拦了什么，按项目和助手分
+honestly catches --lang zh    # 本周拦截记录，按项目和助手汇总
 honestly catches --card       # 同样的内容做成一张 1200×630 的图，可以直接发
 honestly guard notify on      # 每次拦截同时弹桌面通知（macOS、Linux、Windows）
 ```
 
-每次拦截都追加到 `~/.honestly/catches.jsonl`，不看终端也能回头看"本来会以'搞定了'的样子到你眼前的"都有哪些。
+每次拦截都追加到 `~/.honestly/catches.jsonl`，不看终端也能回顾那些原本会被当作"已完成"报告给你的结论。
 
 ## 它拦什么
 
@@ -121,7 +123,7 @@ honestly config                          # 看当前生效的全部设置
 honestly rule install --lang zh          # 写进 CLAUDE.md；--agent codex → AGENTS.md，gemini → GEMINI.md，cursor → .cursor/rules/
 ```
 
-觉得某次拦错了，一条命令把它整理成可以直接贴进 issue 的文本，路径和密钥已脱敏：
+认为某次拦截是误判时，一条命令把它整理成可以直接贴进 issue 的文本，路径和密钥已脱敏：
 
 ```bash
 honestly feedback                        # 最近一次；honestly feedback 2 是上一次；--issue 多给一个预填好的链接
@@ -157,7 +159,7 @@ honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再�
 
 ## 审计历史记录
 
-同一套规则跑一遍本机所有历史会话，给你一个数。
+用同一套规则检查本机所有历史会话，给出统计报告。
 
 ```bash
 honestly audit                # 读 Claude Code、Codex、Cursor、Gemini CLI 的记录，分叉会话去重
@@ -168,7 +170,7 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 
 ![honestly audit 在作者会话上的结果](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
-报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）；基准测试在 ML 任务上也看到了（[57% 的前沿智能体运行会走预埋的捷径](https://arxiv.org/abs/2608.30724)，叮嘱它别这么做几乎没用）。
+报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）。
 
 ## 一条结论是怎么判的
 
@@ -188,13 +190,13 @@ honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chr
 
 | 轮次 | 标记为无支撑 | 第一遍精确率（作者） | 第二遍精确率（大模型 agent，盲标） | 之后修了什么 |
 |---|---|---|---|---|
-| 1 | 38 | 18/32（56%） | 22/32（69%） | 文档/日志/记忆的修改被当成代码修改；带版本号的 `hyperframes@x check` 没识别 |
-| 2 | 22 | 10/19（53%） | 11/21（52%） | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
+| 1 | 38 | 18/32 | 22/32 | 文档/日志/记忆的修改被当成代码修改；带版本号的 `hyperframes@x check` 没识别 |
+| 2 | 22 | 10/19 | 11/21 | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
 | 6 | 12 | 12/12 | 11/11（+1 不确定） | 识别引号的多行切句；写文件的 heredoc 永远不算验证 |
 | 非代码 | 41 | 0/41 | 5/41 | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
 | 0.5.3（现行规则） | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
 
-第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不冤枉。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
+第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不误报。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
 
 ## 它不是什么
 
