@@ -20,10 +20,10 @@ The rules are tuned for precision over recall. Anything the audit cannot see (a 
 
 | Round | Flagged | Precision, pass 1 (author) | Precision, pass 2 (LLM agent, blind) | Main fix afterwards |
 |---|---|---|---|---|
-| 1 | 38 | 18/32 (56%) | 22/32 (69%) | edits to docs, logs and memory files counted as code edits; versioned `hyperframes@x check` not recognised |
-| 2 | 22 | 10/19 (53%) | 11/21 (52%) | variable paths, `.agent/state.json`, heredoc bodies; verdict from the last summary line; `fail 0` is a pass |
-| 3 | 27 | — | 13/23 (57%) | heredoc header lost whitespace (regression); semicolons inside quotes split sentences |
-| 4–5 | 19 → 13 | 12/13 (92%) | — | environment-variable prefixes, LaTeX tools; remote and background runs moved to `could not check` |
+| 1 | 38 | 18/32 | 22/32 | edits to docs, logs and memory files counted as code edits; versioned `hyperframes@x check` not recognised |
+| 2 | 22 | 10/19 | 11/21 | variable paths, `.agent/state.json`, heredoc bodies; verdict from the last summary line; `fail 0` is a pass |
+| 3 | 27 | — | 13/23 | heredoc header lost whitespace (regression); semicolons inside quotes split sentences |
+| 4–5 | 19 → 13 | 12/13 | — | environment-variable prefixes, LaTeX tools; remote and background runs moved to `could not check` |
 | 6 | 12 | 12/12 | 11/11 (+1 unsure) | quote-aware splitting of multi-line commands; file-writing heredocs never count as verification |
 | after 6 (0.5.0–0.5.2) | 18 | — | — | evidence for "fixed" narrowed to test, check or render commands; background starts and pure syntax checks moved to `could not check`; not re-labelled at the time |
 | 0.5.3 (current rules) | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |

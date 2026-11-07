@@ -1,0 +1,33 @@
+name: "🕳️ Missed claim"
+description: the agent said "done" without doing it, and honestly let it through.
+title: "Missed claim: "
+labels: ["missed-claim"]
+body:
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Coding agent
+      options: [Claude Code, Codex, Cursor, Gemini CLI, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: The sentence the agent wrote
+      placeholder: e.g. "Fixed, all 12 tests pass."
+    validations:
+      required: true
+  - type: textarea
+    id: turn
+    attributes:
+      label: What the turn actually did
+      description: The last edit and the commands after it (`honestly audit`, then `honestly explain <n>`, prints this for a flagged claim). Redact anything private.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Use
+      options:
+        - label: The text above may be turned into a regression test.

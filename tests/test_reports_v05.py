@@ -19,7 +19,7 @@ def test_trend_needs_two_weeks_and_reports_direction():
 
 def test_catches_card_is_valid_svg_and_counts(tmp_path):
     rows = [{"kind": "pre", "agent": "codex", "message": "piped"},
-            {"kind": "stop", "agent": "claude-code", "message": "⚠️ honestly stepped in: x said <done>"}]
+            {"kind": "stop", "agent": "claude-code", "message": "⚠️ honestly blocked this reply: x said <done>"}]
     svg = report.catches_card(rows, 7)
     assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>") and "&lt;done&gt;" in svg
     assert ">2<" in svg and "Claude Code 1" in svg and "Codex 1" in svg

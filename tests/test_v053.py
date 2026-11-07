@@ -1,6 +1,5 @@
 """Regressions fixed in 0.5.3."""
 import json
-import os
 import sys
 
 import pytest
@@ -33,7 +32,7 @@ def test_apostrophe_in_a_comment_does_not_swallow_the_next_command():
     segs = R.segments(cmd)
     assert any("pytest" in s.text and "sed -i" not in s.text for s in segs)
     assert R.bash_verifies(cmd, {"test"}, after_edit_only=True)
-    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "cd proj  # user's dir\npytest -q | tail -3"}})
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "cd proj  # user's dir\npytest -q | head -3"}})
     assert out is not None
 
 
@@ -135,7 +134,7 @@ def test_more_runners_with_passing_tests_still_back_a_pass_claim(cmd, out):
 
 # ---------------------------------------------------------------- pre hook
 def test_log_flags_do_not_disarm_the_pipe_check_and_listing_is_not_a_run():
-    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest --log-cli-level=INFO tests/ 2>&1 | tail -20"}}) is not None
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest --log-cli-level=INFO tests/ 2>&1 | head -20"}}) is not None
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "gh run view 123 --log | tail -20"}}) is None
     for cmd in ["pytest --collect-only -q | head -20", "pytest --version | head -1", "cargo test --help | head"]:
         assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}}) is None, cmd
@@ -143,7 +142,7 @@ def test_log_flags_do_not_disarm_the_pipe_check_and_listing_is_not_a_run():
 
 def test_pre_message_names_the_actual_pipe():
     out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "cargo test 2>&1 | grep -c ok"}})
-    assert out and "through grep" in out["systemMessage"] and "`| grep`" in json.dumps(out, ensure_ascii=False)
+    assert out and "with grep" in out["systemMessage"] and "`| grep`" in json.dumps(out, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------- guard / settings
