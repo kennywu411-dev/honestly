@@ -1,2 +1,2 @@
 """honestly: audit how often your coding agent claims work it never verified."""
-__version__ = "0.6.2"
+__version__ = "0.6.3"

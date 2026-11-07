@@ -119,6 +119,8 @@ def _notify(title: str, body: str) -> None:
     """Desktop notification, opt-in via HONESTLY_NOTIFY=1 (hooks have no terminal; this reaches people who never look at one)."""
     if os.environ.get("HONESTLY_NOTIFY") != "1" and not os.path.exists(notify_flag_path()):
         return
+    if not _notify_due():
+        return   # a burst of catches (a loop, a replayed batch) shows one notification, not dozens
     import subprocess, sys as _sys
     body = re.sub(r"\s+", " ", body).strip()[:200]
     title = re.sub(r"[^\w .:-]", "", title)[:40] or "honestly"
@@ -138,6 +140,27 @@ def _notify(title: str, body: str) -> None:
             subprocess.run(["powershell", "-NoProfile", "-Command", ps], timeout=15, capture_output=True, env=env)
     except Exception:
         pass
+
+
+NOTIFY_GAP = 30   # seconds between two desktop notifications
+
+
+def _notify_due() -> bool:
+    """True at most once per NOTIFY_GAP seconds; the stamp file's mtime is the last notification."""
+    import time
+    stamp = notify_flag_path() + ".last"
+    try:
+        if time.time() - os.path.getmtime(stamp) < NOTIFY_GAP:
+            return False
+    except OSError:
+        pass
+    try:
+        os.makedirs(os.path.dirname(stamp), exist_ok=True)
+        with open(stamp, "w", encoding="utf-8"):
+            pass
+    except OSError:
+        pass
+    return True
 
 
 def notify_flag_path() -> str:
@@ -336,6 +359,15 @@ def _runs_check(t: str) -> bool:
     return True
 
 
+def _expand_groups(cmd: str) -> str:
+    """Rewrite `{ a; b; } | tail` as `a | tail ; b | tail`, looking only outside quotes (a release note may quote such a group)."""
+    unquoted = QUOTED.sub(lambda m: " " * len(m.group(0)), cmd)
+    for m in reversed(list(GROUP_PIPE.finditer(unquoted))):
+        body, pipe = cmd[m.start("body"):m.end("body")], cmd[m.start("pipe"):m.end("pipe")]
+        cmd = cmd[:m.start()] + " ; ".join(f"{g.text} | {pipe}" for g in rules.segments(body)) + cmd[m.end():]
+    return cmd
+
+
 def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "pre", data if data is not None else _read_stdin())
     if data.get("tool_name") != "Bash":
@@ -346,7 +378,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
         return None
     cmd = (data.get("tool_input") or {}).get("command", "") or ""
     # `{ cd app && pytest; } | tail`: the group's pipe applies to each command inside it
-    flat = GROUP_PIPE.sub(lambda m: " ; ".join(f"{g.text} | {m.group('pipe')}" for g in rules.segments(m.group("body"))), cmd)
+    flat = _expand_groups(cmd)
     for seg in rules.segments(flat):
         t = rules.COMMIT_MSG.sub("", seg.text)   # text quoted in a commit message is not a command
         if not re.match(r"\s*(?:\S*/)?(?:bash|sh|zsh|dash)\s+-l?c\b", t):
