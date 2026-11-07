@@ -22,3 +22,12 @@ def test_a_burst_of_catches_shows_one_notification(tmp_path, monkeypatch):
     for _ in range(20):
         hooks._notify("honestly", "piped pytest through tail")
     assert len(calls) == 1
+
+
+def test_gh_argument_naming_a_test_tool_is_not_a_run():
+    # `gh repo edit --add-topic pytest | tail` mentions pytest but runs no tests (found while tagging this repo)
+    from honestly import hooks
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "gh repo edit --add-topic pytest --add-topic testing 2>&1 | tail -2"}, "cwd": "/tmp"})
+    assert out is None
+    out = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | tail -3"}, "cwd": "/tmp"})
+    assert out is not None   # a real test run piped into tail is still refused

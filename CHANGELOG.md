@@ -4,6 +4,7 @@
 
 - Clearer block messages: "⚠️ honestly blocked this reply:" / "⚠️ honestly blocked this command:" in English and "⚠️ honestly 已拦截：" / "已拦截该命令：" in Chinese, with the same formal wording in `catches`, `doctor` and the rules text.
 - README: a real recorded Claude Code session at the top (English and Chinese) and a `demo/` folder to reproduce it; percentages removed in favour of plain counts; package and plugin descriptions now say Cursor and Gemini CLI support is experimental.
+- Fixes a false catch: a `gh` command whose arguments name a test tool (`gh repo edit --add-topic pytest | tail`) was refused as a test run. Found while tagging this repository.
 - CI now also runs Python 3.10 and 3.11, so the full 3.9–3.13 range in the README is tested.
 
 ## 0.6.3 (2026-11-07)

@@ -318,7 +318,7 @@ NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pyt
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|\w+=)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|\bdev\b|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 
