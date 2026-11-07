@@ -4,7 +4,11 @@
 
 **Coding agents report "tests pass", "fixed", "sent", "deployed" without always doing it. `honestly` checks, at the moment the sentence is written, whether the action behind it actually ran in that turn, and stops the reply when it did not.**
 
-![honestly: your coding agent said "tests pass". Did it run them?](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/cover.png)
+![A real Claude Code session: the agent pipes pytest into tail, honestly refuses the command, the agent reruns it and only then says the tests pass](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo-en.gif)
+
+<sub>A real Claude Code session (Sonnet 5.5) on a toy repo. Only the captions, a pause on the block and the trimmed ending were added. The agent piped pytest into tail, which hides a failure; honestly refused the command before it ran, and the agent reran it so the real result showed. [中文演示](README.zh-CN.md)</sub>
+
+Install inside Claude Code: `/plugin install honestly --marketplace kennywu411-dev/honestly`
 
 ## The problem, in one paragraph
 
