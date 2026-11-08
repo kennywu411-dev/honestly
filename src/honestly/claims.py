@@ -406,7 +406,8 @@ LEXICON = {
         (re.compile(r"(?:lint[- ]free|type-?checks|green ci|ci green)$"), WHOLE),
         (_r(r"\b(?:check )?0 (?:\w{1,20} )?(?:errors?|warnings?)\b", rf"\b(?:no|zero) (?:{_LINTERS}|type) (?:errors?|issues?|warnings?)\b", r"^no issues(?: found)?\b", r"^(?:zero|no) (?:errors?|warnings?)$"), WEAK),
         (_r(rf"{_Z_T_CHECKS}{_ZG}((?:{_Z_PASS}|干净|无报错|没报错|没有报错|无错误)" + _ZEND + ")", rf"没有\s?(?:{_LINTERS}|类型)\s?报错", r"\b(?:check\s)?0\s?个?错误"), ZH),
-        (_r(r"(全部通过)" + _ZEND, r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:\S{0,4}检查|lint|门禁|ci)\s?$", r"全部通过\s?\S{0,4}检查\s?$"), ZH),
+        (_r(r"(全部通过)" + _ZEND, r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:\S{0,4}检查|lint|门禁|ci)\s?$", r"全部通过\s?\S{0,4}检查\s?$",
+            r"(?:已经?通过|通过了)\s?\S{1,20}\s?(?:检查|校验|检验|审查)\s?$", r"(?:构建|编译|打包|发行包)\S{0,4}通过\s?\S{1,20}\s?(?:检查|校验|检验)\s?$"), ZH),
     ],
     "build_ok": [
         (_r(rf"\b{_T_BUILD}{_GAP} (?:{_PASS}|{_OK}|complete[d]?\b|finished\b)", r"\bno (?:build|compile|compilation) errors?\b", r"\b(?:it|this|the (?:image|package|project|app|code|crate|bundle)|docker image|image|package|project|app|bundle)(?: now)? builds\b",
@@ -424,7 +425,7 @@ LEXICON = {
         (_r(r"\b(?:force[- ]?|git )?pushed\b(?! (?:back|down|through|out|aside|into|onto|over|forward|around|away|up against|the button|a button|button|the limit|the limits|the envelope)\b)"), VERB),
         (_r(r"\bsubmitted(?: (?:to \w{1,30}|the (?:notebook|kernel|prediction|entry|run)s?))?$", r"\blanded (?:on|in) \S{1,30}", r"\blanded the (?:fix|change|patch|pr)\b", r"\bsynced to (?:origin|the remote|remote|github|gitlab)\b"), ACTIVE),
         (_r(r"\b(?:it|this|branch|the branch|branch [\w./-]{1,40}|changes|the changes|everything|fix|the fix|commits?|the commits?)(?:'s| is| are)(?: now)? (?:up )?on (?:origin|the remote|remote|github|gitlab)\b", rf"\b(?:git )?push(?:ing)?{_GAP} (?:{_DONE}|went through)", r"^up on (?:origin|github|gitlab|the remote)\b", r"\b(?:changes|commits?|branch|fix|everything)(?:'s| is| are) up$"), STATUS),
-        (_r(r"已经?推送", r"已完成\s?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"推到远[端程]了", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"已\s?pushed", r"(?:代码|分支|改动|提交)(?:已经?)?上去了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
+        (_r(r"已经?推送", r"已完成\s?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"已经?推上\s?\S{1,20}", r"推上\s?\S{1,20}\s?了", r"推到远[端程]了", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"已\s?pushed", r"(?:代码|分支|改动|提交)(?:已经?)?上去了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
         (re.compile(r"(?:推了|已推)$"), ZH_WHOLE),
     ],
     "committed": [
