@@ -1477,27 +1477,35 @@ def test_a_refused_pipe_still_loads_no_more_than_it_needs(tmp_path):
     assert not loaded & {"honestly.audit", "honestly.noncode", "honestly.report", "argparse"}
 
 
-NO_PIPE = ["pytest", "pytest -q && echo done", "pytest > out.txt", "pytest > /dev/null 2>&1", "npm test; echo $?", "cargo test &> log", "go test ./... 2>&1", "bash -c 'pytest'",
-           "result=$(pytest -q)", "cat > a.py <<'EOF'\nprint(1)\nEOF", "bash <<'EOF'\npytest\nEOF", "tox && make test", "(pytest)", "{ pytest; }"]
+NOTHING_TO_REFUSE = ["pytest", "pytest -q && echo done", "npm test; echo done", "go test ./... 2>&1", "bash -c 'pytest'", "tox && make test", "(pytest)", "{ pytest; }", "pytest; true", "ls -la src", "git status"]
+REFUSED_WITHOUT_A_PIPE = ["pytest -q >/dev/null 2>&1; true", "pytest -q >/dev/null 2>&1; echo OK", "go test ./... >/dev/null; true", "x=$(pytest); true", "x=`pytest`; echo done", "head -5 <(pytest)",
+                          "wc -l <(pytest)", "(pytest) >/dev/null; true", "{ pytest; } >/dev/null; true", "sh -c 'pytest >/dev/null; true'"]
 
 
-@pytest.mark.parametrize("cmd", NO_PIPE)
-def test_the_shortcut_is_only_true_because_a_command_without_a_pipe_is_never_refused(cmd):
-    # the hook skips loading the rules when the event holds no `|`. If the pre hook ever learns to refuse a command without a pipe, this fails and the shortcut in cli.py must go.
+@pytest.mark.parametrize("cmd", NOTHING_TO_REFUSE)
+def test_the_shortcut_takes_a_command_that_only_runs_things(cmd):
     from honestly import cli
     assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": "/tmp"}) is None
     assert hooks.find_hidden_status(cmd, strict=True) is None
-    assert cli._no_pipe_in(json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}}).encode())
+    assert cli._cannot_be_refused(json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}}).encode())
 
 
-def test_the_shortcut_never_skips_an_event_with_a_pipe_however_it_is_written():
+@pytest.mark.parametrize("cmd", REFUSED_WITHOUT_A_PIPE)
+def test_a_result_hidden_without_a_pipe_is_refused_through_the_real_entry_point(tmp_path, cmd):
+    # the shortcut must not skip these: output thrown away or captured, with the exit status masked after it
+    event = json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": "/tmp", "session_id": "s"}).encode()
+    r = _honestly(["hook", "pre"], tmp_path / "home", event)
+    assert r.returncode == 0 and b'"deny"' in r.stdout, cmd
+
+
+def test_the_shortcut_never_skips_an_event_that_could_hide_a_result():
     from honestly import cli
-    assert not cli._no_pipe_in(json.dumps({"tool_input": {"command": "pytest | head"}}).encode())
-    assert not cli._no_pipe_in(b'{"tool_input": {"command": "pytest \\u007c head"}}')
-    assert not cli._no_pipe_in(b'{"tool_input": {"command": "pytest \\u007C head"}}')
-    assert not cli._no_pipe_in(b"not json")   # goes the long way, which notes that nothing was checked
-    assert not cli._no_pipe_in(b"[1]")
-    assert not cli._no_pipe_in('{"command": "pytest | head"}'.encode("utf-16"))
+    for command in ("pytest | head", "pytest \\u007c head", "pytest \\u007C head", "pytest > x", "pytest \\u003e x", "pytest < x", "x=$(pytest)", "x=`pytest`", "pytest \\u0060", "bash -c $'pytest'", "head <(pytest)", "pytest >&-", "pytest 1<&-"):
+        assert not cli._cannot_be_refused(('{"tool_input": {"command": "' + command + '"}}').encode()), command
+    assert not cli._cannot_be_refused(b"not json")   # goes the long way, which notes that nothing was checked
+    assert not cli._cannot_be_refused(b"[1]")
+    assert not cli._cannot_be_refused('{"command": "pytest | head"}'.encode("utf-16"))
+    assert cli._cannot_be_refused(b'{"tool_input": {"command": "ls 2>&1"}}')   # joining stderr hides nothing
 
 
 @posix_only
@@ -1505,9 +1513,9 @@ def test_a_project_file_above_the_folder_takes_the_long_way_so_its_notice_is_giv
     from honestly import cli
     root = _repo(tmp_path)
     event = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": str(root / "src" / "deep"), "session_id": "s"}
-    assert cli._no_pipe_in(json.dumps(event).encode())
+    assert cli._cannot_be_refused(json.dumps(event).encode())
     (root / ".honestly.json").write_text('{"strictness": "lenient"}')
-    assert not cli._no_pipe_in(json.dumps(event).encode())
+    assert not cli._cannot_be_refused(json.dumps(event).encode())
     home = tmp_path / "home"
     r = _honestly(["hook", "pre"], home, json.dumps(event).encode())
     assert b".honestly.json" in r.stdout   # told once per conversation, even on a command with no pipe

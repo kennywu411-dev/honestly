@@ -471,7 +471,7 @@ def _run_hook(args: list) -> int:
             _note("args", f"hook started with arguments this version does not know: {args}; nothing checked")
             return 0
         event = _take_event()
-        if parsed[0] == "pre" and event is not None and _no_pipe_in(event):
+        if parsed[0] == "pre" and event is not None and _cannot_be_refused(event):
             return 0
         from .hooks import run_hook
         run_hook(*parsed)
@@ -492,10 +492,15 @@ def _take_event():
     return event
 
 
-def _no_pipe_in(event: bytes) -> bool:
-    """The pre hook only ever refuses a pipeline, so a well-formed event with no `|` anywhere in it needs no rule table loaded. Most commands
-    are like this and it is what makes them cheap; tests/test_install_cli.py fails if the pre hook ever starts refusing a command without a pipe."""
-    if b"|" in event or b"\\u007c" in event.lower():
+CAN_HIDE_A_RESULT = (b"|", b"<", b">", b"`", b"$(", b"$'", b"\\u00")   # a pipe, a redirect, a capture, a process substitution, or one of them spelled as an escape
+
+
+def _cannot_be_refused(event: bytes) -> bool:
+    """The pre hook refuses a command that keeps a result from the agent, and every way of doing that needs one of these characters. A well-formed
+    event with none of them needs no rule table loaded, which is what makes most commands cheap. `2>&1` hides nothing. conftest.py checks every
+    refusal in the test suite against this, so a new kind of refusal that this would skip fails there."""
+    body = event.replace(b"2>&1", b"")
+    if any(mark in body for mark in CAN_HIDE_A_RESULT):
         return False
     import json
     try:
