@@ -285,3 +285,36 @@ def test_whitespace_changes_nothing(cmd):
     want = _answers(cmd)
     for variant in _respaced(cmd):
         assert _answers(variant) == want, variant
+
+
+# ------------------------------------------------------------ input that once made the hook give up and let the reply through
+@pytest.mark.parametrize("cmd", GROUPS["Z1"] + GROUPS["Z1b"] + GROUPS["Z1c"], ids=ids(GROUPS["Z1"] + GROUPS["Z1b"] + GROUPS["Z1c"]))
+def test_null_bytes_and_lone_surrogates_do_not_raise(cmd, held):
+    rules.bash_is_edit(cmd)
+    rules.verifying_segments(cmd, T)
+    _dir(cmd)
+    rules.edit_projects(Event("tool", name="Bash", text=cmd))
+    hooks.find_hidden_status(cmd)
+    if "pytest" not in cmd:
+        assert held([EDIT, bash(cmd)])
+
+
+def test_edit_paths_with_a_null_byte_do_not_raise():
+    assert rules.event_dir(Event("tool", name="Edit", text="~\x00")) == "~\x00"
+    assert rules.event_dir(Event("tool", name="Edit", text="~\ud800/a.py"))
+
+
+@pytest.mark.parametrize("cmd", ["pytest | grep -E '" + "(" * 2000 + "'", "pytest | grep -E '" + "(a" * 2000 + ")" * 2000 + "'", "bash <<E0\n" * 800 + "pytest | head\n", "".join(f"bash <<E{i}\n" for i in range(800)) + "x\n" + "".join(f"E{i}\n" for i in reversed(range(800))), "(" * 5000, "$(" * 5000, "{ " * 5000, "if a; then " * 5000], ids=["grep open", "grep nested", "heredoc same", "heredoc nested", "parens", "subst", "groups", "ifs"])
+def test_deep_nesting_does_not_raise(cmd):
+    rules.bash_is_edit(cmd)
+    rules.verifying_segments(cmd, T)
+    hooks.find_hidden_status(cmd)
+    _dir(cmd)
+
+
+@pytest.mark.parametrize("value", [5, ["pytest"], None, {"a": 1}])
+def test_a_command_that_is_not_text_does_not_raise(value):
+    assert rules.bash_is_edit(value) is False
+    assert rules.segments(value) == []
+    assert rules.verifying_segments(value, T) == []
+    assert hooks.find_hidden_status(value) is None
