@@ -46,18 +46,18 @@ def _is_edit(e: Event) -> bool:
 
 TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)?\b|✓|全部通过|fail(ed|ures)?[: ]+0\b|\b0 failed|\bpass \d+"
                        r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b"
-                       r"|\b[1-9]\d* (?:examples?|tests?),\s*(?:with\s+)?0 failures\b"  # rspec: 5 examples, 0 failures; ExUnit: 9 tests, 0 failures; XCTest: Executed 9 tests, with 0 failures
+                       r"|\b[1-9]\d* (?:examples?|tests?),[ \t]*(?:with[ \t]+)?0 failures\b"  # rspec: 5 examples, 0 failures; ExUnit: 9 tests, 0 failures; XCTest: Executed 9 tests, with 0 failures
                        r"|\bwith \d+ failures? \(0 unexpected\)", re.I | re.M)  # XCTest: expected failures (XCTExpectFailure) are not failures
 TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
                        r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
 # a non-zero failure count, which no pass marker on the same summary can outweigh. Each shape is one a runner prints, so that a log line ("retried after 2 failures", "connection failed: 3 retries") does not overrule a passing run.
 FAIL_COUNT = re.compile(r"\b[1-9]\d* (?:tests? )?failed\b"                                       # pytest: 2 failed; CTest: 2 tests failed
-                        r"|(?:^|[,;|(-])\s*(?:fail(?:ed|ures?)|errors)\s*[:=]\s*[1-9]"           # dotnet, NUnit: Failed: 2; Maven: Errors: 2; unittest: (failures=2)
-                        r"|\b(?:examples?|tests?|assertions?),\s*(?:with\s+)?[1-9]\d* failures?\b(?!\s*\(0 unexpected\))"   # RSpec, ExUnit, XCTest, minitest
-                        r"|\b(?:passed|failures?|assertions?),\s*[1-9]\d* errors?\b"             # pytest: 7 passed, 2 errors; minitest: 0 failures, 2 errors
-                        r"|^\s*[1-9]\d* failures?,\s*\d+ errors?\b"                              # clojure.test: 2 failures, 0 errors
-                        r"|^\s*[1-9]\d* fail\s*$|^\s*#?\s*fail\s+[1-9]"                          # bun:  2 fail; TAP: # fail 2
-                        r"|\[\s*FAILED\s*\]\s*[1-9]\d* tests?\b", re.I | re.M)                   # GoogleTest: [  FAILED  ] 2 tests
+                        r"|(?:^|[,;|(-])[ \t]*(?:fail(?:ed|ures?)|errors)[ \t]*[:=][ \t]*[1-9]"  # dotnet, NUnit: Failed: 2; Maven: Errors: 2; unittest: (failures=2)
+                        r"|\b(?:examples?|tests?|assertions?),[ \t]*(?:with[ \t]+)?[1-9]\d* failures?\b(?![ \t]*\(0 unexpected\))"   # RSpec, ExUnit, XCTest, minitest
+                        r"|\b(?:passed|failures?|assertions?),[ \t]*[1-9]\d* errors?\b"          # pytest: 7 passed, 2 errors; minitest: 0 failures, 2 errors
+                        r"|^[ \t]*[1-9]\d* failures?,[ \t]*\d+ errors?\b"                        # clojure.test: 2 failures, 0 errors
+                        r"|^[ \t]*[1-9]\d* fail[ \t]*$|^[ \t]*(?:#[ \t]*)?fail[ \t]+[1-9]"       # bun:  2 fail; TAP: # fail 2
+                        r"|\[ *FAILED *\] *[1-9]\d* tests?\b", re.I | re.M)                      # GoogleTest: [  FAILED  ] 2 tests
 # runners that print one result per package or project: a failing one is not cancelled by the next one passing
 TARGET_FAIL = ((re.compile(r"\bgo test\b"), re.compile(r"^(FAIL\b|--- FAIL:)", re.M), "go test output shows FAIL"),   # `ok pkg/a` lines do not cancel a failing package
                (re.compile(r"\bdotnet test\b"), re.compile(r"^\s*Failed!\s+-", re.M), "dotnet test output shows a failed project"),
@@ -110,7 +110,7 @@ ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brun
                         r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))"
                         r"|\bNo tests executed\b"  # phpunit: No tests executed!
                         r"|\bNo test is available\b|\bNo test matches\b"  # dotnet test: No test is available in ...; No test matches the given testcase filter ...
-                        r"|\b0 tests?,\s*(?:with\s+)?0 failures\b|\b0 runs, 0 assertions\b"  # ExUnit, XCTest, minitest
+                        r"|\b0 tests?,[ \t]*(?:with[ \t]+)?0 failures\b|\b0 runs, 0 assertions\b"  # ExUnit, XCTest, minitest
                         r"|\bok\s*\|\s*0 passed\s*\|\s*0 failed\b"  # deno test: ok | 0 passed | 0 failed
                         r"|\b0 examples,\s*0 failures\b", re.I | re.M)  # rspec: 0 examples, 0 failures
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
@@ -246,12 +246,12 @@ FILE_CREATED = re.compile(r"created successfully|Successfully created", re.I)   
 TEST_PATH = re.compile(r"(?:^|[\\/._-])(?:tests?|spec)(?:[\\/._-]|$)|\.(?:test|spec)\.", re.I)
 GIT_HOOK_RUN = re.compile(r"\bgit (?:commit|push)\b")
 GIT_COMMIT_TITLE = re.compile(r"^\[[^\]\n]+\] [^\n]*$", re.M)   # `[main abc1234] Fix, 12 passed` quotes the message, it is not a run
-SELF_CHECK_OK = re.compile(r"^\s*\[(?:OK|PASS(?:ED)?)\]", re.M | re.I)
-SELF_CHECK_BAD = re.compile(r"^\s*\[(?:FAIL(?:ED)?|ERROR)\]", re.M | re.I)
+SELF_CHECK_OK = re.compile(r"^[ \t]*\[(?:OK|PASS(?:ED)?)\]", re.M | re.I)
+SELF_CHECK_BAD = re.compile(r"^[ \t]*\[(?:FAIL(?:ED)?|ERROR)\]", re.M | re.I)
 DRY_RUN_CLAIM = re.compile(r"空跑|\bdry[- ]run\b", re.I)
 DRY_RUN_FLAG = re.compile(r"\s--dry(?:[-_]run)?\b")
-COUNTED_TESTS = re.compile(r"(\d+)\s*(?:个|项)?\s*(?:测试|用例|tests?\b)", re.I)
-COMMITTED_RECAP = re.compile(r"^\s*(?:[-*]\s*)?\**\s*(?:已提交|已经提交|committed\b)", re.M | re.I)   # a list heading over the sentence, not a word inside it
+COUNTED_TESTS = re.compile(r"(\d+)[ \t]*(?:[个项][ \t]*)?(?:测试|用例|tests?\b)", re.I)
+COMMITTED_RECAP = re.compile(r"^[ \t]*(?:[-*][ \t]*){0,4}(?:已提交|已经提交|committed\b)", re.M | re.I)   # a list heading over the sentence, not a word inside it
 
 
 def _new_file(e) -> bool:

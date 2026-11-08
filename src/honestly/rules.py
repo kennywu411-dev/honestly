@@ -418,8 +418,8 @@ def _under_cd(paths: list, seg: Segment, whole_cmd: str) -> list:
     return [p if not p or os.path.isabs(os.path.expanduser(p)) else os.path.join(here, p) for p in paths]
 
 
-PS_WRITE = re.compile(r"(?:^|\|)\s*(?:set-content|add-content|out-file)\b([^|;\n]*)", re.I)   # PowerShell's `cat > file`
-PS_WRITE_SOURCE = re.compile(r"""\s*(?:["'$(]|get-content\b|gc\b)""", re.I)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
+PS_WRITE = re.compile(r"(?:^|\|)[ \t]*(?:set-content|add-content|out-file)\b([^|;\n]*)", re.I)   # PowerShell's `cat > file`
+PS_WRITE_SOURCE = re.compile(r"""["'$(]|get-content\b|gc\b""", re.I)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
 PS_PATH_PARAM = re.compile(r"-(?:file)?path|-literalpath|-pspath", re.I)
 PS_VALUE_PARAM = re.compile(r"-(?:value|encoding|width|inputobject|stream|filter|include|exclude|credential)", re.I)
 
@@ -457,7 +457,7 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
         ps = PS_WRITE.search(bare)
         if ps:
             target, source = _ps_write_target(c[ps.start(1):ps.end(1)]), c[:ps.start()]
-            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source)):
+            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source.lstrip())):
                 return False   # no known target (`$env:TEMP\\x`), or a program's output
             return not all(path_is_doc(t) for t in _under_cd([target.replace("\\", "/")], seg, whole_cmd))
         if not PLAIN_EDIT.search(bare):   # `echo "name <a@b>"`: a ">" inside quotes redirects nothing
