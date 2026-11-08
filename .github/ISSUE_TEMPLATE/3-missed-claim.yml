@@ -21,7 +21,7 @@ body:
     id: turn
     attributes:
       label: What the turn actually did
-      description: The last edit and the commands after it (`honestly audit`, then `honestly explain <n>`, prints this for a flagged claim). Redact anything private.
+      description: The last edit and the commands after it. `honestly audit --json findings.jsonl` writes this for every claim, including ones it let through. Redact anything private.
       render: text
     validations:
       required: true

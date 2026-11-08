@@ -10,7 +10,7 @@ Worth reporting: making honestly execute something, leaking transcript content, 
 
 ## Supported versions
 
-Fixes go into the latest release on PyPI. Update with `pip install -U honestly` or `/plugin update honestly`.
+Fixes go into the latest release on PyPI. Update with `pip install -U honestly` or `/plugin update honestly`. The version and deprecation policy is in [docs/reference.md](docs/reference.md).
 
 ## What it stores
 
@@ -30,7 +30,7 @@ Tokens, home paths, e-mail addresses and similar are scrubbed before anything is
 
 The hooks never use the network. Two things can:
 
-- **A version check, on by default.** `honestly catches` and `honestly doctor` ask `pypi.org` at most once a day for the latest version number. Nothing about you or your work is in the request. `HONESTLY_NO_UPDATE_CHECK=1` turns it off.
+- **A version check, on by default.** `honestly catches` and `honestly doctor` ask `pypi.org` at most once a day (every 6 hours while that fails) for the latest version number. Nothing about you or your work is in the request. `HONESTLY_NO_UPDATE_CHECK=1` turns it off.
 - **`honestly pr-note --gh`**, when you or an agent run it, posts a block to a pull request through the GitHub CLI: the file last edited, the first line of each check and the line it printed, and flagged claims about the code. A sentence about anything else appears only as its kind. Everything goes through the same scrubbing, so read the block before a public repository gets it.
 
 `honestly feedback` and share cards send nothing; you decide where they go. Rendering a card to PNG starts `rsvg-convert` or a headless browser on your machine, with a temporary profile.

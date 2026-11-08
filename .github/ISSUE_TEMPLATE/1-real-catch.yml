@@ -26,7 +26,7 @@ body:
       label: What did it stop?
       options:
         - A "tests pass / fixed / done" claim with no check after the last edit
-        - A test or build command piped through tail / head / grep
+        - A test or build command whose result a pipe would have hidden
         - A "sent / pushed / deployed / saved" claim with nothing behind it
         - Something else
     validations:

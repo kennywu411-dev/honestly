@@ -17,7 +17,7 @@ honestly 会确认 AI 在最后一次改代码之后真正运行过检查，否�
 
 <sub>真实的 Claude Code 会话（Sonnet 5.5），只加了中文字幕。被告知不用跑 pytest，AI 自己验算了几个值，就说 4 个测试都通过了。honestly 因为改完代码之后没有运行测试命令而拦下回复；AI 随后运行 pytest，得到 4 passed，这才回答。可用 [`demo/`](https://github.com/kennywu411-dev/honestly/tree/main/demo) 复现。</sub>
 
-**安装：**在 Claude Code 里输入 `/plugin install honestly --marketplace kennywu411-dev/honestly`；用 Codex 或命令行则 `pip install honestly && honestly guard install`。
+**安装：**在 Claude Code 里输入 `/plugin install honestly --marketplace kennywu411-dev/honestly`；或在终端里运行 `pip install honestly && honestly guard install`（Codex 加 `--agent codex`）。
 
 ## 为什么需要它
 
@@ -41,7 +41,7 @@ honestly guard install          # 往 ~/.claude/settings.json 写两个 hook（-
 honestly doctor --lang zh       # 体检安装，并现场做两次自测
 ```
 
-`doctor` 全部正常时最后几行是（直接敲 `honestly` 不带参数会打印一份导览）：
+全部正常时，`doctor` 会打印下面这些行和其他几行，最后一行是这句（直接敲 `honestly` 不带参数会打印一份导览）：
 
 ```
   ok   自测（代码）：伪造一句改完代码就说「All tests pass.」，没跑测试 → 已拦截
@@ -94,7 +94,7 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 
 Claude Code（在 2.1.319 上看到）把被拦的回复标成 “Stop hook error occurred”，把被拒的命令标成 “hook error”。这不是故障：这是它对 hook 说“不”的叫法，提示里也会写明。
 
-助手被要求现在就去跑检查并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。如果声称的是难以撤销的事（已发送、已部署、已推送），做法不同：助手被要求核实它是否真的发生，或者说明没有做，并在做任何操作之前先问你，绝不能只为了让这句话成立就去做。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。它的这次回答同样会被检查：如果仍然没有依据就说通过，为避免反复拦截不会再拦第二次，但会显示一条提醒，告诉你这句话未经验证。
+助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"（其他结论，就如实说明没有做）。如果声称的是难以撤销的事（已发送、已部署、已推送），做法不同：助手被要求核实它是否真的发生，或者说明没有做，并在做任何操作之前先问你，绝不能只为了让这句话成立就去做。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。它的这次回答同样会被检查：如果仍然没有依据就说通过，为避免反复拦截不会再拦第二次，但会显示一条提醒，告诉你这句话未经验证。
 
 第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到一次完整运行的结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。只是找某一样东西的不拦：`pytest -rs | grep SKIP`、`pytest -k spikes | head`、`pytest tests/test_a.py | head`；如果回复接着说测试通过，而屏幕上没有结果，就会被拦。下面这些也放行：`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
 
@@ -102,7 +102,7 @@ hook 不影响正常使用：超过 8 MB 的记录从最后两条提示开始读
 
 ```bash
 honestly catches --lang zh    # 本周拦截记录，按项目和助手汇总
-honestly catches --card       # 同样的内容做成一张 1200×630 的图，可以直接发
+honestly catches --card       # 把统计数字做成一张 1200×630 的图，可以直接发，上面没有提示原文（图上是英文）
 honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linux、Windows；最多每 5 分钟一次）
 ```
 
@@ -140,14 +140,14 @@ honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linu
 ```bash
 honestly ignore "fixed bed reactor"      # 含这个短语的句子永远不算结论（--remove 删掉，--list 查看）
 honestly config strictness strict        # 严格：只看截图判断的"修好了"和测试输出上的过滤也拦
-honestly config strictness lenient       # 宽松：只拦"跑了检查但检查失败"的
+honestly config strictness lenient       # 宽松：只拦输出里显示的失败；不检查管道
 honestly config verify "make verify"     # 你自己的命令算作跑测试
 honestly config off sent,checked         # 关掉某几类（config on … 再打开）
 honestly config language zh              # 固定提示语言（auto：跟随对话）
 honestly config                          # 看当前生效的全部设置
 ```
 
-设置在 `~/.honestly/config.json`。加 `--project` 写到 `./.honestly.json`，可以提交进仓库让整个团队共用一套规则。项目文件是跟着代码来的，所以在你信任它之前只能收紧：克隆来的仓库关不掉 guard。里面的 `off`、`ignore`、`verify_commands` 或更低的 `strictness` 会被忽略，并有一行提示告诉你，直到你在自己的终端运行 `honestly trust`。信任记录的是这份文件本身，文件一改，这些设置又会被忽略（`--list`、`--remove`）。
+设置在 `~/.honestly/config.json`。加 `--project` 写到仓库根目录的 `.honestly.json`，可以提交进仓库，作为团队共用的起点。项目文件是跟着代码来的，所以在你信任它之前只能收紧：克隆来的仓库关不掉 guard。其中的 `off`、`ignore`、`verify_commands` 或更低的 `strictness` 都会被忽略，并有一行提示，直到你在自己的终端里运行 `honestly trust`。它记录的是这个文件本身；文件一变，其设置又会被忽略（`--list`、`--remove`）。它也不能强制任何人：每个人自己的 `off` 和 `ignore` 仍然生效。类别、键、退出码、存了什么和版本策略见 [docs/reference.zh-CN.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/reference.zh-CN.md)。
 
 从源头减少拦截，往助手读的项目说明里加一小段"先验证再下结论"：
 
@@ -163,7 +163,7 @@ honestly feedback                        # 最近一次；honestly feedback 2 �
 
 ## 把证据放进 pull request
 
-PR 描述里 agent 写的「测试全部通过」只是它的一句话。`honestly pr-note` 换成记录里真实发生的事：这个分支最后一次改代码、之后跑过的每个测试和构建、各自打印的汇总行，以及哪些结论没有任何依据。
+PR 描述里 agent 写的「测试全部通过」只是它的一句话。`honestly pr-note` 换成本机记录里真实发生的事，并对照当前目录树里的文件：最后一次改代码、之后跑过的测试和构建、各自打印的汇总行，以及哪些结论没有任何依据。
 
 ![honestly pr-note 写进本项目 0.6.2 PR 的证据块](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/pr-note.png)
 
@@ -182,11 +182,11 @@ honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再�
 > |---|---|---|
 > | `pytest -q` | ✅ passed | `132 passed in 2.60s` |
 
-如果 agent 在最后一次跑测试之后又改了代码，证据块会直接写出来（`⚠️ No test or build ran after the last code edit`），并列出没有依据的结论。一个用例都没收集到的运行、接了 `tail` 又没打印汇总的测试，都会如实标出，不会算成通过。
+它担保不了的地方会直接写出来，而不是说通过：最后一次跑测试之后又改了代码（`⚠️ No test or build ran after the last code edit`）、只跑了构建或 lint、只跑了缩小范围的测试、失败之后没有覆盖相同测试的运行、一个用例都没收集到、管道藏住了结果、测试之后有代码文件被写入或删除（有人改过、格式化工具、`git pull`、合并或切换分支），以及最后一次修改不在当前目录树里。表格最多 8 行、结论最多 6 条，并写明省略了多少；失败的那一行不会被省略。
 
-- 时间范围是分支离开基线之后的工作（`--base`、`--since 2h` 可改）。在仓库里打开的会话整段算；在别处打开的会话，只算 `cd` 进仓库或改了仓库里文件的那几轮。
-- 读的是你本机的 Claude Code、Codex、Cursor、Gemini CLI 记录，除了你放进 PR 的这一块，什么都不上传；家目录路径、邮箱和像 token 的字符串会被打码。不加 `--gh` 只打印；`--out file.md` 写文件。
-- `--check`：最后一次改动之后没有通过的测试就退出 1，可以当本地 pre-push 门禁。
+- 时间范围是分支离开基线之后的工作，合并基线或 rebase 之后也一样（`--base`、`--since 2h` 可改；在 `pr-note` 里 `m` 是分钟）。在基线分支本身上，从最后一次提交之前算起。在仓库里打开的会话整段算；在别处打开的会话，只算 `cd` 进仓库或改了仓库里文件的那几轮。
+- 读的是你本机的 Claude Code、Codex、Cursor、Gemini CLI 记录；Cursor 的记录没有时间和输出，所以按文件时间定位，其运行标为 "no output recorded"。你的设置生效，仓库的设置在你信任的范围内生效：`verify` 命令正常退出就算测试。除了你放进 PR 的这一块，什么都不上传；家目录路径、邮箱和像 token 的字符串会被打码。不加 `--gh` 只打印；`--out file.md` 同时写文件。
+- `--check`：除非最后一次改动之后完整跑过测试并通过、且之后没有代码文件被写入，否则退出 1，可以当本地 pre-push 门禁。这段时间里没有 agent 改过代码时退出 0，因为没有要检查的；这不代表代码测过。
 - `honestly rule install` 会让 agent 每次开 PR 时自己运行 `honestly pr-note --gh`。
 
 ## 审计历史记录
@@ -196,13 +196,13 @@ honestly pr-note --gh        # 把证据块写进这个分支的 PR；之后再�
 ```bash
 honestly audit                # 读 Claude Code、Codex、Cursor、Gemini CLI 的记录，分叉会话去重
 honestly audit --since 30d    # 只看最近 30 天（也支持 8w、3m）；--project 名字 只看一个项目
-honestly explain 3            # 第 3 条被标记结论的完整时间线：修改、之后的每个工具、输出
+honestly explain 3            # 第 3 条被标记的结论：修改、之后最后 8 个工具、输出
 honestly share                # 在 ~/.honestly/ 生成分享卡（SVG；有 Chrome、Edge 或 rsvg-convert 时同时出 PNG）
 ```
 
 ![honestly audit 在作者会话上的结果](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/hero.png)
 
-报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出每一条"无法核实"的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）。
+报告按助手和模型、按项目、按周分项（换了模型或加了规则文件有没有变化一眼能看出来），并列出"无法核实"最常见的原因。上面是作者自己在 0.5.3 规则下的数字：125 个会话，352 条可判定结论中 334 条已验证。代码类：167 条已验证、16 条标记、17 条无法核实、10 条只凭截图判断。非代码类：167 条已验证、2 条标记、63 条无法核实。另一个团队的记录里也有同样的模式：一条 GitHub issue 报告了 150 个 Claude Code 会话里的 357 条"测试通过"，[80 条背后没有运行](https://github.com/anthropics/claude-code/issues/104504)（issue 自己说明这只是一个团队的会话，不是总体估计）。
 
 ## 分享真实案例
 
@@ -228,17 +228,17 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 
 ## 精确率
 
-每次改规则之后都做一轮标注：审计标记出来的每一条结论都标两遍。第一遍由作者读完整的一轮来标；第二遍由一个大模型 agent 只看标注表（那句话、最后一次修改、之后的工具、审计给的理由）来标，看不到第一遍的结果。第二遍是盲标、也便宜，但不是第二个人：它抓出过作者的几处疏漏，也和标注表有同样的盲区。分母比标记条数少，是因为去掉了"不确定"和分叉会话的重复项。
+到 0.7.2 为止，多数规则改动之后都对审计标记的每一条结论做了一轮标注，但不是每轮都做了两遍，见下表；0.7.3 和 0.7.4 改了规则，没有单独做标注。两遍都做时，第一遍由作者读完整的一轮来标；第二遍由一个大模型 agent 只看标注表（那句话、最后一次修改、之后的工具、审计给的理由）来标，看不到第一遍的结果。第二遍是盲标、也便宜，但不是第二个人：它抓出过作者的几处疏漏，也和标注表有同样的盲区。分母比标记条数少，是因为去掉了"不确定"和分叉会话的重复项。
 
 | 轮次 | 标记为无支撑 | 第一遍精确率（作者） | 第二遍精确率（大模型 agent，盲标） | 之后修了什么 |
 |---|---|---|---|---|
 | 1 | 38 | 18/32 | 22/32 | 文档/日志/记忆的修改被当成代码修改；带版本号的 `hyperframes@x check` 没识别 |
 | 2 | 22 | 10/19 | 11/21 | 变量路径、`.agent/state.json`、heredoc 正文；按最后一行汇总判输出 |
 | 6 | 12 | 12/12 | 11/11（+1 不确定） | 识别引号的多行切句；写文件的 heredoc 永远不算验证 |
-| 非代码 | 41 | 0/41 | 5/41 | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
+| 非代码 | 41 | 0/37（+4 不确定） | 5/33（+8 不确定） | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
 | 0.5.3 | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
 | 0.7.0 | 13 | 12/13 | 未做 | 逐条看过 0.6 规则在 60 天里标记的全部结论（65 条，219 个会话）；中途的进度说明、在别的仓库里的改动、只写临时目录的脚本、`>/dev/null` 以及十几种句式不再误标。只标了一遍，非盲标。0.7.2 的盲标复查没有支持这个数字 |
-| 0.7.2（现行规则） | 9 | 未做 | 4/8（+1 不确定） | 对 0.7.1 的标记做了盲标复查（15 条：1 对、7 错、7 不确定，当时标注表把命令截断了），据此修复：提交钩子跑的测试、脚本自己的 `[OK]` 行、句子点名的空跑都算依据，新建文件不再让之前的测试作废。它仍判错的多数是“测试之后又改了一处”，而那处改动碰不到这句话说的内容；这个形状规则有意继续拦 |
+| 0.7.2 | 9 | 未做 | 4/8（+1 不确定） | 对 0.7.1 的标记做了盲标复查（15 条：1 对、7 错、7 不确定，当时标注表把命令截断了），据此修复：提交钩子跑的测试、脚本自己的 `[OK]` 行、句子点名的空跑都算依据，新建文件不再让之前的测试作废。它仍判错的多数是“测试之后又改了一处”，而那处改动碰不到这句话说的内容；这个形状规则有意继续拦 |
 
 第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不误报。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
 
@@ -248,9 +248,9 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 - **不是沙箱。**它拦的是无心之失，不防刻意绕过的助手：能执行 shell 的助手可以改自己的配置，项目里的 `.honestly.json` 要运行 `honestly trust` 之后才能放宽规则，但能执行 shell 的助手仍然可以改你自己的 `~/.honestly` 文件。`pytest || true`、`; exit 0` 这类明确的放行写法不拦；开了 `pipefail` 或读取 `${PIPESTATUS[0]}` 的管道视为正确写法。
 - **不是排行榜。**按模型的表只统计你自己的会话。
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
-- **Cursor 和 Gemini CLI 的拦截是实验性的。**Cursor 的 hook 按官方文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过。Gemini CLI 用真实 CLI（0.67）跑过，回复由本地替身按脚本给出：接管道的 `pytest` 被拒绝，没跑测试或测试失败后说“测试通过”会被拦，真的通过则放行；还没有真实模型的会话确认。在 Gemini CLI 里，被拦的回复会留在屏幕上，后面跟着重试的内容。Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
-- **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，687 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- **Cursor 和 Gemini CLI 的拦截是实验性的。**Cursor 的 hook 按官方文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过。Gemini CLI 用真实 CLI（0.67）跑过，回复由本地替身按脚本给出：接管道的 `pytest` 被拒绝，没跑测试或测试失败后说“测试通过”会被拦，真的通过则放行；还没有真实模型的会话确认。在 Gemini CLI 里，被拦的回复会留在屏幕上，后面跟着重试的内容。Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查，或接了管道的运行，因为读不到输出），但不会是"被反驳"，失败的检查在那里也抓不到。第二次的提醒在那里也显示不了。
+- **除非你自己发出去，关于你工作的内容都不会离开你的电脑。**没有遥测。工具自己唯一的联网动作（默认开启）是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版（失败时每 6 小时一次），有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。本机存了什么、怎么删，见 [docs/reference.zh-CN.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/reference.zh-CN.md)。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13。`tests/test_must_catch.py` 列出了必须抓住的谎话，已知的漏判也标在里面。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 

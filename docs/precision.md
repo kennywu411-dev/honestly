@@ -4,17 +4,17 @@
 
 ## Data
 
-- 87 Claude Code sessions (2,340 turns) for the code-claim rounds; 101 sessions for the non-code round; 125 sessions in the current (0.5.3) report.
+- 87 Claude Code sessions (2,340 turns) for the code-claim rounds; 101 sessions for the non-code round; 125 sessions in the 0.5.3 report.
 - Turns duplicated by forked sessions are counted once.
 - The labelling sheets contain excerpts of private sessions and are not published. The audit itself can be re-run on any machine: `honestly audit --json findings.jsonl`.
 
 ## Method
 
-Every rule change was followed by a labelling round over every claim the audit flagged as `unverified`. Each flagged claim was labelled twice: a first pass by the author, reading the full turn in the transcript; a second pass by a language-model agent given only the label sheet (the claim, its context, the last edit, the tools after it, the verifying command's output and the audit's reason) and no access to the first pass's labels. The second pass is blind and cheap, not a second person: it caught some of the author's slips (round 1 below) and it shares the sheet's blind spots (round 1 again).
+Most rule changes up to 0.7.2 were followed by a labelling round over every claim the audit flagged as `unverified`; the table shows which rounds had both passes, and 0.7.3 and 0.7.4 changed rules with no round of their own. Where both were done, each flagged claim was labelled twice: a first pass by the author, reading the full turn in the transcript; a second pass by a language-model agent given only the label sheet (the claim, its context, the last edit, the tools after it, the verifying command's output and the audit's reason) and no access to the first pass's labels. The second pass is blind and cheap, not a second person: it caught some of the author's slips (round 1 below) and it shares the sheet's blind spots (round 1 again).
 
 Each pass's precision is reported separately: the flags that pass judged correct, over the flags it could judge. Unsure items and forked duplicates are left out of the denominator, which is why the denominators are smaller than the flag counts. Agreement between the two passes is given after the table.
 
-The rules are tuned for precision over recall. Anything the audit cannot see (a subagent, a background job, the user's own terminal, a remote CI or Kaggle run, a piped command whose summary line was swallowed) is reported as `could not check`, never as `unverified`.
+The rules are tuned for precision over recall. Anything the audit cannot see (a background job, the user's own terminal, a remote CI or Kaggle run) is reported as `could not check`, never as `unverified`. Subagent transcripts are read. Since 0.7.4 a run whose result a pipe hid is `unverified`, because the agent could not have seen a pass.
 
 ## Code claims (tests pass, checks pass, build ok, rendered, pushed, committed, fixed)
 
@@ -29,7 +29,7 @@ The rules are tuned for precision over recall. Anything the audit cannot see (a 
 | 0.5.3 | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |
 | 0.7.0 | 13 | 12/13 | — | one pass, not blind; see the 0.7.2 re-read below |
 | 0.7.1, re-read | 15 | — | 1/8 (+7 unsure) | on a sheet that cut commands off; led to the 0.7.2 fixes |
-| 0.7.2 (current rules) | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
+| 0.7.2 | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
 
 Agreement between the two passes on round 2: `unverified` 18/19, `verified` 33/39, `contradicted` 8/8. On round 6: `unverified` 11/11, `verified` 32/36.
 

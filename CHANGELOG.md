@@ -15,6 +15,21 @@ Security review. Each item below was reproduced first, and each has tests.
 - Windows: a program in the current directory is never run in place of the real one. No command prints terminal escapes from a reply. A program under `docs/` or `memory/` counts as code.
 - Releases are built and published by a workflow with PyPI trusted publishing and provenance, actions are pinned to commits, and `SECURITY.md` says what is stored and sent. See `docs/release.md`.
 
+**Behaviour changes**
+- `pr-note` no longer states what it cannot know. These no longer read as "Tests ran and passed", and `--check` exits 1 on them: a commit message echoed back, a build or lint alone, a narrower or different run after a failure, a narrowed run, a CI status read, code files written or removed after the test, a last edit that is not in this tree. A run whose result a pipe hid no longer reads as "failed".
+- `pr-note` keeps its evidence after you merge the base in or rebase on it. A wrong `--base` is an error. On the base branch the window starts before the last commit. Settings now apply to it, a fork counts once, and Cursor and Gemini CLI sessions are read.
+- Forked duplicates are recognised by project, exact time and tool-call ids. Sessions or projects are never merged, so counts can rise.
+- `audit` judges each session by its own project's settings, not the folder you run it from.
+- Message language follows the conversation: Chinese from either side makes it Chinese, and the system language decides only with nothing to read.
+- `catches --card` carries no message text, and `catches` no longer counts a refused command as "said done".
+
+**Output**
+- `--summary-json` gains `schema`, `sessions_read`, `claims_in_scope`, `decided` and `rate`. `sessions` follows `--project` and `--since`. `--json` gains `trace`.
+- The report says `Claims checked`. Same-named projects stay apart.
+
+**Project**
+- [docs/reference.md](docs/reference.md): the version and deprecation policy, supported versions, what is stored and how to remove it, exit codes, categories, settings and output formats.
+
 ## 0.7.4 (2026-11-08)
 
 - **0.7.3 let too many lies through, and this undoes it.** Claims about anything but code hold a reply again. An earlier pass no longer excuses "fixed", or "tests pass" after a lint run. Please do not stay on 0.7.3.
