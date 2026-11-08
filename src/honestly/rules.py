@@ -418,6 +418,29 @@ def _under_cd(paths: list, seg: Segment, whole_cmd: str) -> list:
     return [p if not p or os.path.isabs(os.path.expanduser(p)) else os.path.join(here, p) for p in paths]
 
 
+PS_WRITE = re.compile(r"(?:^|\|)\s*(?:set-content|add-content|out-file)\b([^|;\n]*)", re.I)   # PowerShell's `cat > file`
+PS_WRITE_SOURCE = re.compile(r"""\s*(?:["'$(]|get-content\b|gc\b)""", re.I)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
+PS_PATH_PARAM = re.compile(r"-(?:file)?path|-literalpath|-pspath", re.I)
+PS_VALUE_PARAM = re.compile(r"-(?:value|encoding|width|inputobject|stream|filter|include|exclude|credential)", re.I)
+
+
+def _ps_write_target(args: str) -> str:
+    """The file a Set-Content / Add-Content / Out-File writes: -Path's value, or the first argument that is not a parameter."""
+    toks = re.findall(r"\"[^\"]*\"|'[^']*'|\S+", args)
+    for t, nxt in zip(toks, toks[1:] + [""]):
+        if PS_PATH_PARAM.fullmatch(t):
+            return nxt.strip("\"'")
+    skip = False
+    for t in toks:
+        if skip:
+            skip = False
+        elif t.startswith("-"):
+            skip = bool(PS_VALUE_PARAM.fullmatch(t))
+        else:
+            return t.strip("\"'")
+    return ""
+
+
 def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
     if seg.heredoc and re.match(r"^\s*(?:\S*/)?(?:bash|sh|zsh|dash)\b[^<\n]*<<", seg.text):
         body = seg.text.split("\n", 1)[1].rsplit("\n", 1)[0] if "\n" in seg.text else ""
@@ -431,6 +454,12 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
     else:
         c = COMMIT_MSG.sub(" ", PLAIN_EDIT_EXCLUDE.sub(" ", seg.text))
         bare = _QUOTE_SPAN.sub(lambda q: q.group(0)[0] + "x" * (len(q.group(0)) - 2) + q.group(0)[-1], c)
+        ps = PS_WRITE.search(bare)
+        if ps:
+            target, source = _ps_write_target(c[ps.start(1):ps.end(1)]), c[:ps.start()]
+            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source)):
+                return False   # no known target (`$env:TEMP\\x`), or a program's output
+            return not all(path_is_doc(t) for t in _under_cd([target.replace("\\", "/")], seg, whole_cmd))
         if not PLAIN_EDIT.search(bare):   # `echo "name <a@b>"`: a ">" inside quotes redirects nothing
             return False
         raw = [t.strip("\"'") for t in re.findall(r"(?<![0-9&>])>>?\s*(\"[^\"]+\"|'[^']+'|[^\s;&|<>]+)", c) if t != "/dev/null"]
@@ -578,7 +607,7 @@ def bash_is_edit(cmd: str) -> bool:
 VERIFY = {
     "test": re.compile(r"(\bpytest\b|python3? -m pytest|python3? -m unittest|\bunittest\b|\btox\b|\bnox\b|hatch test|poetry run pytest|uv run pytest"
                        r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun (run )?test|deno test|manage\.py test|(?:bin/)?rails test|artisan test|\bjust test|hatch run test|pdm (run )?test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
-                       r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check"
+                       r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check|\binvoke-pester\b"
                        r"|(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:eval\.py|[\w-]*_test\.(?:go|py|ts|js)|[\w-]*test[\w-]*\.(?:sh|py)|check[\w-]*\.sh|run_tests[\w.]*|validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|gate\.py)\b|gh pr checks|gh run (view|list|watch)|statusCheckRollup)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
                         r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
@@ -591,12 +620,12 @@ VERIFY = {
     "commit": re.compile(r"(git commit|git tag)", re.I),
     "run": re.compile(r"(python[\d.]*(?:\s+-[A-Za-z]+)*\s+(?:\S+\.py|-m (?!http)|-c\b|- <<)|node \S+\.(m?js|ts)|node --check|npx (?!remotion)\S+|\bcurl\b|bash \S+\.sh|\bsh \S+\.sh|\./\S+|cargo run|go run|\bmake\b|docker (build|compose up|run)|kaggle kernels (status|output)|uv run (python|pytest|ruff|mypy|-q python|-q pytest)|\.venv/bin/python)", re.I),
 }
-PIPE_SWALLOW = re.compile(r"\|&?\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more)\b")   # the pipeline exits with the last command's status (`|&` pipes stderr too)
+PIPE_SWALLOW = re.compile(r"\|&?\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more|(?i:select-object|select|select-string|sls|measure-object|measure|out-null|findstr))\b")   # the pipeline exits with the last command's status (`|&` pipes stderr too); PowerShell's cmdlets are not case-sensitive
 NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pytest[^|\n]*\s[\w/]+\.py::|pytest\s+[\w/]+\.py\b)", re.I)
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=)")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=|(?i:get-content|gc|get-childitem|gci|get-item|get-process|select-string|sls|write-output|write-host|set-location|test-path|new-item|copy-item|move-item|remove-item|set-content|add-content)\b)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|(?<!/)\bdev\b(?!/)|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 

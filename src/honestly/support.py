@@ -124,6 +124,9 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     installed = {ev for ev in _hk if any(hooks._ours(h) for g in hooks.groups_of(_hk, ev) for h in hooks.hooks_of(g))}
     if {"Stop", "PreToolUse"} <= installed:
         lines.append(f"{ok}" + L("guard hooks installed (Stop, PreToolUse)", "guard 的两个 hook 已装（Stop、PreToolUse）"))
+        if not any("PowerShell" in str(g.get("matcher") or "") for g in hooks.groups_of(_hk, "PreToolUse") if any(hooks._ours(h) for h in hooks.hooks_of(g))):
+            lines.append(f"{warn}" + L("the pre hook does not cover Claude Code's PowerShell tool, the main shell on Windows; run: honestly guard install",
+                                       "pre hook 没覆盖 Claude Code 的 PowerShell 工具（Windows 上的主要 shell）；运行：honestly guard install"))
     else:
         lines.append(f"{bad}" + L("guard hooks not installed", "guard 的 hook 没装") + (f" ({', '.join(sorted(installed))})" if installed else ""))
         problems.append(L("run: honestly guard install", "运行：honestly guard install"))

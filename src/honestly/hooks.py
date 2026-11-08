@@ -472,7 +472,7 @@ def _runs_check(t: str) -> bool:
 # the stop check still reads that line before the agent may say the tests pass.
 _PM_TEST = r"(?:npm|pnpm|yarn|bun)\b[^|;&]*?\s(?:run\s+)?test\b(?![-.\w/])"   # npm test, pnpm --filter web test, yarn workspace web test
 _MAKE = r"(?<![\w./-])make(?![\w.-])"
-PRE_TEST = re.compile(r"(\bpytest\b|\bpy\.test\b|-m pytest|-m unittest|\bnpm t\b|\bcargo t\b|\bbazel test\b|\bgotestsum\b|\bsbt\b[^|;&]*\btest\b|\bdart test\b|\btox\b|\bnox\b|hatch (?:run )?test|pdm (?:run )?test|" + _PM_TEST + r"|deno test|\bjest\b|\bvitest\b|\bmocha\b|playwright test|cypress run"
+PRE_TEST = re.compile(r"(\binvoke-pester\b|\bpytest\b|\bpy\.test\b|-m pytest|-m unittest|\bnpm t\b|\bcargo t\b|\bbazel test\b|\bgotestsum\b|\bsbt\b[^|;&]*\btest\b|\bdart test\b|\btox\b|\bnox\b|hatch (?:run )?test|pdm (?:run )?test|" + _PM_TEST + r"|deno test|\bjest\b|\bvitest\b|\bmocha\b|playwright test|cypress run"
                       r"|node\s+(?:-\S+\s+)*--test\b|\bgo test\b|cargo (?:test|nextest)|mvnw?\b[^|;&]*\s(?:test|verify)\b|gradlew?\b[^|;&]*\s(?:test|check)\b|dotnet test|swift test|xcodebuild test|flutter test|mix test"
                       r"|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|" + _MAKE + r"(?:\s+-[-\w=]+)*\s+(?:test|check)\b|manage\.py test|rails test|artisan test|\bjust test\b)", re.I)
 # Runners that keep going after a failing package and do not repeat it at the end. Go, Cargo and make print the
@@ -611,7 +611,10 @@ def _py_regex(pattern: str, flags: set, name: str) -> str:
 
 def _grep_keeps_verdict(stage: str):
     """For a grep stage: "silent", "count", "filter" or "keep", judged by running its pattern over typical failure lines."""
-    name, flags, pats = _grep_parts(stage)
+    return _pattern_keeps_verdict(*_grep_parts(stage))
+
+
+def _pattern_keeps_verdict(name: str, flags: set, pats):
     if flags & {"q", "l", "L"}:
         return "silent"
     if "c" in flags:
@@ -631,12 +634,84 @@ def _grep_keeps_verdict(stage: str):
     return "select" if hit else "filter"
 
 
+def _ps_abbr(name: str, least: int = 1) -> str:
+    """`first|firs|fir|fi|f`: PowerShell takes any unambiguous start of a parameter name."""
+    return "|".join(name[:k] for k in range(len(name), least - 1, -1))
+
+
+SELECT_CUTS_END = re.compile(rf"\s-(?:{_ps_abbr('first')}|{_ps_abbr('index', 3)}|{_ps_abbr('skiplast', 5)})\b", re.I)   # like `head`: the result is printed last
+SELECT_LAST = re.compile(rf"\s-(?:{_ps_abbr('last')})\b", re.I)   # like `tail`
+SLS_VALUE_PARAMS = ("-context", "-culture", "-encoding", "-exclude", "-include", "-inputobject", "-literalpath", "-path")
+PS_PIPES = {"select-object", "select", "select-string", "sls", "measure-object", "measure", "out-null", "findstr"}   # cmdlets (and cmd's findstr) with a POSIX twin
+
+
+def _split_args(text: str) -> list:
+    import shlex
+    try:
+        return shlex.split(text, posix=True)
+    except ValueError:
+        return text.split()
+
+
+def _sls_parts(rest: str):
+    """Select-String's arguments in `_grep_parts` form. Its matching is case-insensitive unless told otherwise; `-Pattern a,b` is a list."""
+    flags, pats, toks, i = {"i"}, [], _split_args(rest), 0
+    while i < len(toks):
+        t = toks[i].lower()
+        if len(t) < 2 or t[0] != "-":
+            pats += toks[i].split(",")
+        elif "-pattern".startswith(t) and len(t) > 2:
+            i += 1
+            pats += toks[i].split(",") if i < len(toks) else []
+        elif "-quiet".startswith(t):
+            flags.add("q")
+        elif "-notmatch".startswith(t) and len(t) > 3:
+            flags.add("v")
+        elif "-simplematch".startswith(t):
+            flags.add("F")
+        elif "-casesensitive".startswith(t) and len(t) > 2:
+            flags.discard("i")
+        elif any(p.startswith(t) for p in SLS_VALUE_PARAMS):
+            i += 1
+        i += 1
+    return "rg", flags, pats   # .NET regexes read like rg's
+
+
+def _findstr_parts(rest: str):
+    """cmd's findstr in `_grep_parts` form: `/C:"a b"` is one literal, other words are alternatives; literal unless /R."""
+    flags, pats = {"F"}, []
+    for t in _split_args(rest):
+        low = t.lower()
+        if low.startswith("/c:"):
+            pats.append(t[3:])
+        elif low.startswith("/g:"):
+            return "rg", flags, []   # patterns in a file: unknown
+        elif low.startswith("/"):
+            flags |= {"v"} if low == "/v" else {"i"} if low == "/i" else set()
+            flags -= {"F"} if low == "/r" else set()
+        else:
+            pats.append(t)
+    return "rg", flags, pats
+
+
+def _ps_consumer(name: str, rest: str):
+    if name in ("select-object", "select"):
+        return "head" if SELECT_CUTS_END.search(rest) else "tail" if SELECT_LAST.search(rest) else "keep"
+    if name in ("measure-object", "measure"):
+        return "count"
+    if name == "out-null":
+        return "silent"
+    return _pattern_keeps_verdict(*(_findstr_parts(rest) if name == "findstr" else _sls_parts(rest)))
+
+
 def _consumer(stage: str) -> str:
     """How a command after the pipe treats the output it receives."""
     s = STAGE_PREFIX.sub("", stage.strip().lstrip("{( ")).strip()   # `| { head -5; }` is still head
     parts = s.split()
     name = os.path.basename(parts[0].strip("\"'")) if parts else ""
     rest = s[len(parts[0]):] if parts else ""
+    if re.sub(r"\.exe$", "", name.lower()) in PS_PIPES:
+        return _ps_consumer(re.sub(r"\.exe$", "", name.lower()), rest)
     if name == "awk" and re.search(r"\bNR\s*(?:<=?|==)\s*\d+", rest):
         return "head"   # `awk 'NR<=10'`
     if name in ("jq", "awk") and re.search(r"fail|error|FAIL", rest):
@@ -684,7 +759,7 @@ def find_hidden_status(cmd: str):
     that turns on pipefail before the pipe (`set -o pipefail`, `set -euo pipefail`, `bash -o pipefail -c`, zsh `setopt pipefail`)
     or reads each stage's status (`${PIPESTATUS[0]}`), and any tool that prints no verdict.
     """
-    if re.search(r"\$\{?(?:PIPESTATUS|pipestatus)\b", rules._strip_comments(cmd)):
+    if re.search(r"\$\{?(?:PIPESTATUS|pipestatus)\b|\$LASTEXITCODE\b", rules._strip_comments(cmd), re.I):
         return None
     for body in re.findall(r"\$\(([^()]*)\)", cmd):   # `result=$(pytest -q | head -5)`
         hit = find_hidden_status(body)
@@ -728,7 +803,7 @@ def find_hidden_status(cmd: str):
 
 def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "pre", data if data is not None else _read_stdin())
-    if data.get("tool_name") != "Bash":
+    if data.get("tool_name") not in ("Bash", "PowerShell"):   # the PowerShell tool is Claude Code's main shell on Windows
         return None
     cfg = config.load(data.get("cwd") or None)
     config.apply(cfg)
@@ -752,8 +827,9 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
         zh = _is_zh(turn.prompt)
     plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
     _record("pre", data, turn, plain, command=t)
-    fix = (f"给助手：请重新运行并让输出末尾可见（去掉 `| {pipe}`，或改用 `| tail -n 40`），然后引用最后的汇总行。" if zh else
-           f"To the agent: rerun it so the end of the output is visible (drop `| {pipe}`, or use `| tail -n 40`), then quote the final summary line.")
+    last = "Select-Object -Last 40" if pipe.lower().replace(".exe", "") in PS_PIPES else "tail -n 40"
+    fix = (f"给助手：请重新运行并让输出末尾可见（去掉 `| {pipe}`，或改用 `| {last}`），然后引用最后的汇总行。" if zh else
+           f"To the agent: rerun it so the end of the output is visible (drop `| {pipe}`, or use `| {last}`), then quote the final summary line.")
     return agents.emit(agent, "pre", plain, fix)
 
 
@@ -809,7 +885,7 @@ def _entries():
     exe = _exe()
     return {
         "Stop": {"matcher": "", "hooks": [{"type": "command", "command": f"{exe} hook stop  # {MARK}", "timeout": 30}]},
-        "PreToolUse": {"matcher": "Bash", "hooks": [{"type": "command", "command": f"{exe} hook pre  # {MARK}", "timeout": 10}]},
+        "PreToolUse": {"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": f"{exe} hook pre  # {MARK}", "timeout": 10}]},
     }
 
 
