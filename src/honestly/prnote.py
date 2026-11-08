@@ -6,6 +6,7 @@ sees "132 passed after the last edit" or "no test ran after the last edit" inste
 """
 from __future__ import annotations
 import datetime as dt
+import html
 import json
 import os
 import re
@@ -366,7 +367,7 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
         if f.verdict in decided:
             ev.claims[decided[f.verdict]] = ev.claims.get(decided[f.verdict], 0) + 1
             if f.verdict in ("unbacked", "contradicted"):
-                ev.flagged.append((decided[f.verdict], f.claim, f.reason))
+                ev.flagged.append((decided[f.verdict], f.claim, f.reason, f.category))
     return ev
 
 
@@ -379,8 +380,29 @@ def _local(ts: str) -> str:
 
 
 def _code(s: str) -> str:
-    s = s.replace("|", "\\|").replace("`", "'")
+    """Inert inline code: GitHub renders no markup, mention or image inside it. A comment marker would still end the block, so it goes too."""
+    s = s.replace("<!--", "<! --").replace("-->", "-- >").replace("|", "\\|").replace("`", "'")
+    s = re.sub(r"\s+", " ", s).strip()
     return f"`{s}`" if s else ""
+
+
+def _plain(s: str) -> str:
+    """Text outside code: nothing in it can become markup or a mention."""
+    s = html.escape(re.sub(r"\s+", " ", s), quote=False).replace("@", "&#64;")
+    return re.sub(r"([\\`*_\[\]!~|])", r"\\\1", s)
+
+
+# Claims about anything but the code on this branch: what the sentence said is the user's business, that one was flagged is the reviewer's.
+OFF_TOPIC = {"sent": "sending something", "deployed": "a deployment", "downloaded": "a download", "saved": "saving a file", "checked": "looking something up",
+             "scheduled": "scheduling something", "verified": "checking something"}
+
+
+def _flagged_line(item: tuple, redact) -> str:
+    label, claim, why = item[:3]
+    about = OFF_TOPIC.get(item[3] if len(item) > 3 else "")
+    if about:
+        return f"- *{label}*: a sentence about {about} (not shown: it is not about this code)"
+    return f"- *{label}*: {_code(redact(claim)[:200])} ({_code(redact(why)[:200])})"
 
 
 HEAD = {
@@ -428,13 +450,13 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
         lines += ["", "Agent claims in this work: " + ", ".join(f"{ev.claims.get(k, 0)} {k}" for k in order) + "."]
     if ev.flagged:
         lines += ["", "<details><summary>Claims with nothing behind them</summary>", ""]
-        for label, claim, why in ev.flagged[:6]:
-            lines.append(f"- *{label}*: “{_redact(claim)[:200]}” ({_redact(why)})")
+        for item in ev.flagged[:6]:
+            lines.append(_flagged_line(item, _redact))
         lines += ["", "</details>"]
     who = ", ".join(names.get(a, a) for a in ev.agents)
     src = (f"Read from {ev.sessions} local {who} session{'s' if ev.sessions != 1 else ''} that worked in this repository"
            if ev.sessions else "No local agent session worked in this repository")
-    lines += ["", f"<sub>{src}, {_redact(ev.window)}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
+    lines += ["", f"<sub>{src}, {_plain(_redact(ev.window))}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
               "Home paths, e-mails and tokens are redacted.</sub>", END]
     return "\n".join(lines) + "\n"
 
@@ -442,7 +464,7 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
 def splice(body: str, block: str) -> str:
     """Replace an earlier honestly block in a PR body, or append one."""
     body = body or ""
-    pat = re.compile(re.escape(START) + r".*?" + re.escape(END) + r"\n?", re.S)
+    pat = re.compile(re.escape(START) + r".*" + re.escape(END) + r"\n?", re.S)   # to the last end marker: an older note could hold one in a quoted sentence
     if pat.search(body):
         return pat.sub(lambda _: block, body, count=1)
     return (body.rstrip("\n") + "\n\n" if body.strip() else "") + block
