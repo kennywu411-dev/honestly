@@ -12,6 +12,7 @@ import functools
 import shlex
 import sys
 from dataclasses import dataclass
+from . import shell as _sh
 
 # ----------------------------------------------------------------- claims
 CLAIM_PATTERNS = [
@@ -145,60 +146,57 @@ def find_claims(text: str):
 # ------------------------------------------------------------ edits & paths
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 DOC_EXT = {".md", ".txt", ".rst", ".csv", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".wav", ".srt", ".log", ".example", ".b64", ".jsonl", ".mdc"}
+# source files whatever folder they sit in; a program's output sent to one of these is code too (`python gen.py > src/gen.py`)
+SOURCE_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".sh", ".zsh", ".bash", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".hpp", ".rb", ".php", ".vue", ".svelte", ".pl", ".lua"}
+CODE_TXT = re.compile(r"(?:^|/)(?:CMakeLists\.txt|(?:[\w.-]*[-_.])?(?:requirements|constraints)(?:[-_.][\w.-]*)?\.(?:txt|in)|requirements/[^/]+\.(?:txt|in))$", re.I)   # code in a .txt
 # directories and file names that hold notes rather than code; anchored, so `src/prompts/builder.py` or `proj/tmp/app.py` stay code
 DOC_DIRS = re.compile(
     r"(^docs?/|/docs?/|/memory/|/scratchpad/|/(?:reports?|notes?|research_notes)/[^/]*\.(?:md|txt|rst|csv|json|html|pdf)$|/\.claude/projects/"
     r"|(?:^|/)(?:README|CHANGELOG|HANDOFF|PROMPTS?)(?:[^/]*\.(?:md|txt|rst))?$|(?:^|/)(?:AGENTS|CLAUDE|GEMINI)\.md$|(?:^|/)\.env(?:\.[\w.-]+)?$|(?:^|/)\.gitignore$|(?:^|/)\.gitattributes$|(?:^|/)\.git/|(?:^|/)\.\w+ignore$|(?:^|/)LICENSE[^/]*$"
     r"|(?:^|/)(?:data|datasets|live|runs|outputs?|results|logs|cache)/(?:[^/]+/)*[^/]+\.(?:json|csv|tsv|parquet|xml)$"   # data and state files a script writes, not code
     r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.(?:claude|vscode|idea)/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
-    r"|^/tmp/|^/private/tmp/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
-TMP_CWD = re.compile(r"(^|\s)cd (/private/tmp|/tmp|\S*scratchpad)")
-INTERP = re.compile(r"(python3?|node|bash|zsh|\bsh|ruby|perl|psql|sqlite3|uv run|\.venv/bin/python3?)\b[^\n]*<<")
-WRITE_MARK = re.compile(r"(write_text\(|write_bytes\(|open\([^)]*['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]|\.write\(|writeFileSync|fs\.write|fs\.promises|shutil\.(copy|move)|os\.(?:rename|replace)|Path\([^)]*\)\.touch|\.touch\()")
-PLAIN_EDIT = re.compile(r"(sed -i|\btee\b|cat >>?|(^|[\s)])>>?(?![=>])\s*[^&>/ \n=]|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|(?:^|\|)\s*(?:sudo\s+)?patch\b)")   # `patch` only as the verb: `grep mock.patch` reads
-PLAIN_EDIT_EXCLUDE = re.compile(r"(>\s*/dev/null|2>&1|&>)")
-REDIRECT_TARGET = re.compile(r"(?:cat >>? ?|tee -a |tee |[\s)]>>?(?![=>]) ?)\"?([\w./~\-一-鿿 ]+?\.[A-Za-z0-9]+)\"?(?=\s|$|&|;|\|)")
+    r"|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
+ALWAYS_SCRATCH = re.compile(r"/scratchpad/|/\.claude/projects/|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude|^[A-Za-z]:/(?:Temp|tmp)/", re.I)
+TMP_CWD = re.compile(r"(^|\s)cd (?:(?:/private)?/tmp(?:/|$)|\S*scratchpad(?:/|$))")
+INTERP_HEADS = re.compile(r"^(?:python[\d.]*|pypy[\d.]*|node|bun|deno|bash|zsh|sh|dash|ruby|perl|php|psql|sqlite3)$")
+_CODE_HEADS = re.compile(r"^(?:python[\d.]*|pypy[\d.]*|node|bun|deno|ruby|perl|php)$")
+WRITE_MARK = re.compile(r"(write_text\(|write_bytes\(|open\([^)]*['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]|\.write\(|writeFileSync|appendFileSync|copyFileSync|renameSync|unlinkSync|rmSync|fs\.write|fs\.append|fs\.copy|fs\.rename|fs\.unlink|fs\.rm\b|fs\.promises"
+                        r"|shutil\.(?:copy\w*|move|rmtree)|os\.(?:rename|renames|replace|remove|unlink|rmdir|removedirs)\b|Path\([^)]*\)[\w./()'\"]*\.(?:touch|unlink|rename|replace|rmdir)\(|\.touch\(|\.unlink\(|\.rename\(\s*(?:['\"]|Path\()"
+                        r"|fileinput\.[^\n]*inplace\s*=\s*(?:True|1)|Bun\.write|Deno\.(?:writeTextFile|writeFile|remove|rename|copyFile)|File\.(?:write|delete|rename)|FileUtils\.|IO\.write|file_put_contents|fopen\([^)]*['\"][wax]"
+                        r"|open\s*\(?[^;\n]*['\"]\+?>{1,2}['\"]|\bunlink\b\s*\(?\s*['\"\$])")
+_NOT_A_FILE_WRITE = re.compile(r"(?:\bsys\.(?:stdout|stderr)(?:\.buffer)?|\bprocess\.(?:stdout|stderr)|\bconsole|\b(?:response|res|self\.wfile|sock|socket|conn|writer|hasher|hash|digest|md5|sha\d*))\.write\(")
+_MEMORY_FILE = re.compile(r"(\w+)\s*=\s*(?:io\.)?(?:StringIO|BytesIO)\(")
 QUOTED_PATH = re.compile(r"['\"]([^'\"\n]+\.(?:py|js|mjs|cjs|ts|tsx|jsx|html|css|scss|json|toml|yaml|yml|sh|zsh|go|rs|java|kt|swift|c|cc|cpp|h|rb|php|sql|tex|ipynb|vue|svelte|glsl|cfg|ini|md|txt|rst|csv|log|jsonl))['\"]")
 HEADER_PATH = re.compile(r"(?:^|\s)\"?((?:~|/|\.{1,2}/)?[\w./~\-\u4e00-\u9fff]+/[\w.\-\u4e00-\u9fff]+\.[A-Za-z0-9]{1,5})\"?")
 COMMIT_MSG = re.compile(r"(-m\s+(\"[^\"]*\"|'[^']*')|<[^<>\s]+@[^<>\s]+>)")
-HEREDOC_HEAD = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
-_QUOTE_SPAN = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
-PIPEFAIL_ON = re.compile(r"\bset\b[^;&|\n]{0,80}?\s-[a-zA-Z]*o\s+pipefail\b|\b(?:ba|z|k|da)?sh\s+(?:-\S+\s+){0,8}-o\s+pipefail\b|\bsetopt\s+pipe_?fail\b", re.I)
+PIPEFAIL_ON = re.compile(r"\bset\b[^;&|\n]{0,80}?\s-[a-zA-Z]*o[a-zA-Z]*\s+pipefail\b|\b(?:ba|z|k|da)?sh\s+(?:-\S+\s+){0,8}-[a-zA-Z]*o\s+pipefail\b|\bsetopt\s+pipe_?fail\b|\bshopt\b[^;&|\n]{0,20}?\s-[a-z]*o[a-z]*\b[^;&|\n]{0,20}?\bpipefail\b", re.I)
 PIPEFAIL_OFF = re.compile(r"\bset\s+\+o\s+pipefail\b|\bunsetopt\s+pipe_?fail\b", re.I)
-NOT_A_RUN = re.compile(r"(--collect-only|--co\b|--version|--help|(?:^|\s)-h\b|--list-tests|--list|--dry-run|--showconfig|--fixtures\b|--markers\b|--no-run\b|(?:^|\s)-list\b|\bgo test\s+(?:-\S+\s+)*-c\b"
-                       r"|\b(?:tox|nox)\s+(?:-\S+\s+)*-l\b|\bmake\b[^|;&]*\s(?:-n|--just-print)\b)")
+NOT_A_RUN = re.compile(r"(?:^|\s)(?:--collect-only|--co|--version|--help|-h|--list-tests|--listTests|--list|--dry-run|--showconfig|--showConfig|--show-config|--fixtures|--fixtures-per-test|--markers|--no-run|-list|--setup-only|--setup-plan|--cache-show|--init|--print-config|--install-types|--watch|--watchAll)(?=[\s=]|$)|\bmake\b[^|;&\n]*\s(?:-n|--just-print)\b")
+_V_IS_VERSION = re.compile(r"^(?:pytest|py\.test|tsc|mvn|mvnw|gradle|gradlew|node|deno|bun|go|cargo|rustc|ruff|mypy|black|eslint|prettier|biome|tox|nox|jest|vitest|mocha|rspec)$")
+NOTE = None   # set by hooks: where "could not check" is written down
 
 
-def heredoc_head(line: str):
-    """The first `<<WORD` on the line that is not inside a quoted string (`echo 'a<<b'; pytest` has no heredoc)."""
-    if "<<" not in line:
-        return None
-    spans = []
-    for q in _QUOTE_SPAN.finditer(line):
-        if not re.search(r"<<-?\s*$", line[:q.start()]):   # `<<'EOF'`: the quote belongs to the heredoc head
-            spans.append((q.start(), q.end()))
-    for m in HEREDOC_HEAD.finditer(line):
-        if not any(a <= m.start() < b for a, b in spans):
-            return m
-    return None
+def _note_once(where: str, msg: str) -> None:
+    if NOTE is not None:
+        NOTE(where, msg)
 
 
 def pipe_stages(text: str) -> list:
-    """`a | b |& c` -> ["a ", " b ", " c"]; `||` is a list operator, not a pipe (segments() splits on it already)."""
+    """`a | b |& c` -> ["a ", " b ", " c"]; `||` is a list operator, not a pipe."""
     return re.split(r"(?<!\|)\|&?(?!\|)", text)
-
-
-NOTES_FOLDER = re.compile(r"(?:^|/)(?:docs?|memory)/", re.I)
-PROGRAM_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".rb", ".php", ".sh", ".zsh", ".sql", ".vue", ".svelte"}
 
 
 def path_is_doc(path: str) -> bool:
     if not path:
         return False
-    path = path.replace("\\", "/")   # Claude Code on Windows writes native paths
-    ext = os.path.splitext(path.strip())[1].lower()
-    if ext in PROGRAM_EXT:   # a docs/ or memory/ folder holds notes, and a program in it is still a program
-        return bool(DOC_DIRS.search(NOTES_FOLDER.sub("/", path)))
+    path = path.replace("\\", "/").strip()   # Claude Code on Windows writes native paths
+    if ALWAYS_SCRATCH.search(path):
+        return True
+    if CODE_TXT.search(path) or re.search(r"(?:^|/)\.git/hooks/", path):
+        return False
+    ext = os.path.splitext(path)[1].lower()
+    if ext in SOURCE_EXT or ext == ".sql":
+        return bool(re.search(r"(?:^|/)\.git/", path))   # source code is code in `src/memory/`, `src/docs/` or `src/计划/`
     return ext in DOC_EXT or bool(DOC_DIRS.search(path))
 
 
@@ -207,28 +205,7 @@ class Segment:
     text: str
     heredoc: bool = False
     interp: bool = False   # heredoc fed to an interpreter (code), else data
-
-
-def _split_shell(line: str):
-    """Split on && || ; and newline outside quotes (keeps for/if blocks loosely together)."""
-    out, buf, q, i = [], [], None, 0
-    while i < len(line):
-        ch = line[i]
-        if q:
-            buf.append(ch)
-            if ch == q and (i == 0 or line[i - 1] != "\\"):
-                q = None
-        elif ch in ("'", '"'):
-            q = ch; buf.append(ch)
-        elif line.startswith("&&", i) or line.startswith("||", i):
-            out.append("".join(buf)); buf = []; i += 1
-        elif ch == ";" and not re.match(r";\s*(do|then|fi|done)\b", line[i:]):
-            out.append("".join(buf)); buf = []
-        else:
-            buf.append(ch)
-        i += 1
-    out.append("".join(buf))
-    return [x.strip() for x in out if x.strip()]
+    unit: object = None    # the pipeline as read by shell.py
 
 
 def _strip_comments(text: str) -> str:
@@ -254,101 +231,372 @@ def _strip_comments(text: str) -> str:
     return "".join(out)
 
 
+def _as_segment(u) -> Segment:
+    docs = [c for c in u.pipeline.commands if c.heredocs]
+    interp = False
+    if docs:
+        real = _sh.unwrap(docs[0].argv)
+        interp = bool(real and INTERP_HEADS.match(_sh.head_name(real[0])))
+    return Segment(u.text, bool(docs), interp, u)
+
+
+def _units(cmd) -> tuple:
+    return _sh.units(cmd) if isinstance(cmd, str) else ()
+
+
 def segments(cmd: str):
-    """Split a shell command into segments; a heredoc block is one segment.
-    Quotes are respected across lines, so a multi-line commit message stays inside its git commit segment."""
-    lines = cmd.split("\n")
-    blocks = {}
-    flat = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        while line.rstrip().endswith("\\") and i + 1 < len(lines):   # `pytest tests/ \` + newline + `  -q | tail`
-            line = line.rstrip()[:-1] + " " + lines[i + 1]
-            i += 1
-        m = heredoc_head(line)
-        if m:
-            term = m.group(1)
-            block = [line[m.start():]]
-            j = i + 1
-            while j < len(lines) and lines[j].strip() != term:
-                block.append(lines[j]); j += 1
-            if j < len(lines):
-                block.append(lines[j]); j += 1
-            key = f"__HD{len(blocks)}__"
-            blocks[key] = "\n".join(block)
-            flat.append(line[:m.start()] + key)
-            i = j
-        else:
-            flat.append(line); i += 1
-    text = _strip_comments("\n".join(flat))
-    out = []
-    for seg in _split_shell(text.replace("\n", " ; ")):
-        key = next((k for k in blocks if k in seg), None)
-        if key:
-            body = blocks[key]
-            seg_text = seg.replace(key, body)
-            head = seg.replace(key, body.split("\n", 1)[0])
-            out.append(Segment(seg_text, heredoc=True, interp=bool(INTERP.search(head))))
-        else:
-            out.append(Segment(seg))
-    return out
+    """The pipelines of a shell command, in the order they run, with loops and conditionals opened up. A heredoc block stays with its command."""
+    return [_as_segment(u) for u in _units(cmd) if u.level == 0]
 
 
 CODE_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".html", ".css", ".scss", ".json", ".toml", ".yaml", ".yml", ".sh", ".zsh", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".rb", ".php", ".sql", ".tex", ".ipynb", ".vue", ".svelte", ".glsl", ".txt.j2", ".cfg", ".ini"}
-ASSIGN = re.compile(r"(?m)(?:^|[;&|]\s*)\s*(\w+)=\"?([^\"\n;&|]+)\"?")
 
 
 @functools.lru_cache(maxsize=512)
 def shell_env(cmd: str) -> dict:
-    """`VAR=value` assignments in the shell part of a command; a heredoc body is another language (`S=sys.argv[1]`)."""
-    keep, term = [], None
-    for line in cmd.split("\n"):
-        if term is not None:
-            if line.strip() == term:
-                term = None
-            continue
-        keep.append(line)
-        m = heredoc_head(line)
-        if m:
-            term = m.group(1)
-    return dict(ASSIGN.findall("\n".join(keep)))
+    """`VAR=value` assignments of the shell part of a command, `export VAR=value` too; a heredoc body is another language (`S=sys.argv[1]`)."""
+    env = {}
+    for u in _units(cmd):
+        env.update(u.env)
+    return env
 
 
 def _resolve_vars(text: str, whole_cmd: str) -> str:
-    env = shell_env(whole_cmd)
+    return _sh.resolve(text, shell_env(whole_cmd))
+
+
+# ------------------------------------------------------------ what a command writes
+_AUTHORS = {"cat", "echo", "printf", "sed", "gsed", "awk", "gawk", "perl", "jq", "cp", "mv", "tee", "print", "Write-Output", "Set-Content"}
+_SCRATCH_NAMES = {"out", "output", "status", "log", "result", "results", "tmp", "temp", "stdout", "stderr", "foo", "bar", "baz", "a", "b", "c", "x", "y", "z"}
+_SCRATCH_EXT = {".out", ".stamp", ".tmp", ".bak", ".orig", ".rej", ".pid", ".lock"}
+_TEMP_VAR = re.compile(r"^\$\{?(?:TMPDIR|TMP|TEMP|RUNNER_TEMP|TEMPDIR)\b|^\$\(mktemp\b|^`mktemp\b")
+_KNOWN_SOURCE_DIRS = {"src", "lib", "app", "tests", "test", "pkg", "cmd", "internal"}
+_GIT_FLAGS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+
+
+def _positional(args: list, values: set = frozenset()) -> list:
+    out, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            out += args[i + 1:]
+            break
+        if a.startswith("-") and a != "-":
+            i += 2 if a in values else 1
+            continue
+        out.append(a)
+        i += 1
+    return out
+
+
+def _git_args(real: list) -> list:
+    """`git -C x --no-pager status` -> ["status"]."""
+    i = 1
+    while i < len(real) and real[i].startswith("-"):
+        i += 2 if real[i] in _GIT_FLAGS_WITH_VALUE else 1
+    return real[i:]
+
+
+def _git_writes(real: list):
+    a = _git_args(real)
+    if not a:
+        return None
+    sub, rest = a[0], a[1:]
+    has = lambda *f: any(x in f for x in rest)
+    if has("--help", "-h"):
+        return None
+    if sub == "checkout":
+        if has("-b", "-B", "--orphan"):
+            return None
+        if "--" in rest:
+            return rest[rest.index("--") + 1:] or [None]
+        return [None]
+    if sub == "restore":
+        if has("--staged", "-S") and not has("--worktree", "-W"):
+            return None
+        return _positional(rest, {"--source", "-s", "--pathspec-from-file"}) or [None]
+    if sub == "switch":
+        return None if has("-c", "-C", "--create", "--force-create") else [None]
+    if sub == "merge":
+        return None if has("--abort", "--quit") else [None]
+    if sub == "pull":
+        return None if has("--dry-run") else [None]
+    if sub == "rebase":
+        return None if has("--abort", "--quit", "--show-current-patch", "--edit-todo") else [None]
+    if sub in ("cherry-pick", "revert"):
+        return None if has("--abort", "--quit") else [None]
+    if sub == "am":
+        return None if has("--abort", "--quit", "--show-current-patch") else [None]
+    if sub == "apply":
+        return None if has("--check", "--stat", "--numstat", "--summary", "--cached") else [None]
+    if sub == "stash":
+        return [None] if not rest or rest[0] in ("push", "save", "pop", "apply") or rest[0].startswith("-") else None
+    if sub == "mv":
+        p = _positional(rest)
+        return p or [None]
+    if sub == "rm":
+        return None if has("--cached", "-n", "--dry-run") else (_positional(rest) or [None])
+    if sub == "reset":
+        return [None] if has("--hard") else None
+    if sub == "clean":
+        flags = "".join(x[1:] for x in rest if x.startswith("-") and not x.startswith("--"))
+        return [None] if "f" in flags and "n" not in flags else None
+    return None
+
+
+def _sed_writes(real: list):
+    args, files, script, i = real[1:], [], False, 0
+    inplace = False
+    while i < len(args):
+        a = args[i]
+        if a in ("--help", "--version"):
+            return None
+        if a == "--":
+            files += args[i + 1:]
+            break
+        if a.startswith("--"):
+            inplace = inplace or a.startswith("--in-place")
+            if a in ("--expression", "--file"):
+                script = True
+                i += 1
+            elif a.startswith(("--expression=", "--file=")):
+                script = True
+            i += 1
+            continue
+        if a.startswith("-") and len(a) > 1:
+            letters = a[1:]
+            if letters[0] == "i" or re.fullmatch(r"[Enrsuz]*i[a-zA-Z.]*", letters):
+                inplace = True
+                if letters == "i" and i + 1 < len(args) and args[i + 1] == "":   # BSD: `-i ''`
+                    i += 1
+            elif letters[-1] in "ef":
+                script = True
+                i += 1
+            i += 1
+            continue
+        if not script:
+            script = True
+        else:
+            files.append(a)
+        i += 1
+    return (files or [None]) if inplace else None
+
+
+def _perl_writes(real: list):
+    args, files, i, inplace, script = real[1:], [], 0, False, False
+    while i < len(args):
+        a = args[i]
+        if a.startswith("-") and len(a) > 1 and not a.startswith("--"):
+            letters = a[1:]
+            if re.match(r"[a-zA-Z0-9]*i", letters) and "e" not in letters.split("i")[0]:
+                inplace = True
+            if "e" in letters.split(".")[0]:
+                script = True
+                i += 1
+            i += 1
+            continue
+        if not script:
+            script = True
+        else:
+            files.append(a)
+        i += 1
+    return (files or [None]) if inplace else None
+
+
+def _dest_writes(h: str, args: list):
+    """cp, mv, install, ln, rsync: the destination; a move takes its sources away too."""
+    t = None
+    pos, i = [], 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-t", "--target-directory"):
+            t = args[i + 1] if i + 1 < len(args) else None
+            i += 2
+            continue
+        if a in ("-m", "--mode", "-o", "--owner", "-g", "--group", "-S", "--suffix"):
+            i += 2
+            continue
+        if a.startswith("-") and a != "-":
+            i += 1
+            continue
+        pos.append(a)
+        i += 1
+    if t is None and len(pos) < 2:
+        return None
+    sources, dest = (pos, t) if t is not None else (pos[:-1], pos[-1])
+    out = []
+    if os.path.splitext(dest)[1] or (not dest.endswith("/") and dest not in (".", "..") and not all(os.path.splitext(s)[1] for s in sources)):
+        out.append(dest)
+    elif dest in (".", "./"):
+        out += [os.path.basename(s) for s in sources]
+    else:
+        out += [dest.rstrip("/") + "/" + os.path.basename(s.rstrip("/")) for s in sources]
+    if h == "mv":
+        out += sources
+    return out
+
+
+_PKG_ADD = {"npm": {"install", "i", "add", "uninstall", "un", "rm", "remove", "update", "up"}, "pnpm": {"add", "remove", "rm", "update", "up", "install", "i"}, "yarn": {"add", "remove", "upgrade", "up"}, "bun": {"add", "remove", "rm", "update", "install", "i"},
+            "uv": {"add", "remove"}, "poetry": {"add", "remove"}, "pdm": {"add", "remove"}, "cargo": {"add", "remove", "rm"}, "bundle": {"add", "remove"}, "composer": {"require", "remove"}, "pipenv": {"install", "uninstall"}, "go": {"get"}, "rye": {"add", "remove"}}
+_PKG_NEEDS_NAME = {"npm", "pnpm", "bun", "pipenv"}
+
+
+def _verb_writes(real: list, c):
+    """The files this command changes by itself. None: it changes nothing. A None inside the list: something changes, but the text does not say what."""
+    h = _sh.head_name(real[0])
+    args = real[1:]
+    low = h.lower()
+    if low == "git":
+        return _git_writes(real)
+    if low in ("sed", "gsed"):
+        return _sed_writes(real)
+    if low in ("perl", "ruby"):
+        return _perl_writes(real)
+    if low in ("awk", "gawk"):
+        for i, a in enumerate(args):
+            if (a == "-i" and args[i + 1:i + 2] == ["inplace"]) or a in ("--include=inplace", "-iinplace"):
+                return [x for x in _positional(args[i + 2:])[1:]] or [None]
+        return None
+    if low == "tee":
+        return [a for a in _positional(args) if a]
+    if low == "patch":
+        if any(a in ("--dry-run", "-C", "--check", "--version", "--help", "-v") for a in args):
+            return None
+        return [None]
+    if low in ("ed", "ex", "vi", "vim", "nvim", "red"):
+        cmds = [args[i + 1] for i, a in enumerate(args[:-1]) if a == "-c" or (a.startswith("-") and a.endswith("c") and not a.startswith("--"))]
+        batch = low in ("ed", "red") or any(a in ("-e", "-es", "-s", "-E", "-Es", "--headless", "-sc", "-esc", "-ec") or a.startswith("-s") for a in args)
+        if not batch or not (low in ("ed", "red") or any(re.search(r"\b(?:w|wq|x|wa|xa|update)\b|\|x$", x) for x in cmds)):
+            return None
+        return [a for a in _positional(args, {"-c", "-sc", "-ec", "-esc"}) if a not in cmds] or [None]
+    if low in ("cp", "mv", "install", "ln", "rsync", "ditto", "gcp", "gmv"):
+        return _dest_writes(low, args)
+    if low in ("rm", "unlink", "shred", "trash", "grm"):
+        out = []
+        for a in _positional(args):
+            ext = os.path.splitext(a.rstrip("/"))[1].lower()
+            if ext in CODE_EXT or os.path.basename(a.rstrip("/")) in _KNOWN_SOURCE_DIRS:
+                out.append(a)
+        return out or None
+    if low == "dd":
+        return [a[3:] for a in args if a.startswith("of=")] or None
+    if low in ("truncate", "gtruncate"):
+        return _positional(args, {"-s", "--size", "-r", "--reference"}) or None
+    if low == "find" and "-delete" in args:
+        for i, a in enumerate(args[:-1]):
+            if a in ("-name", "-iname") and os.path.splitext(args[i + 1])[1].lower() in CODE_EXT:
+                return [args[i + 1]]
+        return None
+    # fixers rewrite code; formatters keep its meaning by contract and do not count
+    fix = None
+    if low == "ruff" or low == "eslint":
+        fix = any(a in ("--fix", "--unsafe-fixes", "--fix-only") for a in args)
+    elif low == "biome":
+        fix = any(a in ("--write", "--apply", "--fix") for a in args) and args[:1] != ["format"]
+    elif low == "cargo" or low == "go":
+        fix = args[:1] == ["fix"]
+    elif low == "2to3":
+        fix = "-w" in args or "--write" in args
+    elif low == "comby":
+        fix = any(a in ("-in-place", "-i") for a in args)
+    elif low == "autoflake":
+        fix = any(a in ("-i", "--in-place") for a in args)
+    elif low in ("pyupgrade", "jscodeshift", "codemod", "sd", "ast-grep-rewrite", "semgrep-fix"):
+        fix = bool(args)
+    if fix:
+        return [None]
+    if low in _PKG_ADD and args and args[0] in _PKG_ADD[low]:
+        if low in _PKG_NEEDS_NAME and not _positional(args[1:], {"-w", "--workspace", "--prefix", "-C", "--filter", "-F"}):
+            return None
+        return [None]
+    if low == "npm" and args[:1] == ["version"]:
+        return None
+    return None
+
+
+def _code_of(real: list, c):
+    """(language, code) when the command gives an interpreter code to run: `python -c`, `node -e`, `python3 - <<EOF`."""
+    h = _sh.head_name(real[0])
+    if not _CODE_HEADS.match(h):
+        return None
+    lang = re.sub(r"[\d.]+$", "", h)
+    args = real[1:]
+    if lang == "deno" and args[:1] == ["eval"]:
+        return "js", " ".join(args[1:])
+    if lang == "bun" and args[:1] == ["run"]:
+        args = args[1:]
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if lang in ("python", "pypy") and a in ("-W", "-X"):
+            i += 2
+            continue
+        if a == "-":
+            break
+        if not a.startswith("-"):
+            return None     # a script file; a heredoc is its input, not code
+        if lang in ("python", "pypy") and a.lstrip("-").endswith("c") and not a.startswith("--") and i + 1 < len(args):
+            return "python", args[i + 1]
+        if lang == "python" and a.lstrip("-").endswith("m"):
+            return None
+        if lang in ("node", "bun") and a in ("-e", "--eval", "-p", "--print") and i + 1 < len(args):
+            return "js", args[i + 1]
+        if lang in ("ruby", "perl") and "e" in a[1:] and i + 1 < len(args):
+            return lang, args[i + 1]
+        if lang == "php" and a == "-r" and i + 1 < len(args):
+            return "php", args[i + 1]
+        i += 1
+    if c is not None and c.heredocs:
+        return ("js" if lang in ("node", "bun", "deno") else lang), "\n".join(h2.body for h2 in c.heredocs)
+    return None
+
+
+_STRING = re.compile(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'|`(?:[^`\\]|\\.)*`')
+_MODE_TEXT = re.compile(r"^(?:[rwax]?[bt]?\+?[bt]?|\+?[<>]{1,2}|)$")
+
+
+def _blank_strings(code: str) -> str:
+    """Words inside string literals are not code; open modes and Perl's `'>'` stay, so a write can still be seen."""
     def rep(m):
-        return env.get(m.group(1), m.group(0))
-    return re.sub(r"\$\{?(\w+)\}?", rep, text)
+        s = m.group(0)
+        q = s[0]
+        inner = s[1:-1]
+        return s if _MODE_TEXT.match(inner) and len(s) < 8 else q + "_" * min(len(inner), 8) + q
+    return _STRING.sub(rep, code[:200_000])
 
 
-def segment_targets(seg: Segment, whole_cmd: str = ""):
-    if seg.heredoc and seg.interp:
-        header = _resolve_vars(seg.text.split("\n", 1)[0], whole_cmd)
-        hpaths = [h for h in HEADER_PATH.findall(header) if "<<" not in h]
-        paths = QUOTED_PATH.findall(seg.text)
-        if hpaths and ("sys.argv" in seg.text or not paths):
-            paths = hpaths + paths
-        code = [t for t in paths if os.path.splitext(t)[1].lower() in CODE_EXT and not path_is_doc(t)]
-        docs = [t for t in paths if path_is_doc(t)]
-        if docs and not code:
-            return docs
-        return code or paths
-    if seg.heredoc:
-        return REDIRECT_TARGET.findall(_resolve_vars(seg.text.split("\n", 1)[0], whole_cmd))
-    c = PLAIN_EDIT_EXCLUDE.sub(" ", _resolve_vars(seg.text, whole_cmd))
-    t = REDIRECT_TARGET.findall(c)
-    if "sed -i" in c:
-        try:
-            toks = shlex.split(c)
-        except ValueError:
-            toks = c.split()
-        if toks:
-            t.append(toks[-1])
-    return t
+def _code_marks_a_write(code: str) -> bool:
+    bare = _blank_strings(code)
+    if not WRITE_MARK.search(bare):
+        return False
+    memory = set(_MEMORY_FILE.findall(bare))
+    rest = _NOT_A_FILE_WRITE.sub("", bare)
+    for name in memory:
+        rest = re.sub(r"\b" + re.escape(name) + r"\.write\(", "", rest)
+    return bool(WRITE_MARK.search(rest))
 
 
-TEMP_PATH = re.compile(r"^(?:/private/tmp/|/tmp/|/var/folders/)|(?:^|/)scratchpad(?:/|$)|AppData/Local/Temp|/Temp/claude|^\$TMPDIR")
+_SHELL_OUT_LIST = re.compile(r"(?:subprocess\.\w+|Popen|check_call|check_output|spawnSync|spawn|execFileSync)\(\s*(?:\[([^\]]{0,600})\]|['\"]([\w./-]+)['\"]\s*,\s*\[([^\]]{0,600})\])")
+_SHELL_OUT_TEXT = re.compile(r"(?:os\.system|os\.popen|subprocess\.\w+|execSync|shell_exec|system)\(\s*(['\"])((?:(?!\1).){1,600})\1")
+_LIST_ITEM = re.compile(r"sys\.executable|process\.execPath|'([^']*)'|\"([^\"]*)\"")
+
+
+def _code_shell_lines(code: str) -> list:
+    """Shell commands a script spells out: `subprocess.run(['sed', '-i', ...])`, `os.system('pytest')`."""
+    code = code[:200_000]
+    out = [m.group(2) for m in _SHELL_OUT_TEXT.finditer(code)]
+    for m in _SHELL_OUT_LIST.finditer(code):
+        items = []
+        if m.group(2):
+            items.append(m.group(2))
+        for it in _LIST_ITEM.finditer(m.group(1) or m.group(3) or ""):
+            items.append("python" if it.group(0).startswith(("sys.", "process.")) else (it.group(1) if it.group(1) is not None else it.group(2)))
+        if items:
+            out.append(shlex.join(items))
+    return out[:32]
+
+
+TEMP_PATH = re.compile(r"^(?:/private/tmp/|/tmp/|/var/tmp/|/dev/shm/|/var/folders/)|(?:^|/)scratchpad(?:/|$)|AppData/Local/Temp|/Temp/claude|^\$\{?TMPDIR|^[A-Za-z]:[\\/](?:Temp|tmp)[\\/]")
 WRITE_ARG = re.compile(r"\bopen\(\s*(?P<a>[^,()]+?(?:\([^()]*\)[^,()]*?)?)\s*,\s*(?:mode\s*=\s*)?['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]"
                        r"|\((?P<g>[^()]*\([^()]*\)[^()]*)\)\.write_(?:text|bytes)\("
                        r"|(?P<b>\b[\w.]+(?:\([^()]*\))?)\.write_(?:text|bytes)\("
@@ -363,6 +611,8 @@ def _expr_path(expr: str, body: str, argv: list, depth: int = 0):
     expr = expr.strip()
     if depth > 5 or not expr:
         return None
+    if re.match(r"^tempfile\.|^(?:Named)?TemporaryFile\b|^mkdtemp\b|^mkstemp\b", expr):
+        return "/tmp/tempfile"
     m = re.match(r"^(?:pathlib\.)?(?:Path|PurePath|os\.path\.join|os\.path\.expanduser|os\.path\.abspath|str|path\.join|path\.resolve)\(\s*(.*)", expr)
     if m:
         return _expr_path(m.group(1), body, argv, depth + 1)
@@ -383,45 +633,61 @@ def _expr_path(expr: str, body: str, argv: list, depth: int = 0):
 
 
 UNTRACKED_WRITE = re.compile(r"\.touch\(|fs\.write(?!File(?:Sync)?\()|open\([^)'\"]*,\s*(?:mode\s*=\s*)?[A-Za-z_]\w*\s*[,)]")   # writes whose target this module cannot follow
+_OTHER_WRITE = re.compile(r"os\.(?:remove|unlink|rmdir|removedirs)\b|shutil\.rmtree|\.unlink\(|\.rename\(|fileinput\.|appendFileSync|copyFileSync|renameSync|unlinkSync|rmSync|fs\.(?:append|copy|rename|unlink|rm)\b|Bun\.write|Deno\.|File\.|FileUtils\.|IO\.write|file_put_contents|fopen\(|\bunlink\b|\bopen\s*\(?\s*my\b|\bopen\s*\(?[^;\n]*['\"]\+?>")
+
+
+def _write_paths(code: str, whole_cmd: str, argv: list) -> list:
+    """Every write target the script names, resolved as far as the text allows; None for one it does not."""
+    env = shell_env(whole_cmd) if whole_cmd else {}
+    out = []
+    for n, m in enumerate(WRITE_ARG.finditer(code)):
+        if n >= 200:
+            return [None]
+        expr = next(g for g in m.groups() if g)
+        path = _expr_path(expr, code, argv)
+        if path is not None and TEMP_PATH.search(path):
+            out.append(path)
+            continue
+        lits = QUOTED_PATH.findall(expr)
+        if lits:   # `os.path.join(base, 'report.md')`: the file's name decides what it is
+            path = lits[-1] if path is None or path == lits[-1] else path.rstrip("/") + "/" + lits[-1]
+        out.append(None if path is None else _sh.expanduser(_sh.resolve(path, env)))
+    return out
 
 
 def writes_only_scratch(seg: Segment, whole_cmd: str = "") -> bool:
     """An interpreter heredoc whose every write goes to a temp or scratch path (a test harness, a probe page) authors no code.
     Any write it cannot follow (an unresolved variable, a mode in a variable) makes it an edit."""
-    body = seg.text
-    if UNTRACKED_WRITE.search(body):
+    head, _, code = seg.text.partition("\n")
+    return _code_only_scratch(code or seg.text, head, seg, whole_cmd)
+
+
+def _code_only_scratch(code: str, head: str, seg, whole_cmd: str) -> bool:
+    bare = _blank_strings(code)
+    if UNTRACKED_WRITE.search(bare) or _OTHER_WRITE.search(_NOT_A_FILE_WRITE.sub("", bare)):
         return False
-    head = body.split("\n", 1)[0]
     try:
         toks = shlex.split(head.split("<<", 1)[0])
     except ValueError:
         toks = head.split("<<", 1)[0].split()
-    env = shell_env(whole_cmd)
-    def resolve(t):
-        return re.sub(r"\$\{?(\w+)\}?", lambda m: env.get(m.group(1), m.group(0)), t)
-    argv = [resolve(t) for t in (toks[toks.index("-") + 1:] if "-" in toks else [])]
-    targets = []
-    for n, m in enumerate(WRITE_ARG.finditer(body)):
-        if n >= 200:
-            return False
-        expr = next(g for g in m.groups() if g)
-        path = _expr_path(expr, body, argv)
-        if path is None:
-            return False
-        targets.append(os.path.expanduser(resolve(path)))
+    env = shell_env(whole_cmd) if whole_cmd else {}
+    argv = [_sh.resolve(t, env) for t in (toks[toks.index("-") + 1:] if "-" in toks else [])]
+    targets = _write_paths(code, whole_cmd, argv)
+    if not targets or None in targets:
+        return False
     targets = _under_cd(targets, seg, whole_cmd)
-    return bool(targets) and all(TEMP_PATH.search(t) or path_is_doc(t) for t in targets)
+    return all(TEMP_PATH.search(t) or path_is_doc(t) for t in targets)
 
 
 def _under_cd(paths: list, seg: Segment, whole_cmd: str) -> list:
     """Relative paths placed under the `cd` before the segment: `cd proj/.claude && python3 - <<EOF ... open('launch.json', 'w')`
     writes proj/.claude/launch.json, which is tool config, not `launch.json` of unknown kind."""
-    if not whole_cmd or all(not p or os.path.isabs(os.path.expanduser(p)) for p in paths):
+    if not whole_cmd or all(not p or os.path.isabs(_sh.expanduser(p)) for p in paths):
         return paths
     here = seg_dir(whole_cmd, seg.text)
     if not here:
         return paths
-    return [p if not p or os.path.isabs(os.path.expanduser(p)) else os.path.join(here, p) for p in paths]
+    return [p if not p or os.path.isabs(_sh.expanduser(p)) else os.path.join(here, p) for p in paths]
 
 
 PS_WRITE = re.compile(r"(?:^|[|{])[ \t]*(?:set-content|add-content|out-file)\b([^|;}\n]*)", re.I)   # PowerShell's `cat > file`
@@ -429,6 +695,7 @@ PS_WRITE_SOURCE = re.compile(r"""["'$(@]|get-content\b|gc\b|echo\b|write-output\
 PS_FILE_WRITE = re.compile(r"""\[(?:System\.)?IO\.File\]::(?:WriteAll(?:Text|Lines|Bytes)|AppendAll(?:Text|Lines))\([ \t]*["']([^"']+)["']""", re.I)   # [IO.File]::WriteAllText("src/app.py", ...)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
 PS_PATH_PARAM = re.compile(r"-(?:file)?path|-literalpath|-pspath", re.I)
 PS_VALUE_PARAM = re.compile(r"-(?:value|encoding|width|inputobject|stream|filter|include|exclude|credential)", re.I)
+_QUOTE_SPAN = re.compile(r"\"[^\"\\]*(?:\\.[^\"\\]*)*\"|'[^']*'")
 
 
 def _ps_write_target(args: str) -> str:
@@ -448,54 +715,180 @@ def _ps_write_target(args: str) -> str:
     return ""
 
 
-def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
-    if seg.heredoc and re.match(r"^\s*(?:\S*/)?(?:bash|sh|zsh|dash)\b[^<\n]*<<", seg.text):
-        body = seg.text.split("\n", 1)[1].rsplit("\n", 1)[0] if "\n" in seg.text else ""
-        return bash_is_edit(body)
-    if seg.heredoc and seg.interp:
-        if not WRITE_MARK.search(seg.text) or writes_only_scratch(seg, whole_cmd):
-            return False
-    elif seg.heredoc:
-        if not re.search(r"(cat >>?|\btee\b)", seg.text.split("\n", 1)[0]):
-            return False
-    else:
-        c = COMMIT_MSG.sub(" ", PLAIN_EDIT_EXCLUDE.sub(" ", seg.text))
-        bare = _QUOTE_SPAN.sub(lambda q: q.group(0)[0] + "x" * (len(q.group(0)) - 2) + q.group(0)[-1], c)
-        io = PS_FILE_WRITE.search(c)
-        if io:
-            return not path_is_doc(io.group(1).replace("\\", "/"))
-        ps = PS_WRITE.search(bare)
-        if ps:
-            target, source = _ps_write_target(c[ps.start(1):ps.end(1)]), c[:ps.start()]
-            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source.lstrip())):
-                return False   # no known target (`$env:TEMP\\x`), or a program's output
-            return not all(path_is_doc(t) for t in _under_cd([target.replace("\\", "/")], seg, whole_cmd))
-        if not PLAIN_EDIT.search(bare):   # `echo "name <a@b>"`: a ">" inside quotes redirects nothing
-            return False
-        raw = [t.strip("\"'") for t in re.findall(r"(?<![0-9&>])>>?\s*(\"[^\"]+\"|'[^']+'|[^\s;&|<>]+)", c) if t != "/dev/null"]
-        if raw and "sed -i" not in c and all(path_is_doc(t) for t in _under_cd(raw, seg, whole_cmd)):
-            return False   # `echo .claude/ >> .git/info/exclude`: no code file is written
-        # a plain `cmd > file` only authors a file when the verb writes agent-authored content;
-        # `pytest > log`, `honestly audit > summary.json`, `ffmpeg ... > x` are program output, not code edits
-        if not re.search(r"(sed -i|\btee\b|cat >>?|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|(?:^|\|)\s*(?:sudo\s+)?patch\b)", c):
-            if not re.match(r"""\s*(?:(?:cat|echo|printf|tee|sed|awk|perl|jq|cp|mv)\b|["'@])""", c):   # PowerShell: `"x = 1" > src/app.py`
-                return False
-    targets = [t.strip() for t in segment_targets(seg, whole_cmd)]
-    if targets and all(path_is_doc(t) for t in _under_cd(targets, seg, whole_cmd)):
+def _target_counts(t, authored: bool, u, whole_cmd: str = "") -> bool:
+    """Does writing to this target change code? A target the text cannot name counts when the verb itself changes code."""
+    if t is None:
+        return True
+    env = dict(shell_env(whole_cmd)) if whole_cmd else {}
+    if u is not None:
+        env.update(u.env)
+    t = _sh.resolve(t, env).strip()
+    if not t or t.startswith("/dev/") or t.lower() in _sh.DEV_NULL:
         return False
-    head = seg.text.split("\n", 1)[0]
-    if not targets and re.search(r"(cat >>?|\btee\b|[\s)]>>?)\s*\"?\$", head):
-        return False   # redirect into an unresolved variable: unknown target, do not count as a code edit
+    if "$" in t or "`" in t:
+        if _TEMP_VAR.match(t):
+            return False
+        tail = re.split(r"[$`)}]", t)[-1].lstrip("/")
+        ext = os.path.splitext(tail)[1].lower()
+        return (ext in SOURCE_EXT if not authored else ext in CODE_EXT) and not path_is_doc(tail)   # `$PWD/src/app.py` is code; a bare `$OUT` says nothing
+    cwd = u.cwd if u is not None else ""
+    path = t
+    if cwd and not t.startswith(("/", "~")) and not re.match(r"[A-Za-z]:[\\/]", t):
+        path = os.path.join(cwd, t)
+    path = _sh.expanduser(path)
+    if cwd and TMP_CWD.search("cd " + cwd):
+        return False
+    if path_is_doc(path):
+        return False
+    base = os.path.basename(t.rstrip("/"))
+    ext = os.path.splitext(base)[1].lower()
+    if not authored:
+        return ext in SOURCE_EXT
+    if ext in _SCRATCH_EXT or (not ext and "/" not in t and base in _SCRATCH_NAMES):
+        return False
     return True
 
 
-WIN_DRIVE = re.compile(r"\b[A-Za-z]:\\")
+def _stage_authored(p) -> bool:
+    """Does what this stage writes come from the agent (`echo`, `cat <<EOF`, a quoted literal), rather than from a program's output?"""
+    first = p.commands[0]
+    if first.kind != "simple":
+        return True
+    if first.heredocs or not first.words:
+        return True
+    w = first.words[0]
+    if w.quoted and len(first.words) == 1:
+        return True     # PowerShell: `"x = 1" > src/app.py`
+    if w.raw.startswith("@"):
+        return True
+    return _sh.head_name(w.text) in _AUTHORS
+
+
+def _unit_writes(u, whole_cmd: str = "") -> list:
+    """(target, authored) pairs for what this pipeline writes by itself."""
+    out = []
+    p = u.pipeline
+    for c in p.commands:
+        if c.kind != "simple":
+            continue
+        authored = _stage_authored(p)
+        for r in c.redirects:
+            if r.op in (">", ">>", ">|", "&>", "&>>", "<>") or (r.op == ">&" and not re.fullmatch(r"\d+|-", r.target)):
+                out.append((r.target, authored if not (c.words and _sh.head_name(c.words[0].text) == "git") else False))
+        if not c.words:
+            continue
+        real = _sh.unwrap(c.argv)
+        if not real:
+            continue
+        verb = _verb_writes(real, c)
+        if verb:
+            h = _sh.head_name(real[0]).lower()
+            out += [(t, authored if h == "tee" else True) for t in verb]
+    for r in u.outer:
+        if r.op in (">", ">>", ">|", "&>", "&>>", "<>"):
+            out.append((r.target, True))
+    return out
+
+
+def _unit_code(u):
+    """The code an interpreter stage of this pipeline runs, as (language, code, command)."""
+    for c in u.pipeline.commands:
+        if c.kind == "simple" and c.words:
+            real = _sh.unwrap(c.argv)
+            if real:
+                code = _code_of(real, c)
+                if code:
+                    return code[0], code[1], c
+    return None
+
+
+def _unit_is_edit(u, whole_cmd: str = "") -> bool:
+    if u.guard == "no":
+        return False
+    text = u.text
+    io = PS_FILE_WRITE.search(text)
+    if io:
+        return not path_is_doc(io.group(1).replace("\\", "/"))
+    bare = _QUOTE_SPAN.sub(lambda q: q.group(0)[0] + "x" * (len(q.group(0)) - 2) + q.group(0)[-1], text) if "-" in text and re.search(r"content|out-file", text, re.I) else text
+    ps = PS_WRITE.search(bare)
+    if ps:
+        target, source = _ps_write_target(text[ps.start(1):ps.end(1)]), text[:ps.start()]
+        if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source.lstrip())):
+            return False   # no known target (`$env:TEMP\\x`), or a program's output
+        return not all(path_is_doc(t) for t in _under_cd([target.replace("\\", "/")], Segment(text, unit=u), whole_cmd))
+    if any(_target_counts(t, authored, u, whole_cmd) for t, authored in _unit_writes(u, whole_cmd)):
+        return True
+    code = _unit_code(u)
+    if code and _code_is_edit(code[1], u, whole_cmd):
+        return True
+    return False
+
+
+def _code_is_edit(code: str, u, whole_cmd: str) -> bool:
+    if _code_marks_a_write(code):
+        head = u.text.split("\n", 1)[0]
+        if not _code_only_scratch(code, head, Segment(u.text, unit=u), whole_cmd):
+            return True
+    return any(bash_is_edit(line) for line in _code_shell_lines(code))
+
+
+def segment_targets(seg: Segment, whole_cmd: str = ""):
+    u = seg.unit if seg.unit is not None else _first_unit(seg.text)
+    code = _unit_code(u) if u is not None else None
+    if seg.heredoc and seg.interp or code:
+        body = code[1] if code else seg.text
+        header = _resolve_vars(seg.text.split("\n", 1)[0], whole_cmd)
+        hpaths = [h for h in HEADER_PATH.findall(header) if "<<" not in h]
+        paths = QUOTED_PATH.findall(body)
+        if hpaths and ("sys.argv" in body or not paths):
+            paths = hpaths + paths
+        written = [t for t in _write_paths(body, whole_cmd, hpaths) if t]
+        if written:
+            coded = [t for t in written if not path_is_doc(t)]
+            return coded or written
+        coded = [t for t in paths if os.path.splitext(t)[1].lower() in CODE_EXT and not path_is_doc(t)]
+        docs = [t for t in paths if path_is_doc(t)]
+        if docs and not coded:
+            return docs
+        return coded or paths
+    if u is None:
+        return []
+    out = []
+    for t, _ in _unit_writes(u, whole_cmd):
+        if t and not t.startswith("/dev/") and t.lower() not in _sh.DEV_NULL:
+            out.append(_sh.resolve(t, shell_env(whole_cmd) if whole_cmd else {}))
+    return out
+
+
+def _first_unit(text: str):
+    us = _units(text)
+    return us[0] if us else None
+
+
+def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
+    u = seg.unit if seg.unit is not None else _first_unit(seg.text)
+    if u is None:
+        return False
+    if _unit_is_edit(u, whole_cmd):
+        return True
+    body = _shell_text_of(u)   # `bash <<EOF` and `bash -c`: what runs inside decides
+    return bool(body) and bash_is_edit(body)
+
+
+def _shell_text_of(u) -> str:
+    for k, c in enumerate(u.pipeline.commands):
+        if c.kind == "simple" and c.words:
+            real = _sh.unwrap(c.argv)
+            doc = "\n".join(h.body for h in c.heredocs) if c.heredocs else (_sh._literal_stdin(u.pipeline.commands[k - 1]) if k else None)
+            found = _sh.shell_body(real, doc) if real else None
+            if found:
+                return found[0]
+    return ""
 
 
 # ------------------------------------------------------------ projects
-CD_DIR = re.compile(r"(?:^|[;&|(\n]\s*)cd\s+(\"[^\"\n]+\"|'[^'\n]+'|[^\s;&|]+)")
+CD_DIR = re.compile(r"(?:^|[;&|(\n][ \t]*)cd[ \t]+(\"[^\"\n]+\"|'[^'\n]+'|[^\s;&|]+)")
 GIT_C = re.compile(r"\bgit\s+-C\s+(\"[^\"\n]+\"|'[^'\n]+'|[^\s;&|]+)")
-ABS_LITERAL = re.compile(r"['\"]((?:/|~/)[^'\"\n]+?\.[A-Za-z0-9]{1,5})['\"]")
 _ROOTS: dict = {}
 _GIT_ROOTS: set = set()
 
@@ -505,7 +898,7 @@ def project_of(path: str):
     home directory (~/Documents/foo). None when the path is relative, temporary or unknown."""
     if not path or path.startswith(("\\\\", "//")):   # a network path in a command: looking at it would connect out
         return None
-    p = os.path.normpath(os.path.expanduser(path))
+    p = os.path.normpath(_sh.expanduser(path))
     if not os.path.isabs(p) or TEMP_PATH.search(p):
         return None
     if p in _ROOTS:
@@ -541,38 +934,93 @@ def same_project(a: str, b: str) -> bool:
     return outer in _GIT_ROOTS and inner.startswith(outer.rstrip(os.sep) + os.sep)
 
 
-def seg_dir(cmd: str, seg_text: str):
-    """The directory a segment of a command ran in: the last `cd` before it (`cd a && build && cd b && pytest` -> b)."""
-    pos = cmd.find(seg_text.split("\n", 1)[0][:200])
-    if pos < 0:
+_DIR_FLAGS = {"git": {"-C"}, "make": {"-C", "--directory"}, "gmake": {"-C", "--directory"}, "npm": {"--prefix"}, "pnpm": {"-C", "--dir"}, "yarn": {"--cwd"}, "uv": {"--directory", "--project"}, "poetry": {"-C", "--directory"}, "cargo": {"-C"}}
+
+
+def _dir_flag(argv: list):
+    """The directory a tool is told to work in: `git -C x`, `make -C x`, `npm --prefix x`."""
+    if not argv:
         return None
-    cds = [m for m in CD_DIR.finditer(cmd) if m.start() < pos]
-    if cds:
-        return os.path.expanduser(_resolve_vars(cds[-1].group(1).strip("\"'"), cmd))
-    m = GIT_C.search(seg_text)
-    return os.path.expanduser(_resolve_vars(m.group(1).strip("\"'"), cmd)) if m else None
+    flags = _DIR_FLAGS.get(_sh.head_name(argv[0]))
+    if not flags:
+        return None
+    for i, a in enumerate(argv[1:], 1):
+        if a in flags and i + 1 < len(argv):
+            return argv[i + 1]
+        for f in flags:
+            if f.startswith("--") and a.startswith(f + "="):
+                return a[len(f) + 1:]
+    return None
+
+
+def seg_dir(cmd: str, seg_text: str):
+    """The directory a segment of a command ran in: the last `cd` before it (`cd a && build && cd b && pytest` -> a/b)."""
+    head = seg_text.split("\n", 1)[0]
+    hit = None
+    for u in _units(cmd):
+        if u.text == seg_text or u.text.split("\n", 1)[0] == head:
+            hit = u
+            break
+    if hit is None:
+        return None
+    if hit.cwd:
+        return _sh.expanduser(hit.cwd)
+    for c in hit.pipeline.commands:
+        d = _dir_flag(c.argv) if c.kind == "simple" else None
+        if d:
+            return _sh.expanduser(_sh.resolve(d, hit.env))
+    return None
 
 
 def event_dir(e):
-    """Where a tool call worked: an Edit/Write's file, a Bash command's `cd`/`git -C` directory or the first absolute path it names.
-    A command that moves between two directories (`cd a && build && cd b && pytest`) has no single place: None."""
+    """Where a tool call worked: an Edit/Write's file, a Bash command's `cd` or `-C` directory, or the one absolute path its single command names.
+    A command that moves between two directories, or that mixes commands with and without a place, has no single place: None."""
     if e.name in EDIT_TOOLS:
-        return os.path.expanduser((e.text or "").strip()) or None
+        return _sh.expanduser((e.text or "").strip()) or None
     if e.name != "Bash":
         return None
-    cmd = e.text or ""
-    dirs = {os.path.expanduser(_resolve_vars(m.group(1).strip("\"'"), cmd)) for m in list(CD_DIR.finditer(cmd)) + list(GIT_C.finditer(cmd))}
+    cmd = e.text if isinstance(e.text, str) else ""
+    us = _sh.units(cmd)
+    dirs = set()
+    named, placeless = [], False
+    for u in us:
+        if u.level or u.guard == "no":
+            continue
+        after = u.cwd_after
+        if after is None:
+            return None
+        if after:
+            dirs.add(after.rstrip("/\\") or after)
+        for c in u.pipeline.commands:
+            if c.kind != "simple" or not c.words:
+                continue
+            argv = c.argv
+            flag = _dir_flag(argv)
+            if flag:
+                dirs.add(_sh.resolve(flag, u.env).rstrip("/\\"))
+                continue
+            h = _sh.head_name(argv[0])
+            if h in ("cd", "pushd", "popd", "chdir", "Set-Location", "sl", "export"):
+                continue
+            place = None
+            for a in argv[1:]:
+                a = _sh.resolve(a, u.env)
+                if a.startswith("-") or "://" in a:
+                    continue
+                m = ABS_TOKEN.match(a)
+                if m and not TOOL_PATH.search(m.group(1)) and not TEMP_PATH.search(m.group(1)) and not a.startswith("/dev/"):
+                    place = m.group(1)
+                    break
+            if place:
+                named.append(place)
+            else:
+                placeless = True
     if len(dirs) > 1:
         return None
     if dirs:
-        return dirs.pop()
-    m = ABS_LITERAL.search(cmd)
-    if m:
-        return os.path.expanduser(m.group(1))
-    for m in ABS_TOKEN.finditer(_resolve_vars(cmd, cmd)):   # `G=~/proj; mkdir -p $G/sub`: the first project path it names
-        p = m.group(1)
-        if not TOOL_PATH.search(p) and not TEMP_PATH.search(p):
-            return os.path.expanduser(p)
+        return _sh.expanduser(dirs.pop())
+    if named and not placeless:
+        return _sh.expanduser(named[0])
     return None
 
 
@@ -588,7 +1036,7 @@ def edit_projects(e):
         if not segment_is_edit(seg, cmd):
             continue
         here = seg_dir(cmd, seg.text)
-        targets = [os.path.expanduser(_resolve_vars(t.strip(), cmd)) for t in segment_targets(seg, cmd) if t.strip()] or [""]
+        targets = [_sh.expanduser(_resolve_vars(t.strip(), cmd)) for t in segment_targets(seg, cmd) if t.strip()] or [""]
         for t in targets:
             path = t if os.path.isabs(t) else (os.path.join(here, t) if here else (event_dir(e) if not t else None))
             p = project_of(path or "")
@@ -598,19 +1046,23 @@ def edit_projects(e):
     return out or None
 
 
-ABS_TOKEN = re.compile(r"(?:^|[\s=:(])((?:/|~/)[\w.@+\-\u4e00-\u9fff/]+)")
+ABS_TOKEN = re.compile(r"((?:/|~/)[\w.@+\-\u4e00-\u9fff/]+)")
 TOOL_PATH = re.compile(r"/(?:s?bin|site-packages|\.venv|venv|node_modules|\.cache|\.local)/|^/(?:usr|opt|bin|sbin|etc|dev|System|Library|Applications)/")
 
 
 def bash_is_edit(cmd: str) -> bool:
-    if WIN_DRIVE.search(cmd):
-        cmd = cmd.replace("\\", "/")   # only for path matching; this copy is not executed
-    segs = segments(cmd)
-    if segs and TMP_CWD.search(segs[0].text):
+    """Does this command change code? Decided command by command, each by what it writes and where."""
+    if not isinstance(cmd, str):
         return False
-    if re.search(r"((?:^|[\s=\"'(])/private/tmp/|(?:^|[\s=\"'(])/tmp/|(?:^|[\s=\"'(])/var/folders/|/scratchpad\b|AppData/Local/Temp|\b[A-Za-z]:/(?:Temp|tmp)/|tempfile\.|mkdtemp\(|NamedTemporaryFile|TemporaryDirectory)", cmd) and not re.search(r"(sed -i|write_text|write_bytes|writeFile|open\([^)]*['\"](?:[wax]|r[bt]?\+))", cmd):
+    return any(_unit_is_edit(u, cmd) for u in _sh.units(cmd))
+
+
+def too_big(cmd) -> bool:
+    """The reader gave up before the end of the command: what it does could not be checked."""
+    if not (isinstance(cmd, str) and _sh.too_big(cmd)):
         return False
-    return any(segment_is_edit(s, cmd) for s in segs)
+    _note_once("stop", f"a shell command too long to read in full ({len(cmd)} bytes): judged as could not check")
+    return True
 
 
 # ------------------------------------------------------------ verification
@@ -621,48 +1073,49 @@ VERIFY = {
                        r"|(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:eval\.py|[\w-]*_test\.(?:go|py|ts|js)|[\w-]*test[\w-]*\.(?:sh|py)|check[\w-]*\.sh|run_tests[\w.]*|validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|gate\.py)\b|gh pr checks|gh run (view|list|watch)|statusCheckRollup)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
                         r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
-                        r"|mvnw? (compile|package|verify)|gradlew? (build|assemble|check)|dotnet build|swift build|xcodebuild|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format)\b)|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
+                        r"|mvnw?\b[^|;&\n]*\s(?:compile|package|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:build|assemble|check)\b|dotnet build|swift build|xcodebuild|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format|docs?|run|dev|serve|start|watch|migrate|deploy|publish|up|down|logs|shell)\b)|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
                         r"|hyperframes(@[\w.]+)? (?:check|lint|validate|inspect)|tectonic|xelatex|latexmk|pdflatex|pdftotext|pdfinfo|python[\d.]*(?:\s+-[A-Za-z]+)*\s+-m py_compile|"
                         r"(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|lint[\w-]*\.py|qc\.py|build[\w-]*\.(?:py|sh))\b"
                         r"|ast\.parse\(|\bcompileall\b|\b(?:ba|z)?sh -n\b|\bphp -l\b|\bruby -c\b)", re.I),   # syntax checks
-    "render": re.compile(r"(hyperframes(@[\w.]+)? (render|build)|\bffmpeg\b|\bffprobe\b|npx remotion render|manim |blender |music[\w-]*\.sh|render[\w-]*\.sh)", re.I),
+    "render": re.compile(r"(hyperframes(@[\w.]+)? (render|build)|\bffmpeg\b|\bffprobe\b|(?:npx )?remotion render|manim |blender |music[\w-]*\.sh|render[\w-]*\.sh)", re.I),
     "push": re.compile(r"(git push|kaggle kernels push|kaggle competitions submit|kernels push)", re.I),
     "commit": re.compile(r"(git commit|git tag)", re.I),
     "run": re.compile(r"(python[\d.]*(?:\s+-[A-Za-z]+)*\s+(?:\S+\.py|-m (?!http)|-c\b|- <<)|node \S+\.(m?js|ts)|node --check|npx (?!remotion)\S+|\bcurl\b|bash \S+\.sh|\bsh \S+\.sh|\./\S+|cargo run|go run|\bmake\b|docker (build|compose up|run)|kaggle kernels (status|output)|uv run (python|pytest|ruff|mypy|-q python|-q pytest)|\.venv/bin/python)", re.I),
 }
-PIPE_SWALLOW = re.compile(r"\|&?\s*(tail|head|grep|egrep|rg|awk|sed|wc|sort|uniq|cut|tee|less|more|(?i:select-object|select|select-string|sls|measure-object|measure|out-null|findstr))\b")   # the pipeline exits with the last command's status (`|&` pipes stderr too); PowerShell's cmdlets are not case-sensitive
+# Named here and not in VERIFY: VERIFY is also searched anywhere in a line elsewhere, and these words are ordinary English or too short for that.
+_MORE_TEST = re.compile(r"(?:playwright test|cypress run|ava\b|wdio\b|nose2\b|python[\d.]* -m (?:nose2|doctest|tests?\b[\w.]*|[\w.]+\.tests?\b)|cargo (?:llvm-cov|tarpaulin)|richgo test|zig (?:build )?test|meson test|ninja test|cmake --build\b.*--target test|buck2? test|lein test|stack test|cabal test|dune test|bats\b|elm-test\b|busted\b|karma start|prove\b|shellspec\b|R CMD check|Rscript .*testthat|julia .*Pkg\.test|nix flake check|act\b|composer test|turbo test|ward\b)", re.I)
+_TEST_SCRIPT_FILE = re.compile(r"(?:^|/)(?:tests?/[\w./-]+\.(?:py|sh|js|mjs|cjs|ts)|test[\w.-]*\.(?:js|mjs|cjs|ts|sh|py)|[\w-]*\.(?:test|spec)\.(?:js|mjs|cjs|ts|tsx))$", re.I)
+PIPE_SWALLOW = re.compile(r"\|&?\s*(?:(tail|head|ghead|gtail|grep|egrep|ggrep|zgrep|rg|awk|gawk|sed|gsed|wc|sort|uniq|cut|tee|less|more|cat|true|false|dd|read|while|perl|python[\d.]*|ruby|node|stdbuf|command|timeout|(?i:select-object|select|select-string|sls|measure-object|measure|out-null|findstr))\b|[:>({])")   # the pipeline exits with the last command's status (`|&` pipes stderr too); PowerShell's cmdlets are not case-sensitive
 NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pytest[^|\n]*\s[\w/]+\.py::|pytest\s+[\w/]+\.py\b)", re.I)
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=|(?i:(?:get|test|select|set|new|copy|move|remove|stop|start|write|out|format|measure|sort|where|foreach|tee|add|clear|convert|export|import|compare)-\w+|gc|gci|sls|findstr|where(?:\.exe)?|python[\d.]*(?:\.exe)? -m pip)\b)")
-SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|(?<!/)\bdev\b(?!/)|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
-
-
-INTERP_INLINE = re.compile(r"(?:^|[\s/])(?:bash|sh|zsh|dash|python[\d.]*|node|bun|deno|ruby|perl)\s+(?:-\w+\s+)*-l?[ce]\b|(?:^|[\s/])(?:pwsh|powershell)\s+(?:-\w+\s+)*-c(?:ommand)?\b|(?:^|[\s/])cmd\s+/[ck]\b", re.I)
-WIN_EXT = re.compile(r"(?<=[\w-])\.(?:exe|cmd|bat|ps1)\b", re.I)
-WIN_SEP = re.compile(r"(?<=[\w.])\\(?=[\w.])")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool|remove)\b|poetry (?:add|install|lock|remove|show)\b|pdm (?:add|install|lock|remove)\b|pipenv (?:install|uninstall|lock)\b|npm (?:install|i|ci|ls|list|view|info|uninstall|un|rm|remove|update|up|why|explain|outdated|audit)\b|yarn (?:add|install|remove|why|list|info|upgrade)\b|pnpm (?:add|install|i|remove|rm|list|ls|why|update|up|outdated)\b|bun (?:add|install|i|remove|rm|update|pm)\b|apt(?:-get)? |conda |mamba |gem |bundle (?:add|remove|install)\b|composer (?:require|remove|install|update)\b|go (?:get|install|mod)\b|cargo (?:install|add|remove)\b|ls\b|cat\b|grep\b|rg\b|ag\b|ack\b|fd\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|pgrep\b|killall\b|kill\b|sleep\b|until\b|while\b|mkdir\b|rmdir\b|touch\b|chmod\b|chown\b|ln\b|file\b|strings\b|hash\b|alias\b|unset\b|test\b|\[\s|say\b|vim?\b|nvim\b|nano\b|code\b|emacs\b|pydoc\d?\b|help\b|info\b|tar\b|unzip\b|zip\b|wget\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout|grep|show|blame|rm|mv|merge|rebase|pull|fetch|switch|branch|cherry-pick|am|apply|restore|reset|clean|revert|cat-file|ls-files|rev-parse|rev-list)\b|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|docker pull\b|kubectl logs\b|journalctl\b|\w+=|(?i:(?:get|test|select|set|new|copy|move|remove|stop|start|write|out|format|measure|sort|where|foreach|tee|add|clear|convert|export|import|compare)-\w+|gc|gci|sls|findstr|where(?:\.exe)?|python[\d.]*(?:\.exe)? -m (?:pip|pydoc))\b)")
+_SERVER_HEADS = {"uvicorn", "gunicorn", "hypercorn", "serve", "http-server", "live-server", "nodemon", "pytest-watch", "ptw"}
+_SERVER_LINE = re.compile(r"(?:python[\d.]* -m (?:http\.server|uvicorn|gunicorn)|flask run|streamlit run|next (?:dev|start)|vite(?: (?:dev|serve|preview)\b|$| --)|vitest (?:dev|watch)\b|cargo watch\b)", re.I)
 
 
 def posix_probe(text: str) -> str:
     """`.\\gradlew.bat test`, `go.exe test`, `.\\scripts\\run_tests.ps1`: read a Windows command like the POSIX one. Only for matching; never executed."""
     return WIN_EXT.sub("", WIN_SEP.sub("/", text))
-QUOTED_ARG = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
+WIN_EXT = re.compile(r"(?<=[\w-])\.(?:exe|cmd|bat|ps1)\b", re.I)
+WIN_SEP = re.compile(r"(?<=[\w.])\\(?=[\w.])")
 
 
 TEST_IMPORT = re.compile(r"(?:^|[\s;'\"(])(?:import\s+(?:[\w.]+\.)?test_\w+|from\s+(?:[\w.]+\.)?test_\w+\s+import)\b", re.M)   # a snippet that runs the test functions itself
 TEST_CALL = re.compile(r"\btest_\w*\s*\(|getattr\(|startswith\(\s*['\"]test_")
+_RUNNER_CALL = re.compile(r"\bpytest\.main\(|\bunittest\.main\(|\bunittest\.TextTestRunner\(|\bnose2?\.\w*main\(|\bdoctest\.testmod\(")
 PY_C = re.compile(r"python[\d.]*(?:\s+-[A-Za-z]+)*\s+-c\s*(['\"])(.*?)(?<!\\)\1", re.S)
 IMPORT_STMT = re.compile(r"\s*(?:import\s+[\w.]+(?:\s+as\s+\w+)?(?:\s*,\s*[\w.]+(?:\s+as\s+\w+)?)*|from\s+[\w.]+\s+import\s+[\w*]+(?:\s+as\s+\w+)?(?:\s*,\s*\w+(?:\s+as\s+\w+)?)*)\s*")
 
 
 def import_only(cmd: str) -> bool:
     """`python -c "import foo"`: an import check, nothing more (`import json; print(...)` is not)."""
-    m = PY_C.search(cmd)
+    m = PY_C.search(cmd[:200_000])
     if not m:
         return False
     stmts = [x for x in re.split(r"[;\n]", m.group(2)) if x.strip()]
-    return bool(stmts) and all(IMPORT_STMT.fullmatch(x) for x in stmts)
+    return bool(stmts) and all(IMPORT_STMT.fullmatch(x[:400]) for x in stmts)
 
 
 _STDLIB = frozenset(getattr(sys, "stdlib_module_names", ()) or (
@@ -673,19 +1126,20 @@ _STDLIB = frozenset(getattr(sys, "stdlib_module_names", ()) or (
     "struct subprocess sys sysconfig tarfile tempfile textwrap threading time timeit tokenize tomllib traceback types typing unicodedata unittest "
     "urllib uuid warnings wave weakref xml zipfile zlib").split())
 # libraries and tools: importing them reads data or runs a tool, it does not exercise the project's own code
-NOT_PROJECT = frozenset("pip pipx venv virtualenv ensurepip pytest build twine setuptools wheel black ruff mypy isort flake8 pylint pyright IPython "
+NOT_PROJECT = frozenset("pip pipx venv virtualenv ensurepip pytest build twine setuptools wheel black ruff mypy isort flake8 pylint pyright pyflakes bandit autopep8 IPython "
                         "jupyter notebook nbconvert pre_commit tox nox huggingface_hub kaggle gdown numpy pandas PIL requests httpx yaml toml tomli "
                         "matplotlib scipy sklearn torch transformers bs4 lxml openpyxl docx pptx fitz pypdf cv2 tqdm rich click typer playwright "
-                        "selenium boto3 anthropic openai".split())
-PY_RUN = re.compile(r"^\s*(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?)(?:\s+-(?![cm]\b)[A-Za-z]+)*\s+(?P<rest>\S.*)", re.S)
-EXERCISE_CMD = re.compile(r"\s*(?:(?:\S*/)?(?:node|deno run|bun(?:\s+run)?|tsx|ts-node|npx\s+(?:tsx|ts-node))\s+(?:-\S+\s+)*[\w./~-]+\.(?:m?js|cjs|tsx?)\b"
-                          r"|(?:go run|cargo run|dotnet run|swift run|java\s+-jar)\b|(?:ruby|php)\s+[\w./~-]+\.(?:rb|php)\b|\.{1,2}/[\w./-]+"
-                          r"|(?:curl|wget|https?)\b[^|;&]*\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]))", re.I)   # used with .match: anchored at the start
+                        "selenium boto3 anthropic openai pydantic fastapi django flask sqlalchemy starlette uvicorn gunicorn aiohttp attr attrs celery redis psycopg psycopg2 "
+                        "tensorflow keras spacy nltk jinja2 markdown dotenv seaborn plotly networkx sympy statsmodels xgboost lightgbm".split())
+_VERSION_ONLY = re.compile(r"^\s*import\s+\w+\s*[;\n]\s*print\(\s*\w+\.(?:__version__|VERSION|version)\s*\)\s*$")
+LOCAL_HOST = re.compile(r"^(?:https?://)?(?:[^/@\s]*@)?(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?:[:/?#]|$)|^:\d+", re.I)
 
 
 def _project_imports(code: str) -> bool:
+    if _VERSION_ONLY.match(code):
+        return False
     names = []
-    for stmt in re.split(r"[;\n]", code):
+    for stmt in re.split(r"[;\n]", _blank_strings(code)):
         m = re.match(r"\s*from\s+(\.*)([\w.]*)\s+import\b", stmt)
         if m:
             if m.group(1):
@@ -698,66 +1152,442 @@ def _project_imports(code: str) -> bool:
     return any(n and n.split(".")[0] not in _STDLIB and n.split(".")[0] not in NOT_PROJECT for n in names)
 
 
+_TOOL_HEADS = {"pip", "pip3", "pipx", "uv", "npm", "npx", "pnpm", "yarn", "bun", "ruff", "black", "mypy", "isort", "flake8", "pylint", "pytest", "tsc", "eslint", "prettier", "configure", "gradlew", "mvnw", "coverage", "tox", "nox", "wheel", "twine"}
+
+
+def _script_of(real: list):
+    """(script, its arguments) when an interpreter runs a file."""
+    h = _sh.head_name(real[0])
+    args = real[1:]
+    if h == "go" and args[:1] == ["run"]:
+        return (args[1], args[2:]) if len(args) > 1 else None
+    if h == "deno" and args[:1] == ["run"]:
+        args = args[1:]
+    elif h == "bun" and args[:1] == ["run"]:
+        args = args[1:]
+    elif not re.match(r"^(?:python[\d.]*|pypy[\d.]*|node|bun|deno|ruby|php|perl|tsx|ts-node|bash|sh|zsh|dash)$", h):
+        return None
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-W", "-X", "-r", "--require", "--import", "--loader"):
+            i += 2
+            continue
+        if a == "--":
+            i += 1
+            break
+        if a == "-" or (a.startswith("-") and (a.endswith("c") or a.endswith("m") or a in ("-e", "--eval", "-p", "--print", "--test", "--check"))):
+            return None
+        if not a.startswith("-"):
+            break
+        i += 1
+    return (args[i], args[i + 1:]) if i < len(args) else None
+
+
+def _exercises(real: list, c=None) -> bool:
+    if not real or not_a_run(real):
+        return False
+    h = _sh.head_name(real[0])
+    args = real[1:]
+    low = h.lower()
+    if re.match(r"^(?:python[\d.]*|pypy[\d.]*)$", h):
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a in ("-W", "-X"):
+                i += 2
+                continue
+            if a == "-m":
+                mod = (args[i + 1] if i + 1 < len(args) else "").split(".")[0]
+                return bool(mod) and mod not in _STDLIB and mod not in NOT_PROJECT
+            if not a.startswith("-") or a == "-":
+                break
+            if a.endswith("c") and not a.startswith("--") and i + 1 < len(args):
+                return _project_imports(args[i + 1])
+            i += 1
+        code = _code_of(real, c)
+        if code:
+            return _project_imports(code[1])
+        if i < len(args) and args[i] != "-":
+            return bool(re.search(r"\.py[wz]?$", args[i])) and "site-packages" not in args[i]
+        return False
+    if low in ("curl", "wget", "http", "https", "xh", "httpie"):
+        return any(LOCAL_HOST.match(a) for a in args if not a.startswith("-"))
+    if low in ("node", "tsx", "ts-node", "bun", "deno", "ruby", "php"):
+        s = _script_of(real)
+        return bool(s) and (bool(re.search(r"\.(?:m?js|cjs|tsx?|rb|php)$", s[0])) or (low == "node" and not s[0].startswith("-")))
+    if low in ("bash", "sh", "zsh", "dash"):
+        s = _script_of(real)
+        return bool(s) and bool(re.search(r"\.(?:sh|bash|zsh)$", s[0]))
+    if low == "go" or low == "cargo" or low == "dotnet" or low == "swift":
+        return args[:1] == ["run"]
+    if low == "java":
+        return bool(args) and (args[0] == "-jar" or not args[0].startswith("-"))
+    if "/" in real[0] or "\\" in real[0]:
+        written = real[0].replace("\\", "/")
+        if low in _TOOL_HEADS or re.search(r"(?:^|/)(?:\.?venv|node_modules|site-packages)/", written) or written.startswith("/usr/") or written.startswith("/bin/"):
+            return False
+        return not re.search(r"\.(?:md|txt|rst|json|ya?ml|toml|lock)$", written, re.I)
+    return False
+
+
 def exercises_code(probe: str, seg: Segment) -> bool:
     """A command that runs the project's own code after a fix: a script, `python -m pkg`, a snippet that imports a project
-    module, `node app.js`, `./bin/tool`, `curl localhost`. Reading a file, installing a package or querying a website does not."""
-    m = PY_RUN.match(probe)
-    if m:
-        rest = m.group("rest")
-        if rest.startswith("-m "):
-            mod = (rest[3:].split() or [""])[0].split(".")[0]
-            return bool(mod) and mod not in _STDLIB and mod not in NOT_PROJECT
-        if rest.startswith("-c"):
-            c = PY_C.search(probe)
-            return bool(c) and _project_imports(c.group(2))
-        if seg.heredoc:
-            return _project_imports(seg.text.split("\n", 1)[1] if "\n" in seg.text else "")
-        script = re.match(r"([\w./~-]+\.py)\b", rest)
-        return bool(script) and "site-packages" not in script.group(1)
-    return bool(EXERCISE_CMD.match(probe))
-SHELL_HEAD = re.compile(r"^\s*(?:\S*/)?(?:bash|sh|zsh|dash)\b[^<\n]*<<")
-LOOP_HEAD = re.compile(r"^(?:\s*(?:for|select)\s+\w+\s+in\b[^;]*(?:;\s*do\b\s*|$))+")   # nested loops too
+    module, `node app.js`, `./bin/tool`, `curl localhost`. Reading a file, installing a package, asking for --help or querying a website does not."""
+    for u in _units(probe):
+        for c in u.pipeline.commands:
+            if c.kind == "simple" and c.words:
+                real = _sh.unwrap(c.argv)
+                c2 = c
+                if not c.heredocs and seg is not None and seg.heredoc and seg.unit is not None:
+                    c2 = next((x for x in seg.unit.pipeline.commands if x.heredocs), c)
+                return _exercises(real, c2)
+    return False
+
+
+def not_a_run(real: list) -> bool:
+    """`pytest --collect-only`, `tox list`, `ruff format`: the tool is named, but nothing gets tested or checked."""
+    if not real:
+        return True
+    h = _sh.head_name(real[0]).lower()
+    args = real[1:]
+    if NOT_A_RUN.search(" ".join(args)[:4000]):
+        return True
+    if "-V" in args and _V_IS_VERSION.match(h):
+        return True
+    if "-v" in args and h in ("tsc", "mvn", "mvnw", "gradle", "gradlew", "node"):
+        return True
+    sub = args[0] if args else ""
+    if h == "go" and sub == "test" and "-c" in args[1:]:
+        return True
+    if h in ("tox", "nox") and ("-l" in args or sub in ("list", "l", "config", "c", "devenv", "depends", "d")):
+        return True
+    if h == "vitest" and sub in ("list", "dev", "watch"):
+        return True
+    if h == "cargo" and sub == "nextest" and args[1:2] in (["list"], ["show-config"]):
+        return True
+    if h == "ruff" and sub in ("format", "rule", "config", "linter", "clean", "version", "server"):
+        return True
+    if h == "biome" and sub in ("format", "explain", "init", "version", "rage"):
+        return True
+    if h == "tsc" and sub == "--showConfig":
+        return True
+    if h in ("gradle", "gradlew") and sub in ("tasks", "dependencies", "properties", "projects", "help"):
+        return True
+    if h in ("make", "gmake") and any(re.fullmatch(r"-[a-zA-Z]*n[a-zA-Z]*|--just-print|--recon|-[a-zA-Z]*q[a-zA-Z]*", a) for a in args):
+        return True
+    return False
+
+
+_TEST_NAME = re.compile(r"(?:^|[:_/-])(?:tests?|specs?|e2e|unit|integration)(?:$|[:_/-])|^ci$", re.I)
+_WATCH_NAME = re.compile(r"(?:^|[:_-])(?:watch|dev|serve|start|ui|debug|update)(?:$|[:_-])", re.I)
+_LINT_NAME = re.compile(r"(?:^|[:_-])(?:lint|typecheck|type-check|types|tsc|check|format:check|fmt:check)(?:$|[:_-])", re.I)
+_BUILD_NAME = re.compile(r"(?:^|[:_-])(?:build|compile|bundle|dist)(?:$|[:_-])", re.I)
+_MAKE_NOT_BUILD = {"clean", "distclean", "install", "uninstall", "help", "fmt", "format", "doc", "docs", "run", "dev", "serve", "start", "watch", "migrate", "deploy", "publish", "up", "down", "logs", "shell", "fix"}
+_PM_BUILTINS = {"add", "install", "i", "ci", "remove", "rm", "un", "uninstall", "list", "ls", "why", "explain", "info", "view", "update", "up", "upgrade", "outdated", "audit", "init", "create", "config", "set", "cache", "store", "link", "unlink", "publish", "pack", "login", "logout", "version", "dedupe", "prune", "rebuild", "import", "patch", "exec", "dlx", "x", "node", "bin", "root", "pm"}
+
+
+def _skip_opts(args: list, values: set) -> list:
+    i = 0
+    while i < len(args) and args[i].startswith("-"):
+        i += 2 if args[i] in values else 1
+    return args[i:]
+
+
+def _task_names(real: list):
+    """(tool, the script or target names it runs) for package managers and task runners; None for anything else."""
+    h = _sh.head_name(real[0]).lower()
+    args = real[1:]
+    if h in ("make", "gmake", "bmake"):
+        return "make", [a for a in _positional(args, {"-C", "-f", "--file", "-j", "--jobs", "-l", "-o", "-W", "-I", "--directory", "--load-average"}) if "=" not in a]
+    if h == "npm":
+        rest = _skip_opts(args, {"--prefix", "-w", "--workspace", "-C"})
+        if not rest:
+            return "npm", []
+        if rest[0] in ("test", "t", "tst"):
+            return "npm", ["test"]
+        if rest[0] in ("run", "run-script", "rum", "urn"):
+            rest = _skip_opts(rest[1:], {"--prefix", "-w", "--workspace"})
+            return "npm", rest[:1]
+        return "npm", []
+    if h == "pnpm":
+        rest = _skip_opts(args, {"-C", "--dir", "--filter", "-F", "--workspace-concurrency", "--reporter"})
+        if not rest:
+            return "pnpm", []
+        if rest[0] in ("test", "t", "tst"):
+            return "pnpm", ["test"]
+        if rest[0] == "run":
+            return "pnpm", _skip_opts(rest[1:], {"--filter", "-F"})[:1]
+        return "pnpm", ([] if rest[0] in _PM_BUILTINS else rest[:1])
+    if h == "yarn":
+        rest = _skip_opts(args, {"--cwd"})
+        if rest[:1] == ["workspace"]:
+            rest = rest[2:]
+        elif rest[:2] == ["workspaces", "run"]:
+            rest = rest[2:]
+        elif rest[:2] == ["workspaces", "foreach"]:
+            rest = _skip_opts(rest[2:], {"--since", "--from", "--include", "--exclude", "-j", "--jobs"})
+        if rest[:1] == ["run"]:
+            rest = rest[1:]
+        return "yarn", ([] if not rest or rest[0] in _PM_BUILTINS else rest[:1])
+    if h == "bun":
+        if args[:1] == ["test"]:
+            return "bun", ["test"]
+        if args[:1] == ["run"] and len(args) > 1 and not re.search(r"\.\w+$", args[1]):
+            return "bun", args[1:2]
+        return None
+    if h == "turbo":
+        rest = _skip_opts(args, {"--filter", "-F", "--concurrency"})
+        if rest[:1] == ["run"]:
+            rest = rest[1:]
+        return "turbo", rest[:1]
+    if h == "nx":
+        if args[:1] == ["run"] and len(args) > 1:
+            return "nx", [args[1].split(":")[-1]]
+        if args[:1] in (["run-many"], ["affected"]):
+            for i, a in enumerate(args):
+                if a in ("-t", "--target", "--targets") and i + 1 < len(args):
+                    return "nx", [args[i + 1]]
+                if a.startswith(("--target=", "--targets=")):
+                    return "nx", [a.split("=", 1)[1]]
+            return "nx", []
+        return "nx", args[:1]
+    if h == "lerna":
+        return "lerna", args[1:2] if args[:1] == ["run"] else []
+    if h in ("just", "task", "cake"):
+        return h, _positional(args, {"-f", "--justfile", "--taskfile", "-d", "--dir", "-t"})[:1]
+    if h == "mise":
+        return "mise", _positional(args[1:])[:1] if args[:1] in (["run"], ["r"]) else []
+    if h == "rake":
+        names = _positional(args, {"-f", "--rakefile", "-I"})
+        return "rake", names or ["test"]
+    if h in ("hatch", "pdm", "devbox") and args[:1] == ["run"] and len(args) > 1:
+        return h, args[1:2]
+    if h == "earthly":
+        return "earthly", [a.lstrip("+") for a in args if a.startswith("+")][:1]
+    if h == "composer":
+        return "composer", args[:1] if args[:1] == ["test"] else []
+    return None
+
+
+def _task_kinds(tool: str, names: list) -> set:
+    if tool in ("make",):
+        if not names:
+            return {"build", "run"}
+        out = set()
+        for n in names:
+            if n in _MAKE_NOT_BUILD:
+                if n in ("run", "dev", "serve", "start"):
+                    out.add("run")
+                continue
+            if _TEST_NAME.search(n) or n == "check":
+                out |= {"test", "run"}
+            else:
+                out |= {"build", "run"}
+        return out
+    out = set()
+    for n in names:
+        if _WATCH_NAME.search(n):
+            continue
+        if _TEST_NAME.search(n) or (tool in ("just", "task", "mise") and n in ("check", "ci")):
+            out.add("test")
+        elif _LINT_NAME.search(n) or _BUILD_NAME.search(n):
+            out.add("build")
+    return out
+
+
+def command_line(real: list) -> str:
+    """A command in one spelling, however it was typed: its name without a path or a Windows suffix, single spaces, no wrappers."""
+    return " ".join([_sh.head_name(real[0])] + real[1:])[:4000]
+
+
+def non_verifying(line: str) -> bool:
+    """Reading, installing and moving around: `cat`, `pip`, `git status`. Not `test.sh`, whose name only starts like `test`."""
+    return _matches(NON_VERIFY_VERB, line) and not re.match(r"gh (?:pr checks|run)\b", line)
+
+
+def _matches(rx, line: str) -> bool:
+    """The pattern has to match at the command itself, and cover its whole name: `pytest-watch` is not `pytest`."""
+    m = rx.match(line)
+    if not m:
+        return False
+    return m.end() >= len(line.split(" ", 1)[0])
+
+
+def command_kinds(argv: list) -> set:
+    """What a simple command is, from the command itself and never from a word in its arguments:
+    "test", "build", "render", "push", "commit", "run"."""
+    return set(_command_kinds_of(tuple(argv), VERIFY["test"].pattern))
+
+
+@functools.lru_cache(maxsize=2048)
+def _command_kinds_of(words: tuple, _pattern: str) -> set:
+    argv = list(words)
+    real = _sh.unwrap(argv)
+    if not real:
+        return set()
+    line = command_line(real)
+    h = _sh.head_name(real[0]).lower()
+    if h == "git":
+        a = _git_args(real)
+        sub = a[0] if a else ""
+        rest = a[1:]
+        if sub == "push":
+            return set() if any(x in ("-n", "--dry-run", "--help", "-h") for x in rest) else {"push"}
+        if sub == "commit":
+            return set() if any(x in ("--dry-run", "--help", "-h") for x in rest) else {"commit"}
+        if sub == "tag":
+            return {"commit"} if rest and not any(x in ("-l", "--list", "-d", "--delete", "-v", "--verify", "--help") for x in rest) else set()
+        return set()
+    if not_a_run(real):
+        return set()
+    if non_verifying(line):
+        return set()
+    written = " ".join(real)[:4000].replace("\\", "/")
+    out = set()
+    if _sh.head_name(argv[0]) != _sh.head_name(real[0]) or argv[0] != real[0]:
+        outer = command_line(argv)
+        if _matches(VERIFY["run"], outer) and not non_verifying(outer):
+            out.add("run")
+    task = _task_names(real)
+    if task:
+        out |= _task_kinds(*task)
+        if task[0] in ("yarn", "pnpm") and task[1] and task[1][0] in real[1:] and task[1][0] not in ("yarn", "pnpm", "npm", "npx"):   # `yarn jest`: a package's own command, not a script
+            out |= _command_kinds_of(tuple(real[real.index(task[1][0], 1):]), _pattern)
+        if _config_verify(line) or _config_verify(written):
+            out.add("test")   # the user's own `verify_commands` can name a script (`make verify`, `npm run ci:full`)
+        return out
+    if _is_server(real, line):
+        return out
+    if _config_verify(line) or _config_verify(written):
+        out.add("test")
+    for kind, rx in VERIFY.items():
+        if kind in ("push", "commit"):
+            continue
+        if _matches(rx, line) or _matches(rx, written):
+            out.add(kind)
+    if _matches(_MORE_TEST, line):
+        out.add("test")
+    s = _script_of(real)
+    if s:
+        file_line = " ".join([s[0].replace("\\", "/")] + s[1])[:4000]
+        base_line = " ".join([os.path.basename(s[0].replace("\\", "/"))] + s[1])[:4000]
+        for kind in ("test", "build", "render"):
+            if _matches(VERIFY[kind], file_line) or _matches(VERIFY[kind], base_line):
+                out.add(kind)
+        if _TEST_SCRIPT_FILE.search(s[0].replace("\\", "/")):
+            out.add("test")
+    elif h.endswith(".py") or "/" in real[0] or real[0].startswith("."):
+        base = os.path.basename(real[0].replace("\\", "/")) + " " + " ".join(real[1:])
+        for kind in ("test", "build", "render"):
+            if _matches(VERIFY[kind], base[:4000]):
+                out.add(kind)
+    return out
+
+
+_BASE_TEST_PATTERN = VERIFY["test"].pattern
+
+
+@functools.lru_cache(maxsize=8)
+def _user_verify(pattern: str):
+    """`verify_commands` from the config: config.apply appends them, escaped, to the test pattern."""
+    extra = pattern[len(_BASE_TEST_PATTERN):].lstrip("|") if pattern.startswith(_BASE_TEST_PATTERN) else ""
+    return re.compile(extra, re.I) if extra else None
+
+
+def _config_verify(line: str) -> bool:
+    rx = _user_verify(VERIFY["test"].pattern)
+    return bool(rx and rx.match(line))
+
+
+def _is_server(real: list, line: str) -> bool:
+    h = _sh.head_name(real[0]).lower()
+    return h in _SERVER_HEADS or bool(_SERVER_LINE.match(line)) or any(a in ("--watch", "--watchAll", "--serve") for a in real[1:])
+
+
+def stage_kinds(u, kinds: set) -> bool:
+    """Does a stage of this pipeline do one of these kinds of check?"""
+    for k, c in enumerate(u.pipeline.commands):
+        if c.kind != "simple" or not c.words:
+            continue
+        real = _sh.unwrap(c.argv)
+        if not real or _sh.shell_body(real, "" if c.heredocs or k else None):
+            continue
+        code = _code_of(real, c)
+        if code:
+            lang, text = code
+            if "test" in kinds and ((TEST_IMPORT.search(text) and TEST_CALL.search(text)) or _RUNNER_CALL.search(_blank_strings(text))):
+                return True
+            for line in _code_shell_lines(text):
+                if bash_verifies(line, kinds):
+                    return True
+            if "build" in kinds and lang == "python" and not c.heredocs and (_is_import_only_code(text) or "ast.parse(" in text):
+                return True
+            if "exercise" in kinds and lang == "python" and _project_imports(text):
+                return True
+            if "exercise" in kinds and lang != "python" and re.search(r"\brequire\(\s*['\"]\.|\bfrom\s+['\"]\.|\bimport\(\s*['\"]\.", text):
+                return True
+            if "run" in kinds and not _code_marks_a_write(text):
+                return True
+            continue
+        if "exercise" in kinds and _exercises(real, c):
+            return True
+        if command_kinds(c.argv) & kinds:
+            return True
+    return False
+
+
+def _is_import_only_code(code: str) -> bool:
+    stmts = [x for x in re.split(r"[;\n]", code) if x.strip()]
+    return bool(stmts) and all(IMPORT_STMT.fullmatch(x[:400]) for x in stmts)
 
 
 def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
-    segs = segments(cmd)
+    units = list(_units(cmd))
     if after_edit_only:
-        last = max((i for i, s in enumerate(segs) if segment_is_edit(s, cmd)), default=-1)
-        segs = segs[last + 1:]
+        last = max((i for i, u in enumerate(units) if _unit_is_edit(u, cmd)), default=-1)
+        units = units[last + 1:]
     out = []
-    for s in segs:
-        if s.heredoc and SHELL_HEAD.match(s.text):
-            body = s.text.split("\n", 1)[1].rsplit("\n", 1)[0] if "\n" in s.text else ""
-            out += verifying_segments(body, kinds)   # `bash <<'EOF'` runs its body
-            continue
-        if segment_is_edit(s, cmd) or (s.heredoc and not s.interp) or (s.heredoc and s.interp and WRITE_MARK.search(s.text)):
-            continue
-        probe = s.text.split("\n", 1)[0] if s.heredoc else s.text   # judge interpreter heredocs by their header line
-        probe = LOOP_HEAD.sub("", probe)   # `for f in a.py check_x.py; do ...`: the word list runs nothing, the body does
-        probe = posix_probe(re.sub(r"^(\s*\w+=\S+\s+)+", "", probe))   # strip leading VAR=value prefixes
-        if not probe.strip():
-            continue
-        if "test" in kinds and (s.interp or INTERP_INLINE.search(probe)) and TEST_IMPORT.search(s.text) and TEST_CALL.search(s.text):
-            out.append(s)   # `python -c "import test_pricing as t; t.test_x()"` runs the tests' assertions without a runner
-            continue
-        if "build" in kinds and import_only(probe):
-            out.append(s)
-            continue
-        if "exercise" in kinds and exercises_code(probe, s):
-            out.append(s)
-            continue
-        if NON_VERIFY_VERB.search(probe) and not re.search(r"gh (pr checks|run)", probe):
-            continue
-        if SERVER.search(probe) and not re.search(r"(pytest|test|check)", probe):
-            continue
-        if NOT_A_RUN.search(QUOTED_ARG.sub(" ", probe)):
-            continue   # `pytest --collect-only`, `--version`: nothing was tested
-        if not INTERP_INLINE.search(probe):   # `uv run python -c "..."`, `bash -c "..."`: the quoted text is what runs
-            probe = QUOTED_ARG.sub(" ", probe)   # `gh pr create --title "... pytest ..."` names a test tool but runs none
-        if any(VERIFY[k].search(probe) for k in kinds if k in VERIFY):
-            out.append(s)
+    for u in units:
+        if u.guard == "no":
+            continue    # `false && pytest`, `if false; then pytest; fi`, `exit 0; pytest`
+        if u.dropped and u.masked:
+            continue    # `pytest > /dev/null || true`: neither the output nor the exit status comes back
+        code = _unit_code(u)
+        if code and code[2].heredocs and _code_is_edit(code[1], u, cmd):
+            continue    # a script that writes files is an edit, whatever else it does
+        if stage_kinds(u, kinds):
+            out.append(_as_segment(u))
     return out
 
 
 def bash_verifies(cmd: str, kinds: set, after_edit_only: bool = False) -> bool:
     return bool(verifying_segments(cmd, kinds, after_edit_only))
+
+
+def _unit_named(cmd: str, seg_text: str):
+    head = seg_text.split("\n", 1)[0]
+    for u in _units(cmd):
+        if u.text == seg_text or u.text.split("\n", 1)[0] == head:
+            return u
+    return None
+
+
+def run_unproven(cmd: str, seg_text: str) -> bool:
+    """For judge_output. The exit status says nothing about this run (`|| true`, `; echo done`, `[ -f x ] && pytest`): only a pass/fail line in its output can."""
+    u = _unit_named(cmd, seg_text)
+    return bool(u and (u.masked or u.guard == "maybe"))
+
+
+def without_own_echo(out: str, cmd: str, seg_text: str) -> str:
+    """For judge_output. `./run_tests.sh || echo ok`: the `ok` comes from the command line itself and proves nothing about the run."""
+    u = _unit_named(cmd, seg_text)
+    if not u or not u.own_echo:
+        return out
+    lines = (out or "").split("\n")
+    for text in u.own_echo:
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == text:
+                del lines[i]
+                break
+    return "\n".join(lines)

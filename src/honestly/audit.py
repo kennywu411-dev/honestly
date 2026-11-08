@@ -468,6 +468,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     seg, last = "", None
     if any(x.name in rules.OPAQUE_TOOLS for x in after):
         return "unverifiable", "a subagent/background/terminal tool ran after the last edit", seg, last
+    if any(x.name == "Bash" and rules.too_big(x.text) for x in after):
+        return "unverifiable", "a shell command after the last edit was too long to read", seg, last
     if rules.REMOTE_RUN.search(hit.sentence):
         return "unverifiable", "claim is about a remote or background run; local edits do not invalidate it and its evidence is off-transcript", seg, last
     verifying = [(x, rules.verifying_segments(x.text, hit.evidence_kinds)) for x in after if x.name == "Bash"]
