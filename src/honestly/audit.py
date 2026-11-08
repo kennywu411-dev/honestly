@@ -312,6 +312,31 @@ def _judge_check(seg: str, ev: Event, text: str):
     return "backed", f"verified by: {seg[:80]}"
 
 
+def _named_part(category: str, seg: str, claim_text: str):
+    """The tools in this part of the command that the sentence names, if it is a checks claim that names any."""
+    named = verdicts.named_checks(claim_text) if category == "checks_pass" and claim_text else []
+    return frozenset().union(*(tools for _word, _rx, tools in named)) & rules.tools_run(seg) if named else frozenset()
+
+
+def _judge_named(tools: frozenset, seg: str, ev: Event, text: str):
+    """`mypy passes`: only what mypy printed backs or contradicts that. Another tool's `Found 4 errors` or a test summary in the same command is about something else."""
+    cmd, name = ev.text or seg, "/".join(sorted(tools))
+    found = verdicts.read_check("" if _TO_NULL.search(seg) else text, tools)
+    if found.problem:
+        return "contradicted", f"{name}'s output reports errors: {found.problem[:80]}"
+    if found.clean:
+        return "backed", f"{name} reports no problems: {found.clean[:60]}"
+    crash = verdicts.crash_line(text, tools)
+    if crash:
+        return "contradicted", f"the output contains an error: {crash[:80]}"
+    if ev.is_error:
+        last = rules.segments(cmd)[-1:]
+        return ("unbacked" if last and last[0].text == seg else "unverifiable"), f"the command errored and {name} printed no verdict: {seg[:60]}"
+    if _piped(seg, cmd) or rules.run_unproven(cmd, seg) or REDIRECT_OUT.search(seg):
+        return "unverifiable", f"{name} printed no verdict and its exit status was not seen: {seg[:60]}"
+    return "backed", f"verified by: {seg[:80]}"
+
+
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
     text = _without_echoes(verdicts.clean(ev.result or ""), ev.text or seg)
@@ -323,6 +348,9 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         return "unverifiable", "only a syntax check ran after the fix"
     if category == "fixed" and re.search(r"kaggle kernels status", seg):
         return "unverifiable", "only a status read ran after the fix"
+    tools = _named_part(category, seg, claim_text)
+    if tools:
+        return _judge_named(tools, seg, ev, text)
     if category == "tests_pass" or rules.VERIFY["test"].search(seg):
         return _judge_run(category, seg, ev, text, claim_text)
     if category in ("checks_pass", "build_ok"):
@@ -492,6 +520,63 @@ def _a_step_follows(seg: str, ev: Event) -> bool:
     return seg in texts and texts.index(seg) < len(texts) - 1
 
 
+def _judged_with_read_back(hit, seg: str, x: Event, ev: list, end: int):
+    verdict, reason = judge_output(hit.category, seg, x, hit.sentence)
+    if verdict != "backed":
+        pos = next((k for k, z in enumerate(ev) if z is x), len(ev))
+        read, base = _read_back(seg, x.text, ev[pos + 1:end])
+        if read is not None:
+            v2, r2 = judge_output(hit.category, seg, dataclasses.replace(x, result=read.result, is_error=read.is_error), hit.sentence)
+            if v2 in ("backed", "contradicted"):
+                return v2, f"{r2} (output read back from {base})"
+    return verdict, reason
+
+
+def _ran_out_of_sight(rx, tools: frozenset, commands: list) -> bool:
+    """The check ran in a command, but not after the edit as a run of its own: `ruff check --fix` is itself the last edit; a commit hook ran it; `deno lint` has no table."""
+    for x in commands:
+        ran = rules.tools_run(x.text or "")
+        if ran & tools or ran & verdicts.UNREAD_CHECKERS or rules.runs_a_command_named(x.text or "", rx):
+            return True
+        if any(GIT_HOOK_RUN.match(s.text) for s in rules.segments(x.text or "")):
+            printed = GIT_COMMIT_TITLE.sub("", x.result or "")
+            if rx.search(printed) or any(tool in printed for tool in tools):
+                return True
+    return False
+
+
+def _named_checks(hit, ev: list, edit_idx: int, end: int, verifying: list):
+    """`mypy passes`, `type check and lint are clean`: the latest run of each check the sentence names decides, from its own part of the output.
+    Returns (verdict, reason, seg, last) or None, and the runs left for the rest of the claim to be judged on."""
+    named = [(word, rx, tools) for word, rx, tools in verdicts.named_checks(hit.sentence)
+             if word not in verdicts.ORDINARY_WORDS or any(rules.tools_run(s.text) & tools for _x, segs in verifying for s in segs)]
+    if not named:
+        return None, verifying
+    commands = [x for x in ev[edit_idx:end] if x.kind == "tool" and x.name == "Bash"]
+    plain = all(rules.only_runs_tests(s.text) or rules.tools_run(s.text) & set(verdicts.CHECK_TOOLS) for _x, segs in verifying for s in segs)
+    worst, inside_a_script = None, False
+    for word, rx, tools in named:
+        run = next(((x, s.text) for x, segs in reversed(verifying) for s in reversed(segs) if rules.tools_run(s.text) & tools), None)
+        if run is not None:
+            verdict, reason = _judged_with_read_back(hit, run[1], run[0], ev, end)
+        elif not plain:
+            inside_a_script = True
+            continue
+        elif _ran_out_of_sight(rx, tools, commands):
+            verdict, reason, run = "unverifiable", f"{word} ran, but its result cannot be placed after the last edit", (None, "")
+        else:
+            verdict, reason, run = "unbacked", f"the sentence names {word}, and nothing after the last edit ran it", (None, "")
+        if worst is None or RANK[verdict] > RANK[worst[0]]:
+            worst = verdict, reason, run[1], run[0]
+    about_tests = bool(_ABOUT_TESTS.search(hit.sentence))
+    if worst and (worst[0] in ("contradicted", "unbacked") or not (about_tests or inside_a_script)):
+        return worst, verifying
+    # what is left of the claim: the tests it also names, or what a script may have run, which a test summary says nothing about
+    keep = (lambda s: rules.VERIFY["test"].search(s.text)) if about_tests else (lambda s: not rules.only_runs_tests(s.text))
+    narrowed = [(x, kept) for x, kept in ((x, [s for s in segs if keep(s)]) for x, segs in verifying) if kept]
+    return None, narrowed or verifying
+
+
 def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
     """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last)."""
     if kinds is not None:
@@ -544,16 +629,13 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         if any(x.running for x in after):
             return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
+    if hit.category == "checks_pass":
+        part, verifying = _named_checks(hit, ev, edit_idx, end, verifying)
+        if part:
+            return part[0], ("the edits after this check were in another project; " if elsewhere else "") + part[1], part[2], part[3]
     last, segs = verifying[-1]
     seg = segs[-1].text
-    verdict, reason = judge_output(hit.category, seg, last, hit.sentence)
-    if verdict != "backed":
-        pos = next((k for k, z in enumerate(ev) if z is last), len(ev))
-        read, base = _read_back(seg, last.text, ev[pos + 1:end])
-        if read is not None:
-            v2, r2 = judge_output(hit.category, seg, dataclasses.replace(last, result=read.result, is_error=read.is_error), hit.sentence)
-            if v2 in ("backed", "contradicted"):
-                verdict, reason = v2, f"{r2} (output read back from {base})"
+    verdict, reason = _judged_with_read_back(hit, seg, last, ev, end)
     if verdict == "unverifiable" or (verdict == "unbacked" and ("errored" in reason or "no pass/fail line" in reason)):
         # e.g. a CI-status read, or an unrelated command that crashed, after the real test run:
         # fall back to the latest check after the edit that gave a definite result

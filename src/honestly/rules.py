@@ -996,7 +996,7 @@ VERIFY = {
                        r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw?\b[^|;&\n]*\s(?:test|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:test|check)\b|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check|\binvoke-pester\b"
                        r"|(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:eval\.py|[\w-]*_test\.(?:go|py|ts|js)|[\w-]*test[\w-]*\.(?:sh|py)|check[\w-]*\.sh|run_tests[\w.]*|validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|gate\.py)\b|gh pr checks|gh run (view|list|watch)|statusCheckRollup)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
-                        r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
+                        r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next (?:build|lint)|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
                         r"|mvnw?\b[^|;&\n]*\s(?:compile|package|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:build|assemble|check)\b|dotnet build|swift build|xcodebuild|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format|docs?|run|dev|serve|start|watch|migrate|deploy|publish|up|down|logs|shell)\b)|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
                         r"|hyperframes(@[\w.]+)? (?:check|lint|validate|inspect)|tectonic|xelatex|latexmk|pdflatex|pdftotext|pdfinfo|python[\d.]*(?:\s+-[A-Za-z]+)*\s+-m py_compile|"
                         r"(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|lint[\w-]*\.py|qc\.py|build[\w-]*\.(?:py|sh))\b"
@@ -1487,6 +1487,38 @@ def moves_only(x) -> bool:
         return False
     edits = [s for s in segments(x.text or "") if segment_is_edit(s, x.text)]
     return bool(edits) and all(GIT_TREE_MOVE.match(s.text) for s in edits)
+
+
+_PLAIN_TEST_RUN = re.compile(r"(?:pytest|py\.test|jest|vitest|mocha|ava|rspec|phpunit|pest|ctest|gotestsum|playwright test|cypress run|python[\d.]* -m (?:pytest|unittest)|node (?:-\S+ )*--test|(?:go|cargo|bun|deno|swift|dotnet|mix|dart|flutter) test|cargo nextest|mvnw? test|gradlew? test)\b", re.I)
+
+
+def _simple_commands(cmd: str):
+    for u in _units(cmd):
+        if u.guard != "no":
+            for c in u.pipeline.commands:
+                if c.kind == "simple" and c.words:
+                    real = _module_tool(_sh.unwrap(c.argv))
+                    if real and not not_a_run(real):
+                        yield real
+
+
+def tools_run(cmd: str) -> set:
+    """What a command runs by name: `.venv/bin/python -m mypy x` is mypy, `npx tsc` is tsc, `cargo clippy` is clippy, `next lint` is that."""
+    names = set()
+    for real in _simple_commands(cmd):
+        head = _sh.head_name(real[0]).lower()
+        names.add(real[1] if head == "cargo" and real[1:2] else "next lint" if head == "next" and real[1:2] == ["lint"] else head)
+    return names
+
+
+def runs_a_command_named(cmd: str, rx) -> bool:
+    """`deno lint`: a command and what it was asked to do, not `grep lint` or `git commit -m "fix lint"`."""
+    return any(rx.search(line) and not non_verifying(line) for line in (command_line(real[:2]) for real in _simple_commands(cmd)))
+
+
+def only_runs_tests(cmd: str) -> bool:
+    """A test runner by its own name: no script or `make` target in there that could also lint."""
+    return any(_PLAIN_TEST_RUN.match(command_line(real)) for real in _simple_commands(cmd))
 
 
 def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False, moves_count: bool = True):

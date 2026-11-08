@@ -448,12 +448,15 @@ CHECKERS = {
         (DIAG, r"^\S[^\n]*\(\d+,\d+\): error TS\d+: "),
         (DIAG, r"^\S+:\d+:\d+ - error TS\d+: "),
         (DIAG, r"^Errors[ \t]+Files?$"),
+        (FOUND, r"^Found (?P<n>\d+) errors? in (?!\d+ files? \()"),   # `Found 3 errors in 2 files.`, `Found 1 error in a.ts:1`
     ],
     # tsc, ruff, mypy and biome all print this one
     "found": [(FOUND, r"^Found (?P<n>\d+) errors?\b")],
+    # ruff and biome: the count and nothing about where
+    "found_alone": [(FOUND, r"^Found (?P<n>\d+) errors?\b(?! in )")],
     # a tool that reports `0 error(s), 0 warning(s)` and `◇ Check passed`
     "summary": [(FOUND, r"^\W*(?P<n>\d+) errors?(?:\(s\))?[,.]?(?: \d+ warnings?(?:\(s\))?\b|[ \t]*$)"), (CLEAN, r"^\W*(?:Check|All checks?|Lint) passed\b"), (CLEAN, r"^\W*No issues found\b")],
-    "mypy": [(DIAG, r"^\S+:\d+(?::\d+)?: error: "), (CLEAN, r"^Success: no issues found\b")],
+    "mypy": [(DIAG, r"^\S+:\d+(?::\d+)?: error: "), (CLEAN, r"^Success: no issues found\b"), (FOUND, r"^Found (?P<n>\d+) errors? in \d+ files? \(")],
     "pyright": [(FOUND, r"^[ \t]*(?P<n>\d+) errors?, \d+ warnings?, \d+ informations?\b"), (DIAG, r"^[ \t]*\S+:\d+:\d+ - error: "), (DIAG, r"^No source files found\b")],
     "eslint": [
         (FOUND, r"^✖ \d+ problems? \((?P<n>\d+) errors?, \d+ warnings?\)"),
@@ -469,16 +472,9 @@ CHECKERS = {
         (CLEAN, r"^All checks passed!"),
         (CLEAN, r"^\d+ files? already formatted\b"),
     ],
-    "formatters": [
-        (DIAG, r"^would reformat "),
-        (DIAG, r"^\d+ files? would be reformatted\b"),
-        (DIAG, r"^error: cannot format "),
-        (DIAG, r"^\[warn\] Code style issues found\b"),
-        (DIAG, r"^\[error\] "),
-        (DIAG, r"^ERROR: \S[^\n]* Imports are incorrectly sorted\b"),
-        (CLEAN, r"^All done!"),
-        (CLEAN, r"^All matched files use Prettier code style!"),
-    ],
+    "black": [(DIAG, r"^would reformat "), (DIAG, r"^\d+ files? would be reformatted\b"), (DIAG, r"^error: cannot format "), (CLEAN, r"^All done!")],
+    "prettier": [(DIAG, r"^\[warn\] Code style issues found\b"), (DIAG, r"^\[error\] "), (CLEAN, r"^All matched files use Prettier code style!")],
+    "isort": [(DIAG, r"^ERROR: \S[^\n]* Imports are incorrectly sorted\b")],
     "pylint": [(DIAG, r"^\S+:\d+:\d+: [CRWEF]\d{4}: "), (FOUND, r"^Your code has been rated at (?P<rating>-?[\d.]+)/10\b")],
     "biome": [(DIAG, r"^[ \t]*[×✖] Some errors were emitted while\b"), (CLEAN, r"^Checked \d+ files? in \S+\. No fixes applied\.$")],
     "go": [(DIAG, r"^\S+\.go:\d+(?::\d+)?: "), (DIAG, r"^vet: "), (FOUND, r"^(?P<n>\d+) issues?[:.]$")],
@@ -497,6 +493,37 @@ CHECKERS = {
     ],
     "shell": [(DIAG, r"^(?:g?make)(?:\[\d+\])?: \*\*\* "), (DIAG, r"^npm (?:ERR!|error) "), (DIAG, r"^[ \t]*Traceback \(most recent call last\)"), (DIAG, r"^\w*Error: ")],
 }
+
+# ---------------------------------------------------------------- the checks a sentence can name
+# what runs, and the tables that hold what it prints
+CHECK_TOOLS = {
+    "mypy": ("mypy",), "dmypy": ("mypy",), "pyright": ("pyright",), "basedpyright": ("pyright",), "tsc": ("typescript",), "vue-tsc": ("typescript",),
+    "ruff": ("ruff", "found_alone"), "biome": ("biome", "found_alone"), "eslint": ("eslint",), "next lint": ("eslint",), "flake8": ("ruff",), "pylint": ("pylint",), "clippy": ("rust",),
+    "black": ("black",), "isort": ("isort",), "prettier": ("prettier",),
+}
+# no table for what these print, so they can be seen to have run and nothing more
+UNREAD_CHECKERS = {"ty", "pyre", "pytype", "flow", "oxlint", "stylelint", "tslint", "rubocop", "shellcheck", "golangci-lint", "staticcheck", "phpstan", "psalm", "swiftlint", "ktlint", "detekt"}
+_ANYONES = {"shell", "cc", "rust", "summary", "bundlers"}   # a crash or a bare `error:` could be any tool's, so it is not set aside as another tool's
+TYPE_CHECK_WORD, LINT_WORD = "type check", "lint"
+ORDINARY_WORDS = {"black", "prettier"}   # also plain English: they name a tool only if that tool ran
+
+
+@functools.lru_cache(maxsize=None)
+def _check_words():
+    def word(*names):
+        return re.compile(r"(?<![\w-])(?:" + "|".join(names) + r")(?![\w-])", re.I)
+    return [("mypy", word("d?mypy"), frozenset({"mypy", "dmypy"})), ("pyright", word("(?:based)?pyright"), frozenset({"pyright", "basedpyright"})),
+            ("tsc", word("(?:vue-)?tsc", "typescript"), frozenset({"tsc", "vue-tsc"})), ("ruff", word("ruff"), frozenset({"ruff"})), ("biome", word("biome"), frozenset({"biome"})),
+            ("eslint", word("eslint"), frozenset({"eslint", "next lint"})), ("flake8", word("flake8"), frozenset({"flake8"})), ("pylint", word("pylint"), frozenset({"pylint"})), ("clippy", word("clippy"), frozenset({"clippy"})),
+            ("isort", word("isort"), frozenset({"isort"})), ("black", word("black"), frozenset({"black"})), ("prettier", word("prettier"), frozenset({"prettier"})),
+            (TYPE_CHECK_WORD, re.compile(r"类型检查|类型校验|\btype[- ]?check(?:s|ers?|ing)?\b", re.I), frozenset({"mypy", "dmypy", "pyright", "basedpyright", "tsc", "vue-tsc"})),
+            (LINT_WORD, re.compile(r"\blint(?:s|ers?|ing)?\b", re.I), frozenset({"ruff", "biome", "eslint", "next lint", "flake8", "pylint", "clippy"}))]
+
+
+def named_checks(sentence: str) -> list:
+    """The checks a sentence names, as (the word for it, the pattern for that word, the tools that would be it)."""
+    return [(name, rx, tools) for name, rx, tools in _check_words() if rx.search(sentence or "")]
+
 
 # ---------------------------------------------------------------- reading
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\^_]")   # colour, cursor control, hyperlinks
@@ -736,10 +763,21 @@ class Check:
     clean: str = ""     # the tool said it found nothing
 
 
-def read_check(text: str) -> Check:
+@functools.lru_cache(maxsize=None)
+def _tool_shapes(tools: frozenset) -> list:
+    keep = {table for tool in tools for table in CHECK_TOOLS[tool]}
+    return [shape for shape in check_shapes() if shape[0] in keep]
+
+
+def read_check(text: str, tools: frozenset | None = None) -> Check:
+    """What the compilers and linters printed; with `tools`, only the lines those tools print."""
+    return _read_shapes(text, check_shapes() if tools is None else _tool_shapes(tools))
+
+
+def _read_shapes(text: str, shapes: list) -> Check:
     digest = "\n".join(line for line in (_PREFIX.sub("", line[:_LINE], count=1).rstrip() for line in text.split("\n")) if _CHECK_LOOK.search(line))
     found, claimed = Check(), set()
-    for _name, kind, rx in check_shapes():
+    for _name, kind, rx in shapes:
         for m in rx.finditer(digest):
             if m.start() in claimed:
                 continue
@@ -774,6 +812,20 @@ def error_word(text: str) -> str:
         if _ERROR_WORD.search(_NOT_A_DIAGNOSTIC.sub(" ", line)):
             return line.strip()[:160]
     return ""
+
+
+@functools.lru_cache(maxsize=None)
+def _someone_elses(tools: frozenset) -> re.Pattern:
+    keep = {table for tool in tools for table in CHECK_TOOLS[tool]} | _ANYONES
+    theirs = [_plain(rx) for name, shapes in CHECKERS.items() if name not in keep for _kind, rx in shapes]
+    return re.compile("|".join(theirs + [tables()[2].pattern]), re.M)
+
+
+def crash_line(text: str, tools: frozenset) -> str:
+    """With nothing from these tools themselves: an error no other tool or test runner in the command can be said to have printed."""
+    theirs = _someone_elses(tools)
+    left = "\n".join(line for line in text.split("\n") if not theirs.match(line))
+    return _read_shapes(left, [shape for shape in check_shapes() if shape[0] == "shell"]).problem or error_word(left)
 
 
 def union(*kinds) -> re.Pattern:
