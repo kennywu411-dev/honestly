@@ -585,3 +585,172 @@ def test_the_skills_work_where_only_python_exists(skill):
     with open(os.path.join(ROOT, "skills", skill, "SKILL.md"), encoding="utf-8") as fh:
         text = fh.read()
     assert 'Bash(python "${CLAUDE_PLUGIN_ROOT}/hooks/run.py"' in text and "Bash(python3 " in text
+
+
+# ---------------------------------------------------------------- config files
+@pytest.fixture
+def cfg(tmp_path, monkeypatch):
+    """A temp home with the user config at home/.honestly/config.json, cwd at tmp_path/work."""
+    home = tmp_path / "home"
+    home.mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.chdir(work)
+    return home / ".honestly" / "config.json"
+
+
+@pytest.mark.parametrize("edit", [lambda c: c.add_to("ignore", "newphrase"), lambda c: c.remove_from("ignore", "a"), lambda c: c.set_value("strictness", "strict"), lambda c: c.add_to("off", "fixed")])
+@pytest.mark.parametrize("broken", ['{\n "strictness": "strict",\n "ignore": ["a", "b"],\n}\n', "[1]\n", b"\xff\xfe", "null"])
+def test_a_config_it_cannot_read_is_never_overwritten(cfg, edit, broken):
+    from honestly import config
+    _write(cfg, broken)
+    before = cfg.read_bytes()
+    with pytest.raises(SystemExit) as e:
+        edit(config)
+    assert str(cfg) in str(e.value) and "nothing was changed" in str(e.value).lower()
+    assert cfg.read_bytes() == before
+
+
+def test_a_broken_config_is_reported_by_show(cfg):
+    from honestly import config
+    _write(cfg, '{"ignore": ["a"],}')
+    assert str(cfg) in config.show() and "not valid JSON" in config.show()
+    assert config.problems(None)
+
+
+def test_editing_keeps_the_other_keys_and_a_list_written_as_one_string(cfg):
+    from honestly import config
+    _write(cfg, '{"ignore": "fixed bed", "strictness": "strict"}')
+    config.add_to("ignore", "foo")
+    d = json.loads(cfg.read_text())
+    assert d == {"ignore": ["fixed bed", "foo"], "strictness": "strict"}
+    _write(cfg, '{"ignore": "fixed bed"}')
+    assert "already in" in config.add_to("ignore", "fixed bed")
+    config.remove_from("ignore", "fixed bed")
+    assert json.loads(cfg.read_text())["ignore"] == []
+
+
+@pytest.mark.parametrize("shape", ['{"ignore": 5}', '{"verify_commands": null}', '{"off": {"a": 1}}', '{"ignore": [1, null, {"a": 1}]}'])
+def test_editing_a_list_of_the_wrong_shape_does_not_crash(cfg, shape):
+    from honestly import config
+    for key in ("ignore", "verify_commands", "off"):
+        _write(cfg, shape)
+        assert "added" in config.add_to(key, "make check")
+        assert "make check" in json.loads(cfg.read_text())[key]
+
+
+@pytest.mark.parametrize("phrase", ["e", " ", "x "])
+def test_a_one_letter_phrase_would_silence_everything_and_is_refused(cfg, phrase):
+    from honestly import config
+    with pytest.raises(SystemExit):
+        config.add_to("ignore", phrase)
+    with pytest.raises(SystemExit):
+        config.add_to("verify_commands", phrase)
+    assert not cfg.exists()
+
+
+def test_one_letter_entries_already_in_a_file_are_not_applied(cfg):
+    from honestly import config
+    _write(cfg, '{"ignore": ["f", "i", "e", "foo"], "verify_commands": ["x", "make smoke"], "off": ["fixed"]}')
+    loaded = config.load()
+    assert loaded["ignore"] == ["foo"] and loaded["verify_commands"] == ["make smoke"] and loaded["off"] == ["fixed"]
+
+
+@pytest.mark.parametrize("text", ['{"strictness": ["x"]}', '{"strictness": {}}', '{"language": {}}', '{"language": []}', '{"off": null, "ignore": null, "verify_commands": null}',
+                                  '{"ignore": 5}', '{"verify_commands": [1, null, {"a": 1}]}', '{"strictness": 5, "language": 5}'])
+def test_a_value_of_the_wrong_type_never_turns_the_guard_off(cfg, text):
+    from honestly import config
+    _write(cfg, text)
+    loaded = config.load()
+    assert loaded["strictness"] == "normal" and loaded["language"] == "auto"
+    assert all(isinstance(x, str) and x != "None" for k in ("ignore", "verify_commands", "off") for x in loaded[k])
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": "/tmp"})["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert config.show()
+
+
+def _repo(tmp_path):
+    root = tmp_path / "repo"
+    (root / "src" / "deep").mkdir(parents=True)
+    (root / ".git").mkdir()
+    return root
+
+
+def test_the_project_file_is_found_from_any_folder_of_the_repository(tmp_path):
+    from honestly import config
+    root = _repo(tmp_path)
+    (root / ".honestly.json").write_text('{"strictness": "lenient"}')
+    for cwd in (root, root / "src", root / "src" / "deep"):
+        assert config.project_path(str(cwd)) == str(root / ".honestly.json")
+        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": str(cwd)}) is None   # lenient applies everywhere
+
+
+def test_the_nearest_project_file_wins_and_the_search_stops_at_the_repository(tmp_path):
+    from honestly import config
+    root = _repo(tmp_path)
+    (root / "src" / ".honestly.json").write_text("{}")
+    assert config.project_path(str(root / "src" / "deep")) == str(root / "src" / ".honestly.json")
+    (tmp_path / ".honestly.json").write_text('{"strictness": "lenient"}')   # above the repository: not this project's
+    (root / "src" / ".honestly.json").unlink()
+    assert config.project_path(str(root / "src")) == str(root / ".honestly.json")
+
+
+def test_outside_a_repository_only_the_folder_itself_counts(tmp_path):
+    from honestly import config
+    (tmp_path / ".honestly.json").write_text('{"strictness": "lenient"}')
+    (tmp_path / "sub").mkdir()
+    assert config.project_path(str(tmp_path / "sub")) == str(tmp_path / "sub" / ".honestly.json")
+
+
+def test_a_project_setting_written_from_a_subfolder_goes_to_the_repository_root(tmp_path, monkeypatch):
+    from honestly import config
+    root = _repo(tmp_path)
+    monkeypatch.chdir(root / "src")
+    config.add_to("ignore", "fixed bed", project=True)
+    assert json.loads((root / ".honestly.json").read_text())["ignore"] == ["fixed bed"]
+
+
+def test_a_deleted_current_folder_does_not_stop_config(cfg, monkeypatch):
+    from honestly import config
+    def gone():
+        raise FileNotFoundError(2, "No such file or directory")
+    monkeypatch.setattr(os, "getcwd", gone)
+    assert config.show() and config.load()["strictness"] == "normal"
+
+
+@posix_only
+def test_a_project_file_that_is_a_symlink_is_never_written_through(tmp_path, monkeypatch):
+    from honestly import config
+    victim = tmp_path / "zshrc"
+    victim.write_text("export KEEP=1\n")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".honestly.json").symlink_to(victim)
+    monkeypatch.chdir(work)
+    for edit in (lambda: config.add_to("ignore", "foo", project=True), lambda: config.set_value("strictness", "lenient", project=True), lambda: config.remove_from("ignore", "foo", project=True)):
+        with pytest.raises(SystemExit) as e:
+            edit()
+        assert "symbolic link" in str(e.value)
+    assert victim.read_text() == "export KEEP=1\n" and (work / ".honestly.json").is_symlink()
+
+
+@posix_only
+def test_a_new_project_file_has_ordinary_permissions(tmp_path, monkeypatch):
+    from honestly import config
+    monkeypatch.chdir(tmp_path)
+    old = os.umask(0o022)
+    try:
+        config.add_to("ignore", "foo", project=True)
+    finally:
+        os.umask(old)
+    assert stat.S_IMODE((tmp_path / ".honestly.json").stat().st_mode) == 0o644
+
+
+@pytest.mark.parametrize("edit", [lambda c: c.add_to("ignore", "foo"), lambda c: c.set_value("strictness", "strict")])
+def test_a_config_folder_it_cannot_create_gives_one_clear_line(cfg, edit):
+    from honestly import config
+    cfg.parent.write_text("a file")
+    with pytest.raises(SystemExit) as e:
+        edit(config)
+    assert "cannot write" in str(e.value)

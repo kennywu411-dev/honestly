@@ -40,8 +40,39 @@ def user_path() -> str:
     return os.path.join(os.path.expanduser("~/.honestly"), "config.json")
 
 
+def current_folder() -> str:
+    """The working directory; a folder deleted under the shell falls back to home, so reading settings still works."""
+    try:
+        return os.getcwd()
+    except OSError:
+        return os.path.expanduser("~")
+
+
+def _repository_root(folder: str):
+    d = folder
+    while True:
+        if os.path.exists(os.path.join(d, ".git")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
 def project_path(cwd: str | None) -> str:
-    return os.path.join(cwd or os.getcwd(), PROJECT_FILE)
+    """The project's settings file. The agent's working folder moves around inside a repository (the hook's `cwd` follows `cd`), so the
+    nearest file up to the repository's root counts, and a new one goes in the root. Outside a repository only the folder itself counts."""
+    folder = os.path.abspath(cwd if isinstance(cwd, str) and cwd else current_folder())
+    root = _repository_root(folder)
+    if not root:
+        return os.path.join(folder, PROJECT_FILE)
+    d = folder
+    while d != root:
+        candidate = os.path.join(d, PROJECT_FILE)
+        if os.path.lexists(candidate):
+            return candidate
+        d = os.path.dirname(d)
+    return os.path.join(root, PROJECT_FILE)
 
 
 class SymlinkRefused(OSError):
@@ -85,8 +116,30 @@ def _read(path: str) -> dict:
         return {}
 
 
-def _write(path: str, d: dict) -> None:
-    write_json_atomic(path, d, backup=False)
+def _read_for_edit(path: str, project: bool = False) -> dict:
+    """What an edit starts from. A file that cannot be read is refused: rewriting it would lose everything in it. A repository's file
+    is not followed through a symbolic link, which anyone can make point at a file in the user's home."""
+    if not os.path.lexists(path):
+        return {}
+    if project and os.path.islink(path):
+        raise SystemExit(f"honestly: {path} is a symbolic link, and a file inside a project is not written through one. Nothing changed.")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (ValueError, OSError, RecursionError) as e:
+        raise SystemExit(f"honestly: cannot read {path}: {e}\nFix the file or delete it. Nothing was changed.") from None
+    if not isinstance(d, dict):
+        raise SystemExit(f"honestly: {path} is not a JSON object.\nFix the file or delete it. Nothing was changed.")
+    return d
+
+
+def _write(path: str, d: dict, project: bool = False) -> None:
+    try:
+        write_json_atomic(path, d, backup=False, follow_symlinks=not project)
+    except SymlinkRefused as e:
+        raise SystemExit(f"honestly: {e}") from None
+    except OSError as e:
+        raise SystemExit(f"honestly: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
 
 
 class FileChanged(Exception):
@@ -171,12 +224,23 @@ def write_json_atomic(path: str, obj, backup: bool = True, follow_symlinks: bool
     write_text_atomic(path, json.dumps(obj, ensure_ascii=False, indent=2) + "\n", backup=backup, follow_symlinks=follow_symlinks)
 
 
+def _as_list(value) -> list:
+    """A list key as a list of strings: one string is one entry, anything that is not text is not an entry."""
+    if isinstance(value, str):
+        value = [value]
+    return [x for x in value if isinstance(x, str)] if isinstance(value, list) else []
+
+
+def _too_short(phrase: str) -> bool:
+    return len(phrase.strip()) < 2   # one letter occurs in every sentence and every command: it would switch the checks off
+
+
 def _clean(d: dict) -> dict:
     """The settings a file holds, with anything of the wrong shape dropped: a bad value must never take the guard down."""
     out = {}
     for k, v in d.items():
         if k in LIST_KEYS:
-            out[k] = [str(x).strip() for x in (v if isinstance(v, list) else [v]) if str(x).strip()]
+            out[k] = [x.strip() for x in _as_list(v) if x.strip() and not (k != "off" and _too_short(x))]
         elif k == "strictness" and isinstance(v, str) and v in STRICTNESS:
             out[k] = v
         elif k == "language" and isinstance(v, str) and v in ("auto", "zh", "en"):
@@ -314,37 +378,56 @@ def blocked_verdicts(cfg: dict) -> tuple:
 # ------------------------------------------------------------------ editing
 def set_value(key: str, value, project: bool = False, cwd: str | None = None) -> str:
     path = project_path(cwd) if project else user_path()
-    d = _read(path)
     if key == "strictness" and value not in STRICTNESS:
         return f"strictness must be one of {', '.join(STRICTNESS)}"
     if key == "language" and value not in ("auto", "zh", "en"):
         return "language must be auto, zh or en"
+    d = _read_for_edit(path, project)
     d[key] = value
-    _write(path, d)
+    _write(path, d, project)
     return f"{key} = {value}  ({path})"
 
 
 def add_to(key: str, value: str, project: bool = False, cwd: str | None = None) -> str:
+    if key != "off" and _too_short(value):
+        raise SystemExit(f"honestly: {value!r} is too short for {key}: it would match almost everything. Nothing changed.")
     path = project_path(cwd) if project else user_path()
-    d = _read(path)
-    lst = [str(x) for x in d.get(key, []) if str(x).strip()]
+    d = _read_for_edit(path, project)
+    lst = [x for x in _as_list(d.get(key, [])) if x.strip()]
     if value in lst:
         return f"already in {key}: {value!r}  ({path})"
     lst.append(value)
     d[key] = lst
-    _write(path, d)
+    _write(path, d, project)
     return f"added to {key}: {value!r}  ({path})"
 
 
 def remove_from(key: str, value: str, project: bool = False, cwd: str | None = None) -> str:
     path = project_path(cwd) if project else user_path()
-    d = _read(path)
-    lst = [str(x) for x in d.get(key, []) if str(x) != value]
-    if len(lst) == len(d.get(key, [])):
+    d = _read_for_edit(path, project)
+    had = _as_list(d.get(key, []))
+    if value not in had:
         return f"not in {key}: {value!r}  ({path})"
-    d[key] = lst
-    _write(path, d)
+    d[key] = [x for x in had if x != value]
+    _write(path, d, project)
     return f"removed from {key}: {value!r}  ({path})"
+
+
+def problems(cwd: str | None = None) -> list:
+    """Settings files that exist but are being ignored, because they cannot be read."""
+    out = []
+    for path in (user_path(), project_path(cwd)):
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (ValueError, OSError, RecursionError) as e:
+            out.append(f"{path} is not valid JSON and is being ignored: {e}")
+            continue
+        if not isinstance(d, dict):
+            out.append(f"{path} is not valid JSON and is being ignored: it is not an object")
+    return out
 
 
 def show(cwd: str | None = None) -> str:
@@ -361,4 +444,5 @@ def show(cwd: str | None = None) -> str:
         lines.append(f"       ignored from that file until you run `honestly trust`: {', '.join(ignored)}")
     elif project_relaxes(cwd):
         lines.append(f"       you trusted that file: {', '.join(project_relaxes(cwd))}")
+    lines += [f"warning: {p}" for p in problems(cwd)]
     return "\n".join(lines)
