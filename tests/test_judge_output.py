@@ -349,3 +349,10 @@ def test_output_that_settles_nothing_gets_no_credit(cmd, out, category, verdict)
 
 def test_a_command_that_failed_with_no_diagnostic_is_an_error_not_a_pass():
     assert judge("npx tsc --noEmit", "To get access to the TypeScript compiler, tsc, from the command line either:", err=True, category="build_ok") == "unbacked"
+
+
+# ---- a screenshot does not back "checks pass"
+def test_a_snapshot_is_not_a_check():
+    shot = Event("tool", name="Read", text="/tmp/after.png", result="[image]")
+    assert said(shot, text="All checks pass, 0 errors.") == ["unbacked"]
+    assert said(shot, text="Fixed the layout.") == ["weak"]

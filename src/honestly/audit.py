@@ -496,7 +496,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         if alt:
             verifying, elsewhere = [alt], True
     visual = any((x.name == "Read" and IMAGE_READ.search(x.text)) or (x.name == "Bash" and VISUAL_CMD.search(x.text)) or BROWSER_VIEW.search(x.name or "") for x in after)
-    if not verifying and hit.category in ("fixed", "rendered", "checks_pass") and visual:
+    if not verifying and hit.category in ("fixed", "rendered") and visual:   # a screenshot can show a fix or a render, not that the checks pass
         return "weak", "judged by looking at a rendered image, snapshot or browser page after the edit; not checkable mechanically", seg, last
     if not verifying and any(TASK_OUTPUT_READ.search(x.text or "") for x in after):
         return "unverifiable", "a background task's output was read after the edit; when that run happened is not on the transcript", seg, last
