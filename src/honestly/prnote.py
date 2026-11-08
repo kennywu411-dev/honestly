@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from . import audit, claude_code, codex, rules
 from . import agents as _ag
+from .programs import program
 
 START, END = "<!-- honestly:pr-note -->", "<!-- /honestly:pr-note -->"
 SHELL = set(_ag.SHELL_TOOLS) | {"Bash"}
@@ -22,7 +23,7 @@ SHELL = set(_ag.SHELL_TOOLS) | {"Bash"}
 
 # ------------------------------------------------------------------ git
 def _git(args: list, cwd: str) -> str:
-    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    r = subprocess.run([program("git"), *args], cwd=cwd, capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
 
 

@@ -17,6 +17,7 @@ from . import rules, config, agents, claude_code, store
 from .audit import audit_turn
 from .claude_code import Event, Turn
 from .redact import redact, strip_controls
+from .programs import program
 
 MARK = "honestly hook"
 LEGACY_MARKS = ("sober hook",)   # entries written by the package's previous name
@@ -67,7 +68,7 @@ def system_zh() -> bool:
         try:
             if sys.platform == "darwin":
                 import subprocess
-                out = subprocess.run(["defaults", "read", "-g", "AppleLanguages"], capture_output=True, text=True, timeout=1).stdout
+                out = subprocess.run([program("defaults"), "read", "-g", "AppleLanguages"], capture_output=True, text=True, timeout=1).stdout
                 first = re.search(r"[\"']?([A-Za-z]{2,3})[-_A-Za-z]*", out.replace("(", " "))
                 zh = bool(first) and first.group(1).lower() == "zh"
             elif sys.platform == "win32":
@@ -252,16 +253,16 @@ def _notify(title: str, body: str) -> None:
         if _sys.platform == "darwin":
             def esc(s: str) -> str:   # AppleScript string literal: backslash and double quote are the only specials
                 return s.replace("\\", "\\\\").replace('"', '\\"')
-            subprocess.run(["osascript", "-e", f'display notification "{esc(body)}" with title "{esc(title)}"'], timeout=5, capture_output=True)
+            subprocess.run([program("osascript"), "-e", f'display notification "{esc(body)}" with title "{esc(title)}"'], timeout=5, capture_output=True)
         elif _sys.platform.startswith("linux"):
-            subprocess.run(["notify-send", "--", title, body], timeout=5, capture_output=True)
+            subprocess.run([program("notify-send"), "--", title, body], timeout=5, capture_output=True)
         elif _sys.platform == "win32":
             # the text travels in environment variables: nothing from the reply is ever part of the script
             ps = ("[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');"
                   "$n=New-Object System.Windows.Forms.NotifyIcon;$n.Icon=[System.Drawing.SystemIcons]::Information;$n.Visible=$true;"
                   "$n.ShowBalloonTip(8000,$env:HONESTLY_NOTIFY_TITLE,$env:HONESTLY_NOTIFY_BODY,[System.Windows.Forms.ToolTipIcon]::Warning);Start-Sleep 8;$n.Dispose()")
             env = dict(os.environ, HONESTLY_NOTIFY_TITLE=title, HONESTLY_NOTIFY_BODY=body)
-            subprocess.run(["powershell", "-NoProfile", "-Command", ps], timeout=15, capture_output=True, env=env)
+            subprocess.run([program("powershell"), "-NoProfile", "-Command", ps], timeout=15, capture_output=True, env=env)
     except Exception:
         pass
 

@@ -5,11 +5,13 @@ import json
 import os
 import platform
 import re
+import shutil
 import sys
 import tempfile
 import urllib.parse
 
 from . import __version__, config, hooks
+from .programs import program
 from .redact import redact
 from .claude_code import iter_sessions, parse_session
 
@@ -35,8 +37,15 @@ def _hook_cmd_paths(settings: dict) -> list[str]:
 
 def _hook_runs(cmd: str) -> tuple:
     """Run the installed hook line through a POSIX shell with an empty event, the way the assistant will: (ran, detail)."""
-    import shutil, subprocess
-    sh = shutil.which("bash") or shutil.which("sh")
+    import subprocess
+    sh = None
+    for name in ("bash", "sh"):
+        try:
+            sh = shutil.which(program(name))
+        except FileNotFoundError:
+            continue
+        if sh:
+            break
     if not sh:
         return (None, "no bash/sh found to try the hook line")
     try:
@@ -135,7 +144,6 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         problems.append(L("run: honestly guard install", "运行：honestly guard install"))
     for exe in _hook_cmd_paths(settings):
         if exe == "honestly":
-            import shutil
             found = shutil.which("honestly")
             lines.append((f"{ok}" + L(f"hook command 'honestly' resolves to {found}", f"hook 命令 honestly 指向 {found}")) if found
                          else (f"{bad}" + L("hook command 'honestly' is not on PATH for non-interactive shells", "hook 命令 honestly 不在非交互 shell 的 PATH 里")))

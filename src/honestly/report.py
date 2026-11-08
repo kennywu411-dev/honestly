@@ -9,6 +9,7 @@ import tempfile
 from collections import Counter, defaultdict
 
 from . import store
+from .programs import program
 from .redact import strip_controls
 
 GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}
@@ -325,7 +326,7 @@ def svg_to_png(svg_path: str, png_path: str) -> bool:
     try:
         for cmd in attempts:
             try:
-                _run(cmd, check=False, capture_output=True, timeout=90)
+                _run([program(cmd[0]) if not os.path.isabs(cmd[0]) else cmd[0], *cmd[1:]], check=False, capture_output=True, timeout=90)
             except Exception:
                 continue
             if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
