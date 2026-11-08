@@ -1,7 +1,7 @@
 ---
 name: catches
 description: Show what honestly stopped this week (unbacked claims and piped test runs), by project and assistant.
-allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/run.py" catches:*)
+allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/run.py" catches)
 ---
 
 Run:

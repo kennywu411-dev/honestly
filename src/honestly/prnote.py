@@ -472,10 +472,15 @@ def splice(body: str, block: str) -> str:
 
 
 # --------------------------------------------------------------------- gh
+PR_REF = re.compile(r"\d+|https://[^\s/]+/[^\s/]+/[^\s/]+/pull/\d+/?")
+
+
 def update_pr(root: str, block: str, pr: str | None = None) -> str:
-    args = ["gh", "pr", "view", *( [pr] if pr else [] ), "--json", "number,body,url"]
+    if pr and not PR_REF.fullmatch(pr):
+        raise SystemExit(f"honestly pr-note: --pr takes a pull request number or URL, not {pr!r}")
     try:
-        r = subprocess.run(args, cwd=root, capture_output=True, text=True)
+        gh = program("gh")
+        r = subprocess.run([gh, "pr", "view", *( [pr] if pr else [] ), "--json", "number,body,url"], cwd=root, capture_output=True, text=True)
     except FileNotFoundError:
         raise SystemExit("honestly pr-note: --gh needs the GitHub CLI (https://cli.github.com), which was not found on PATH.\n"
                          "Without it: honestly pr-note > pr-note.md, then paste the file into the pull request.") from None
@@ -483,12 +488,13 @@ def update_pr(root: str, block: str, pr: str | None = None) -> str:
         msg = (r.stderr or r.stdout).strip().splitlines()
         raise SystemExit("honestly pr-note: no pull request found for this branch"
                          + (f" ({msg[-1]})" if msg else "") + ".\nCreate one with the note in it:\n"
-                         "  honestly pr-note > /tmp/pr-note.md && gh pr create --fill --body-file /tmp/pr-note.md")
+                         "  honestly pr-note > pr-note.md && gh pr create --fill --body-file pr-note.md")
     info = json.loads(r.stdout)
     new = splice(info.get("body") or "", block)
     if new == (info.get("body") or ""):
         return f"honestly pr-note: {info.get('url')} already has this note, nothing changed"
-    w = subprocess.run(["gh", "pr", "edit", str(info["number"]), "--body-file", "-"], cwd=root, input=new, capture_output=True, text=True)
+    target = str(info.get("url") or info["number"])   # the URL: a bare number would mean this repository's pull request of that number, whichever one was read
+    w = subprocess.run([gh, "pr", "edit", target, "--body-file", "-"], cwd=root, input=new, capture_output=True, text=True)
     if w.returncode != 0:
         raise SystemExit("honestly pr-note: gh pr edit failed: " + (w.stderr or w.stdout).strip())
     return f"honestly pr-note: updated {info.get('url')}"

@@ -1,5 +1,10 @@
 """The block goes into a public pull request. What an agent wrote is shown as inert text, and what it wrote about other things stays out."""
+import json
+import os
 import re
+import subprocess
+
+import pytest
 
 from honestly import prnote
 
@@ -66,3 +71,53 @@ def test_a_claim_about_this_code_is_still_shown():
 def test_a_note_poisoned_by_an_older_version_is_healed_on_the_next_run():
     old = prnote.START + "\nx <!-- /honestly:pr-note --> stale ghp_old\n" + prnote.END + "\n"
     assert prnote.splice("Human text\n\n" + old + "\nafter", "NEW\n") == "Human text\n\nNEW\n\nafter"
+
+
+def _fake_gh(monkeypatch, body="own", number=3, url="https://github.com/me/repo/pull/3"):
+    calls = []
+    def run(args, **kw):
+        calls.append(args)
+        out = json.dumps({"number": number, "body": body, "url": url}) if args[1:3] == ["pr", "view"] else ""
+        return subprocess.CompletedProcess(args, 0, out, "")
+    monkeypatch.setattr(prnote.subprocess, "run", run)
+    return calls
+
+
+def test_a_url_edits_the_pull_request_it_names(monkeypatch):
+    url = "https://github.com/other/repo/pull/7"
+    calls = _fake_gh(monkeypatch, body="theirs", number=7, url=url)
+    prnote.update_pr("/r", "BLOCK\n", url)
+    edit = calls[-1]
+    assert edit[1:3] == ["pr", "edit"] and edit[3] == url
+
+
+def test_no_argument_edits_this_branchs_pull_request_by_its_url(monkeypatch):
+    calls = _fake_gh(monkeypatch)
+    prnote.update_pr("/r", "BLOCK\n")
+    assert calls[-1][3] == "https://github.com/me/repo/pull/3"
+
+
+@pytest.mark.parametrize("bad", ["--repo=evil/x", "-R", "7; rm x", "https://evil.example/x", "7 8", ""])
+def test_anything_else_is_refused(monkeypatch, bad):
+    calls = _fake_gh(monkeypatch)
+    if bad == "":
+        prnote.update_pr("/r", "BLOCK\n", bad)
+        return
+    with pytest.raises(SystemExit):
+        prnote.update_pr("/r", "BLOCK\n", bad)
+    assert not calls
+
+
+@pytest.mark.parametrize("good", ["7", "https://github.com/o/r/pull/7", "https://github.example.com/o/r/pull/7"])
+def test_a_number_or_a_pull_request_url_is_accepted(monkeypatch, good):
+    calls = _fake_gh(monkeypatch)
+    prnote.update_pr("/r", "BLOCK\n", good)
+    assert calls[0][3] == good
+
+
+def test_the_skills_grant_only_the_exact_commands():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for name in ("pr-note", "catches"):
+        with open(os.path.join(root, "skills", name, "SKILL.md"), encoding="utf-8") as fh:
+            grant = next(line for line in fh if line.startswith("allowed-tools:"))
+        assert ":*" not in grant, grant

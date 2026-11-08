@@ -1,7 +1,7 @@
 ---
 name: pr-note
 description: Put this branch's real test evidence into its pull request (last code edit, each test/build after it and the line it printed, claims with nothing behind them). Use after opening or updating a PR, or when the user asks what was actually verified.
-allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/run.py" pr-note:*)
+allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/run.py" pr-note --gh), Bash(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/run.py" pr-note)
 ---
 
 Run, from the repository:
