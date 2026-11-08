@@ -9,11 +9,12 @@ import tempfile
 import unicodedata
 from collections import Counter, defaultdict
 
+from .rules import GENERIC_DIRS
+
 from . import store
 from .programs import program
 from .redact import strip_controls
 
-GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}
 OFF_TRANSCRIPT = "the evidence is off the transcript (a background job, a remote run, a browser, your terminal)"
 HEADLINE = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could not check", "contradicted": "contradicted"}
 

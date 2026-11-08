@@ -25,9 +25,9 @@ import time
 from . import rules, store
 
 STRICTNESS = {
-    "strict": ("unbacked", "contradicted", "weak"),   # also claims about anything other than code, weak evidence, and a filter or a head on a narrowed test run
-    "normal": ("unbacked", "contradicted"),            # claims about code only, and pipes that hide a whole run's result
-    "lenient": ("contradicted",),                      # only when the check actually failed; the pipe check is off
+    "strict": ("unbacked", "contradicted", "weak"),   # also a fix judged only from a screenshot, and a filter or a head on a narrowed test run
+    "normal": ("unbacked", "contradicted"),            # an unbacked or contradicted claim, and a pipe that hides a whole run's result
+    "lenient": ("contradicted",),                      # only a failure the output shows; the pipe check is off
 }
 LIST_KEYS = ("ignore", "verify_commands", "off")
 CATEGORIES = ("tests_pass", "checks_pass", "build_ok", "rendered", "pushed", "committed", "fixed", "sent", "deployed", "downloaded", "saved", "checked", "scheduled", "verified")   # what `off` can name
@@ -448,7 +448,8 @@ def problems(cwd: str | None = None) -> list:
 
 def show(cwd: str | None = None) -> str:
     cfg = load(cwd)
-    lines = [f"strictness       {cfg['strictness']}   (blocks: {', '.join(blocked_verdicts(cfg))})",
+    blocks = {"unbacked": "unverified", "contradicted": "contradicted", "weak": "judged only from a screenshot"}
+    lines = [f"strictness       {cfg['strictness']}   (blocks: {', '.join(blocks[v] for v in blocked_verdicts(cfg))})",
              f"language         {cfg['language']}",
              f"ignore           {', '.join(repr(x) for x in cfg['ignore']) or '(none)'}",
              f"verify_commands  {', '.join(repr(x) for x in cfg['verify_commands']) or '(none)'}",

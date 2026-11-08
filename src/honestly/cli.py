@@ -254,7 +254,7 @@ def cmd_config(a):
     if k in ("off", "on"):
         cats = [c.strip() for c in v.split(",") if c.strip()]
         if not cats:
-            raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: {', '.join(config.CATEGORIES)})")
+            sys.exit(_usage_error(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: {', '.join(config.CATEGORIES)})"))
         unknown = [c for c in cats if c not in config.CATEGORIES] if k == "off" else []
         if unknown:
             return _usage_error(f"honestly config off: no category called {', '.join(unknown)}  (categories: {', '.join(config.CATEGORIES)})")
@@ -264,7 +264,7 @@ def cmd_config(a):
         return
     if k in ("verify", "unverify"):
         if not v.strip():
-            raise SystemExit(f'honestly config {k}: give the command, e.g. honestly config {k} "make smoke"')
+            sys.exit(_usage_error(f'honestly config {k}: give the command, e.g. honestly config {k} "make smoke"'))
         print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); _project_hint(a); return
     raise SystemExit("usage: honestly config [strictness strict|normal|lenient | language auto|zh|en | off CAT[,CAT] | on CAT | verify \"CMD\" | unverify \"CMD\"] [--project]")
 
@@ -421,9 +421,11 @@ def _common(p):
 OVERVIEW = """honestly {v}: did your coding agent actually do what it said?
 
   honestly guard install     stop unverified "done" claims in Claude Code (--agent codex | cursor | gemini)
-  honestly doctor            check the install and run a live self-test
+  honestly doctor            check the install and run two live self-tests
   honestly catches           what guard stopped this week   (--card for a shareable image)
-  honestly audit             score your past sessions        (--since 30d, --project name, explain N, share)
+  honestly audit             score your past sessions        (--since 30d, --project name)
+  honestly explain N         the story behind a flagged claim
+  honestly share             the score as a card
   honestly ignore "phrase"   silence a false catch           (honestly config: strictness, language, custom checks)
   honestly trust             let this project's .honestly.json relax the rules (needs your own terminal)
   honestly feedback          turn a wrong catch into an issue-ready text

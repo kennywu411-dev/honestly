@@ -146,7 +146,7 @@ def test_summary_json_carries_what_the_text_shows(two, capsys):
 
 
 def test_not_this_turn_is_counted_apart(home, capsys):
-    rs = rows("a", [("Bash", "sendmail a@b.c", "ok")], "Done.", "/w/a", "2026-11-01T10:00:")
+    rs = rows("a", [("Bash", "sendmail a@b.c", "ok")], "Here you go.", "/w/a", "2026-11-01T10:00:")
     rs += rows("b", [], "I've emailed the maintainer.", "/w/a", "2026-11-01T10:00:", start=20)   # a recap: the send was an earlier turn's
     write(f"{home}/.claude/projects/-w-a/a.jsonl", rs)
     s = summary(capsys)
