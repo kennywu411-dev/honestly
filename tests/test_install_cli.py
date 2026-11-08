@@ -1585,3 +1585,24 @@ def test_a_big_log_with_many_turns_still_gives_whole_turns(tmp_path, monkeypatch
     monkeypatch.setattr(claude_code, "TAIL_WINDOW", 4000)
     turns = claude_code.parse_session(str(p), tail=True)
     assert len(turns) >= 2 and all(t.prompt for t in turns)
+
+
+# ---------------------------------------------------------------- packaging and what the README promises
+def _read(*parts):
+    with open(os.path.join(ROOT, *parts), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_package_metadata_names_an_author_and_the_versions_it_runs_on():
+    project = _read("pyproject.toml")
+    assert 'authors = [{ name = "Kenny Wu" }]' in project
+    assert '"Programming Language :: Python :: 3.14"' in project
+    assert '"3.14"' in _read(".github", "workflows", "tests.yml")
+
+
+def test_the_readme_says_how_to_uninstall_and_what_the_exit_codes_mean():
+    for name in ("README.md", "README.zh-CN.md"):
+        text = _read(name)
+        assert "honestly guard uninstall --agent all" in text and "/plugin uninstall honestly" in text
+        assert "pipx uninstall honestly" in text and "uv tool uninstall honestly" in text and "~/.honestly" in text
+        assert "| 141 |" in text and "| 2 |" in text
