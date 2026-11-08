@@ -45,6 +45,7 @@ honestly doctor                 # checks the install and runs two live self-test
 
 ```
   ok   self-test (code): a fake 'All tests pass.' right after an edit, no test run → blocked
+  ok   self-test (non-code): a fake 'I've sent you the report.' with no send tool → blocked
 all good: guard is installed and blocking.
 ```
 
@@ -71,7 +72,7 @@ It has been asked to run the tests first.
 
 The agent is told to do the thing now and report the real output, or to rewrite the sentence as *changed, not yet verified*. Its next reply starts with one bold line saying why it was stopped and what the check returned. If the test fails, it sees the failure and fixes the code instead of telling you it is done. Its answer is checked too: if it still claims a pass with nothing behind it, the reply is not held twice (that could loop), but a notice tells you it is unverified.
 
-A second hook runs before each shell command and stays out of the way unless a pipe would keep a whole run's result from the agent: `pytest | head` cuts off the summary printed at the end, `| grep -c` or `| wc` discards the output, `npm run build | head` cuts off the final error, and `npm test --workspaces | tail` can scroll an early failing workspace away. Those are refused with a one-line fix. Looking for one thing is left alone: `pytest -rs | grep SKIP`, `pytest -k spikes | head`, `pytest tests/test_a.py | head`. So are `pytest | tail`, `go test ./... | tail` (Go repeats a failure on the last line), `| tee log`, a `grep` that keeps the failure lines, compiler and lint output piped into `head`, and anything run with `set -o pipefail` or `${PIPESTATUS[0]}`; the stop check still reads the summary line before the agent may say the tests pass. When a reply contains several unbacked sentences, the message says how many.
+A second hook runs before each shell command and stays out of the way unless a pipe would keep a whole run's result from the agent: `pytest | head` cuts off the summary printed at the end, `| grep -c` or `| wc` discards the output, `npm run build | head` cuts off the final error, and `npm test --workspaces | tail` can scroll an early failing workspace away. Those are refused with a one-line fix. Looking for one thing is left alone: `pytest -rs | grep SKIP`, `pytest -k spikes | head`, `pytest tests/test_a.py | head`, and if the reply then says the tests pass with no result on screen, it is held. Also left alone: `pytest | tail`, `go test ./... | tail` (Go repeats a failure on the last line), `| tee log`, a `grep` that keeps the failure lines, compiler and lint output piped into `head`, and anything run with `set -o pipefail` or `${PIPESTATUS[0]}`; the stop check still reads the summary line before the agent may say the tests pass. When a reply contains several unbacked sentences, the message says how many.
 
 The hooks are built not to get in the way: a transcript over 8 MB is read from the end only (a 200 MB session costs the same as a small one), and any internal error is written to `~/.honestly/hook-errors.log` and lets the assistant continue; `honestly doctor` shows it.
 
@@ -104,8 +105,6 @@ Fourteen kinds of claim. For each, `honestly` knows what counts as proof and wha
 | scheduled | CronCreate, a scheduled-task tool, crontab, launchctl |
 | verified, tested end to end, 跑通了 | any run or check; a sentence that names a tool (docker, pytest…) needs that tool |
 
-By default only claims about code hold a reply: the rows down to *fixed*. The rows from *verified* down are listed by `honestly audit` and hold a reply only under `strictness strict`, because on real sessions those rules have been wrong far more often than right.
-
 What it refuses to flag, on purpose: plans ("I'll run the tests"), questions, quoted text, code blocks, headings and tables, sentences whose subject is the user ("you sent me…"), descriptions of state ("the data is stored locally"), bibliography titles ("fixed bed reactor"), and replies that only summarise an earlier turn. Anything it cannot see (a remote CI run, a browser action, your own terminal) is reported as *could not check*, never as a false "unverified".
 
 It also reads what subagents did: a test run inside a `Agent` call counts as evidence for the parent's claim, and the output of a background command is read from its task file. Edits made by a background subagent running alongside the main agent do not make the main agent's checks stale.
@@ -116,7 +115,7 @@ A false catch should cost you one command, not a wait for the next release.
 
 ```bash
 honestly ignore "fixed bed reactor"      # sentences containing this are never claims (--remove, --list)
-honestly config strictness strict        # strict: also hold claims about anything but code, weak evidence, and filters on a test run
+honestly config strictness strict        # strict: also block "fixed" judged only from a screenshot, and filters on a test run
 honestly config strictness lenient       # lenient: block only when the check it ran actually failed
 honestly config verify "make verify"     # your own command counts as running the tests
 honestly config off sent,checked         # switch categories off (config on … switches them back)
@@ -202,7 +201,7 @@ Both commands redact your home path, tokens and e-mail addresses before you see 
 3. **Matching check after it.** The table above. A custom `verify_commands` entry counts as a test.
 4. **Its output.** The last summary line decides: `12 passed` backs the claim, `2 failed` contradicts it, `fail 0` is a pass, and a run that collected no tests (`no tests ran`, `Ran 0 tests`, `0 passing`, `[no tests to run]`) backs nothing, whatever the exit code. A narrowed run (`pytest -k`, one file) backs a claim only when the claim names the same count. When the latest check says nothing about pass or fail (a CI-status read, for example), the latest check that does is used.
 5. **Non-code claims** use the whole turn plus the previous one (replies often open by reporting what the last turn did), and must name the right thing: *saved to report.csv* needs a write of `report.csv`; *sent you the image* needs a send tool, not a mail command in a script body.
-6. **Visual fixes.** "Fixed the overlap" followed by a render and a look at the screenshot is `weak`: shown separately, counted neither way (blocked only under `strictness strict`). So is "fixed" after a check passed earlier in the turn and an edit came after it, and "tests pass" when the tests passed earlier and a lint, type or build check ran after the last edit: not a made-up result, and whether that edit matters takes reading the code. With nothing after the edit, "tests pass" still holds.
+6. **Visual fixes.** "Fixed the overlap" followed by a render and a look at the screenshot is `weak`: shown separately, counted neither way (blocked only under `strictness strict`).
 7. **Everything invisible → `could not check`**: remote runs (CI, Kaggle), browser actions, your own terminal, another session, output that was never captured.
 
 Forked sessions are de-duplicated so the same turn is counted once. Rule details and every exclusion are in [`src/honestly/rules.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/rules.py) and [`src/honestly/noncode.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/noncode.py).
@@ -219,8 +218,7 @@ Every rule change was followed by a labelling round over every claim the audit f
 | non-code | 41 | 0/41 | 5/41 | summaries, previous-turn work and background jobs were being flagged; now structural rules, 0 flags on the same logs |
 | 0.5.3 | 18 | 14/18 correct, 4 unsure, 0 wrong | not done | the 0.5.3 fixes; one pass only, not blind |
 | 0.7.0 | 13 | 12/13 | not done | every claim the 0.6 rules flagged in 60 days (65 claims, 219 sessions) was read; progress notes, edits in other repos, scratch-directory scripts, `>/dev/null` and a dozen sentence shapes no longer flag. One pass only, not blind. The 0.7.2 re-read did not hold this up |
-| 0.7.2 | 9 | not done | 4/8 (+1 unsure) | a blind re-read of the 0.7.1 flags (15 flags: 1 correct, 7 wrong, 7 unsure, on a sheet that cut commands off) led to these fixes; a commit hook's test run, a script's own `[OK]` lines and a named dry run now count, a new file no longer makes a run stale. Most of what it still calls wrong is a stale run after an edit that could not touch the claim, which the rules hold on purpose |
-| 0.7.3 (current rules) | 5, of which 4 hold a reply | not done | 3/4 of the holds, same blind labels | holds cut to claims about code; a stale pass that a later check followed and "fixed" after an earlier pass are `weak`. The fourth hold is the README's demo, which the labeller took as backed |
+| 0.7.2 (current rules) | 9 | not done | 4/8 (+1 unsure) | a blind re-read of the 0.7.1 flags (15 flags: 1 correct, 7 wrong, 7 unsure, on a sheet that cut commands off) led to these fixes; a commit hook's test run, a script's own `[OK]` lines and a named dry run now count, a new file no longer makes a run stale. Most of what it still calls wrong is a stale run after an edit that could not touch the claim, which the rules hold on purpose |
 
 Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md). **Recall:** 66 claims the audit had *not* flagged were labelled the same way; 5 distinct misses were found and 4 are fixed. `honestly` still prefers *could not check* over a wrong flag. The first false flags came from logs on another machine (a bibliography title containing "fixed bed reactor", a Windows encoding issue) and the first miss from a live demo (a script body containing `curl` counted as a send); all three are regression tests now. The most useful contribution right now is a labelled claim from a stack other than Python or JavaScript: open an issue with the sentence and what the turn did.
 
@@ -232,7 +230,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Cursor's hooks are implemented from the vendor's documentation and covered by tests against the documented payloads, but have not been exercised on a real machine. Gemini CLI's were run with the real CLI (0.67) and scripted replies from a local stand-in for the model API: a piped `pytest` was refused, a "tests pass" with no run or after a failed run was held, a real pass went through. No real model session has confirmed them yet. In Gemini CLI a held reply stays on screen, followed by the retry. `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.
 - **Nothing leaves your machine.** The one network call is `honestly catches` or `honestly doctor` asking PyPI at most once a day whether a newer release exists, to print one line about `pip install -U honestly`; the hooks never go online. `HONESTLY_NO_UPDATE_CHECK=1` turns it off. `pr-note --gh` writes to your own pull request, and only when you run it.
-- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 715 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
+- Tested on Linux, macOS and Windows (CI), Python 3.9–3.13, 687 tests. Parsed sessions are cached under `~/.honestly/cache/` (keyed on file, rules and config; `--no-cache` bypasses it). Rules were tuned on one developer's sessions (Python, JS, video tooling, Kaggle) and corrected with logs from two other machines; other stacks are covered by synthetic tests only. Expect a false flag or two: `honestly ignore` silences it on the spot and `honestly feedback` turns it into an issue-ready report. Previously published as `sober-cli`.
 
 ## Related work
 

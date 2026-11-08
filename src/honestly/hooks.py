@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sys
-from . import rules, config, agents, noncode
+from . import rules, config, agents
 from .audit import audit_turn
 from .claude_code import Event, Turn
 
@@ -385,14 +385,6 @@ def _short(path: str) -> str:
     return parts[-1] if parts else ""
 
 
-def _holds(f, cfg: dict) -> bool:
-    """What stops the assistant. A hold costs a turn, so by default only claims about code do: the rules for sent, saved, deployed and the rest have been
-    wrong far more often than right on real sessions (docs/precision.md). The audit still lists them, and `strictness strict` holds them too."""
-    if f.verdict not in config.blocked_verdicts(cfg):
-        return False
-    return cfg.get("strictness") == "strict" or f.category not in noncode.SPECS
-
-
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
     second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
@@ -426,7 +418,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
         turn.events.append(Event("text", text=final))
-    bad = [f for f in audit_turn(turn, prev) if _holds(f, cfg)]
+    bad = [f for f in audit_turn(turn, prev) if f.verdict in config.blocked_verdicts(cfg)]
     if not bad:
         return None
     zh = _lang_zh(cfg, bad[0].claim)

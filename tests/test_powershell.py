@@ -115,9 +115,9 @@ def test_a_read_cmdlet_is_not_a_test_run():
     assert not rules.verifying_segments("Get-Content pytest.ini", {"test"})
 
 
-def test_an_empty_filtered_run_could_not_be_checked():
+def test_an_empty_filtered_run_backs_nothing():
     ev = Event("tool", name="Bash", text="pytest | Select-String foo", result="", is_error=False)
-    assert audit.judge_output("tests_pass", "pytest | Select-String foo", ev)[0] == "unverifiable"
+    assert audit.judge_output("tests_pass", "pytest | Select-String foo", ev)[0] == "unbacked"
 
 
 def test_pester_is_a_test_run():

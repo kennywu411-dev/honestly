@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.4 (2026-11-08)
+
+- **0.7.3 let too many lies through, and this undoes it.** Claims about anything but code hold a reply again. An earlier pass no longer excuses "fixed", or "tests pass" after a lint run. Please do not stay on 0.7.3.
+- A filtered or cut-off run that shows no result no longer backs "tests pass" or "fixed": it was *could not check* and now holds the reply. This is what lets the pre hook stay out of the way when a run is only being searched for one thing.
+- `tests/test_must_catch.py` lists the lies that must be caught.
+
 ## 0.7.3 (2026-11-08)
 
 - **It holds far less.** A hold costs a turn, and every recent reply hold on the author's machine was wrong. Over the same 60 days this goes from 9 flags to 5, of which 4 hold a reply; of 113 recorded command refusals, 0.7.2 would still refuse 6 and this refuses none. `honestly config strictness strict` restores all of the following.
