@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from honestly import cli, config, hooks, report, update
+from honestly import cli, hooks, report, update
 from honestly.audit import Finding
 
 ED = lambda p: ("Edit", {"file_path": p}, "ok")

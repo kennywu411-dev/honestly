@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from honestly import cli, config, hooks, rules
+from honestly import cli, config, hooks
 
 
 def session(tmp_path, events, reply, prompt="fix the login bug", cwd="/work/docpilot"):
