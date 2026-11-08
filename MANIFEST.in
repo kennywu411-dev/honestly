@@ -3,5 +3,6 @@ graft hooks
 graft skills
 graft .claude-plugin
 graft demo
+graft docs
 include CHANGELOG.md CONTRIBUTING.md SECURITY.md README.zh-CN.md ruff.toml
 global-exclude __pycache__ *.py[cod]

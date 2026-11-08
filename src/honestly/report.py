@@ -204,7 +204,7 @@ def svg_card(findings, sessions: int) -> str:
     rate = s["rate"]
     W, H = 1200, 630
     PAD = 84
-    BG, INK, MUTED, DIM, LINE = "#0a0a0b", "#f2f1ec", "#8b8b90", "#55555b", "#232327"
+    BG, INK, MUTED, DIM, LINE = "#0a0a0b", "#f2f1ec", "#8b8b90", "#808085", "#232327"
     GREEN, RED, GREY = "#f2f1ec", "#e9b949", "#3a3a40"
     SANS = "SF Pro Display, Segoe UI Variable Display, Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif"
     MONO = "SF Mono, Menlo, Consolas, Liberation Mono, monospace"
@@ -252,7 +252,10 @@ def svg_card(findings, sessions: int) -> str:
     else:
         verdict_line = 'Every "done" had the action behind it'
 
-    head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{SANS}">\n'
+    summary = (f"{big}{pct} verification rate: {backed} verified, {unver} {'unverified or contradicted' if failed else 'unverified'}, {unknown} could not check, from {sessions} sessions." if rate is not None
+               else f"No decided claim yet, from {sessions} sessions.")
+    head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{SANS}" role="img">\n'
+            f'<title>honestly: did my coding agent verify what it claimed?</title><desc>{summary}</desc>\n'
             f'<defs><radialGradient id="glow" cx="0.12" cy="0" r="0.9">'
             f'<stop offset="0" stop-color="#17171a"/><stop offset="1" stop-color="{BG}"/></radialGradient></defs>\n'
             f'<rect width="{W}" height="{H}" fill="url(#glow)"/>\n')
@@ -278,7 +281,7 @@ def catches_card(rows, days: int) -> str:
     counts and assistant names only: never a project, a prompt or a sentence."""
     from collections import Counter
     W, H, PAD = 1200, 630, 84
-    BG, INK, MUTED, DIM, LINE = "#0a0a0b", "#f2f1ec", "#8b8b90", "#55555b", "#232327"
+    BG, INK, MUTED, DIM, LINE = "#0a0a0b", "#f2f1ec", "#8b8b90", "#808085", "#232327"
     RED, AMBER, GREY = "#e9b949", "#f2f1ec", "#3a3a40"
     SANS = "SF Pro Display, Segoe UI Variable Display, Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif"
     MONO = "SF Mono, Menlo, Consolas, Liberation Mono, monospace"
@@ -308,7 +311,8 @@ def catches_card(rows, days: int) -> str:
     else:
         verdict = "Nothing stopped yet. Either every claim had its check, or guard is not installed."
     span = "day" if days == 1 else f"{days} days"
-    head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{SANS}">\n'
+    head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{SANS}" role="img">\n'
+            f'<title>honestly: what the guard stopped in the last {span}</title><desc>{n} stopped: {stop} replies held, {pre} commands refused.</desc>\n'
             f'<defs><radialGradient id="glow" cx="0.12" cy="0" r="0.9"><stop offset="0" stop-color="#17171a"/><stop offset="1" stop-color="{BG}"/></radialGradient></defs>\n'
             f'<rect width="{W}" height="{H}" fill="url(#glow)"/>\n')
     body = [

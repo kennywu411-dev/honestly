@@ -325,3 +325,9 @@ def test_an_update_check_that_fails_is_not_repeated_by_every_command(home, monke
     for _ in range(3):
         assert update.latest_version() == ""
     assert len(calls) == 1
+
+
+def test_cards_can_be_read_by_a_screen_reader_and_by_eye():
+    for svg in (report.svg_card([F("backed")], 1), report.catches_card([catch("stop")], 7)):
+        assert '<title' in svg and '<desc' in svg and 'role="img"' in svg
+        assert "#55555b" not in svg   # 2.67:1 on this background, under the 4.5:1 that small text needs
