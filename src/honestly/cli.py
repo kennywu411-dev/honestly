@@ -154,6 +154,7 @@ def cmd_ignore(a):
         print(config.show(os.getcwd())); return
     fn = config.remove_from if a.remove else config.add_to
     print(fn("ignore", a.phrase, project=a.project))
+    _project_hint(a)
 
 
 def cmd_config(a):
@@ -162,19 +163,57 @@ def cmd_config(a):
         print(config.show(os.getcwd())); return
     k, v = a.key, (a.value or "")
     if k in ("strictness", "language"):
-        print(config.set_value(k, v, project=a.project)); return
+        print(config.set_value(k, v, project=a.project)); _project_hint(a); return
     if k in ("off", "on"):
         cats = [c.strip() for c in v.split(",") if c.strip()]
         if not cats:
             raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: honestly config)")
         for cat in cats:
             print((config.add_to if k == "off" else config.remove_from)("off", cat, project=a.project))
+        _project_hint(a)
         return
     if k in ("verify", "unverify"):
         if not v.strip():
             raise SystemExit(f'honestly config {k}: give the command, e.g. honestly config {k} "make smoke"')
-        print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); return
+        print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); _project_hint(a); return
     raise SystemExit("usage: honestly config [strictness strict|normal|lenient | language auto|zh|en | off CAT[,CAT] | on CAT | verify \"CMD\" | unverify \"CMD\"] [--project]")
+
+
+def _project_hint(a):
+    from . import config
+    if a.project and config.ignored_settings(os.getcwd()):
+        print("this file relaxes the rules, so it takes effect after you run `honestly trust` in your own terminal")
+
+
+def cmd_trust(a):
+    from . import config
+    from .redact import strip_controls
+    if a.list:
+        rows = config.trusted_files()
+        for path, same in rows:
+            print(f"{'trusted' if same else 'changed since you trusted it, so ignored'}: {strip_controls(path)}")
+        if not rows:
+            print("no project file is trusted")
+        return
+    if a.remove:
+        print(strip_controls(config.untrust(os.getcwd())))
+        return
+    if not (hasattr(sys.stdin, "isatty") and sys.stdin.isatty()):
+        raise SystemExit("honestly trust needs your own terminal: an agent or a script must not be able to turn off its own guard.")
+    relaxes = config.project_relaxes(os.getcwd())
+    path = config.project_path(os.getcwd())
+    if not relaxes:
+        print(strip_controls(f"{path} relaxes nothing, so there is nothing to trust."))
+        return
+    settings = config._clean(config._read(path))
+    print(strip_controls(f"{path} would relax the rules for this project:"))
+    for key in relaxes:
+        name = key.split(":")[0]
+        print(strip_controls(f"  {name}: {settings.get(name)}")[:300])
+    if input("Trust this exact file? Type yes: ").strip().lower() != "yes":
+        print("not trusted")
+        return
+    print(strip_controls(config.trust(os.getcwd())))
 
 
 def cmd_feedback(a):
@@ -262,6 +301,7 @@ OVERVIEW = """honestly {v}: did your coding agent actually do what it said?
   honestly catches           what guard stopped this week   (--card for a shareable image)
   honestly audit             score your past sessions        (--since 30d, --project name, explain N, share)
   honestly ignore "phrase"   silence a false catch           (honestly config: strictness, language, custom checks)
+  honestly trust             let this project's .honestly.json relax the rules (needs your own terminal)
   honestly feedback          turn a wrong catch into an issue-ready text
   honestly pr-note --gh      put the branch's test evidence into its pull request
 
@@ -317,6 +357,9 @@ def main(argv=None):
     pcf.add_argument("key", nargs="?", choices=["strictness", "language", "off", "on", "verify", "unverify"]); pcf.add_argument("value", nargs="?")
     pcf.add_argument("--project", action="store_true", help="write to ./.honestly.json instead of ~/.honestly/config.json")
     pcf.set_defaults(fn=cmd_config)
+    pt = sub.add_parser("trust", help="let this project's .honestly.json relax the rules; recorded for this exact file (needs your own terminal)")
+    pt.add_argument("--remove", action="store_true", help="stop trusting this project's file"); pt.add_argument("--list", action="store_true", help="show every trusted file")
+    pt.set_defaults(fn=cmd_trust)
     pf = sub.add_parser("feedback", help="turn a catch that looks wrong into an issue-ready text (latest by default)")
     pf.add_argument("n", type=int, nargs="?", default=1, help="1 = latest catch, 2 = the one before, ..."); pf.add_argument("--issue", action="store_true", help="also print a pre-filled GitHub issue link")
     pf.set_defaults(fn=cmd_feedback)

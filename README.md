@@ -123,7 +123,7 @@ honestly config language en              # force the message language (auto: fol
 honestly config                          # show everything in effect
 ```
 
-Settings live in `~/.honestly/config.json`. Add `--project` to write `./.honestly.json` instead, which is merged on top for that repository and can be committed so the whole team gets the same rules.
+Settings live in `~/.honestly/config.json`. Add `--project` to write `./.honestly.json` instead, which can be committed so the whole team gets the same rules. A project file comes with the code, so it can only tighten until you trust it: a cloned repository cannot switch the guard off. `off`, `ignore`, `verify_commands` or a lower `strictness` in it are ignored, with one line telling you so, until you run `honestly trust` in your own terminal. That records this exact file; if it changes, its settings are ignored again (`--list`, `--remove`).
 
 To reduce catches at the source, add a short "verify before you claim" section to the project instructions the agent reads:
 
@@ -225,7 +225,7 @@ Rounds 3–5, the 0.5.3 pass and the recall study are in [docs/precision.md](htt
 ## What it is not
 
 - **Not a judge of correctness or test adequacy.** "Verified" means the matching check ran after the edit and its output agreed with the sentence. It does not mean the code is right or that the test covers the change.
-- **Not a sandbox.** It catches honest mistakes, not an agent working to get around it: anything with shell access can edit its own settings, and a project's `.honestly.json` can relax the rules for that project (`honestly doctor` lists such overrides). Deliberate escapes such as `pytest || true` or `; exit 0` are left alone, and a pipeline that turns on `pipefail` or reads `${PIPESTATUS[0]}` is accepted.
+- **Not a sandbox.** It catches honest mistakes, not an agent working to get around it: anything with shell access can edit its own settings, and a project's `.honestly.json` can relax the rules only after you run `honestly trust`, but an agent with shell access can still edit your own `~/.honestly` files. Deliberate escapes such as `pytest || true` or `; exit 0` are left alone, and a pipeline that turns on `pipefail` or reads `${PIPESTATUS[0]}` is accepted.
 - **Not a leaderboard.** The per-model table is your sessions only.
 - **Not affiliated** with Anthropic, OpenAI, Cursor or Google. Independent, MIT.
 - **Guard for Cursor and Gemini CLI is experimental.** Cursor's hooks are implemented from the vendor's documentation and covered by tests against the documented payloads, but have not been exercised on a real machine. Gemini CLI's were run with the real CLI (0.67) and scripted replies from a local stand-in for the model API: a piped `pytest` was refused, a "tests pass" with no run or after a failed run was held, a real pass went through. No real model session has confirmed them yet. In Gemini CLI a held reply stays on screen, followed by the retry. `honestly guard install --agent … --dry-run` shows exactly what would be written. Codex's hooks send the same fields as Claude Code's and are verified on a real machine. Cursor's hook-visible transcripts keep tool inputs but not tool outputs, so under Cursor a claim can be *unverified* (no check at all) but never *contradicted*.

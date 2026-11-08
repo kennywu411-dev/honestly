@@ -106,10 +106,12 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     lines.append(f"{ok if 'utf' in enc else warn}" + L(f"terminal encoding {enc or 'unknown'}", f"终端编码 {enc or '未知'}")
                  + ("" if "utf" in enc else L("  (not UTF-8: honestly re-encodes its own output, other tools may show garbled text)", "  （不是 UTF-8：honestly 自己的输出会转码，其他工具可能乱码）")))
     pp = config.project_path(None)
-    proj = config._clean(config._read(pp)) if os.path.exists(pp) else {}
-    relaxed = [k for k in ("ignore", "verify_commands", "off") if proj.get(k)] + (["strictness: lenient"] if proj.get("strictness") == "lenient" else [])
-    if relaxed:
-        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules: {', '.join(relaxed)}", f"本项目的 {pp} 放宽了规则：{'、'.join(relaxed)}"))
+    relaxed = config.project_relaxes(None)
+    if relaxed and config.is_trusted(pp):
+        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules, and you trusted it: {', '.join(relaxed)}", f"本项目的 {pp} 放宽了规则，你已信任它：{'、'.join(relaxed)}"))
+    elif relaxed:
+        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules ({', '.join(relaxed)}); ignored until you run honestly trust",
+                                   f"本项目的 {pp} 想放宽规则（{'、'.join(relaxed)}），已忽略；运行 honestly trust 才会生效"))
     sp = hooks.settings_path()
     settings = {}
     if os.path.exists(sp):

@@ -907,7 +907,9 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
     """Entry point for the installed hooks. A bug in honestly must never block or slow the assistant: any exception is
     written to ~/.honestly/hook-errors.log (shown by `honestly doctor`) and the hook exits 0 with no output."""
     try:
-        out = stop_hook(agent=agent) if which == "stop" else pre_hook(agent=agent)
+        data = _read_stdin()
+        out = stop_hook(data, agent=agent) if which == "stop" else pre_hook(data, agent=agent)
+        out = _with_repo_note(out, data, which, agent)
     except Exception:
         import traceback, datetime
         try:
@@ -920,6 +922,27 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
     if out:
         print(json.dumps(out, ensure_ascii=False))
     return 0
+
+
+def _with_repo_note(out, data: dict, which: str, agent: str):
+    """Tell the user, once per conversation, that a repository's .honestly.json asked to relax the checks and was refused.
+    Only setting names go in, never the file's text, and only the user sees it: the agent has no use for the way to turn itself off."""
+    cwd = agents.normalize(agent, which, data).get("cwd")
+    if not cwd or not isinstance(cwd, str):
+        return out
+    ignored = config.ignored_settings(cwd)
+    if not ignored or not config.first_notice(cwd, str(data.get("session_id") or data.get("conversation_id") or "")):
+        return out
+    names = ", ".join(ignored)
+    note = (f"honestly：这个仓库的 .honestly.json 想放宽检查（{names}），已忽略。如需生效，请在你自己的终端运行 honestly trust。" if _lang_zh(config.load(cwd), "") else
+            f"honestly: this repository's .honestly.json tries to relax the checks ({names}). Those settings are ignored until you run `honestly trust` in your own terminal.")
+    if not out:
+        return agents.warn(agent, note)
+    if "systemMessage" in out:
+        out["systemMessage"] = f"{out['systemMessage']}\n{note}"
+    elif "user_message" in out:
+        out["user_message"] = f"{out['user_message']}\n{note}"
+    return out
 
 
 # ----------------------------------------------------------- guard install

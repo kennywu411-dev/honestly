@@ -2,7 +2,8 @@
 
 Two files, both optional and both plain JSON:
   ~/.honestly/config.json      applies everywhere
-  <project>/.honestly.json     applies to one project (merged on top; lists are unioned)
+  <project>/.honestly.json     applies to one project. It may only tighten: anything that relaxes the rules
+                               takes effect after `honestly trust` records this exact file (see load)
 
 Keys:
   strictness       "strict" | "normal" | "lenient"   what guard blocks (see STRICTNESS)
@@ -13,10 +14,12 @@ Keys:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import stat
+import time
 
 from . import rules
 
@@ -29,6 +32,8 @@ LIST_KEYS = ("ignore", "verify_commands", "off")
 DEFAULTS = {"strictness": "normal", "ignore": [], "verify_commands": [], "off": [], "language": "auto"}
 PROJECT_FILE = ".honestly.json"
 MAX_CONFIG_BYTES = 64 * 1024
+STRICTNESS_RANK = {"lenient": 0, "normal": 1, "strict": 2}
+NOTICES_KEPT = 200
 
 
 def user_path() -> str:
@@ -114,23 +119,124 @@ def write_json_atomic(path: str, obj, backup: bool = True) -> None:
 
 
 def _clean(d: dict) -> dict:
+    """The settings a file holds, with anything of the wrong shape dropped: a bad value must never take the guard down."""
     out = {}
     for k, v in d.items():
         if k in LIST_KEYS:
             out[k] = [str(x).strip() for x in (v if isinstance(v, list) else [v]) if str(x).strip()]
-        elif k == "strictness":
-            out[k] = v if v in STRICTNESS else "normal"
-        elif k == "language":
-            out[k] = v if v in ("auto", "zh", "en") else "auto"
+        elif k == "strictness" and isinstance(v, str) and v in STRICTNESS:
+            out[k] = v
+        elif k == "language" and isinstance(v, str) and v in ("auto", "zh", "en"):
+            out[k] = v
+    return out
+
+
+def _relaxing(settings: dict, strictness: str) -> list:
+    """Which of these settings make the guard hold less than `strictness` and the user's own lists would."""
+    out = [k for k in LIST_KEYS if settings.get(k)]
+    wanted = settings.get("strictness")
+    if wanted and STRICTNESS_RANK[wanted] < STRICTNESS_RANK[strictness]:
+        out.append(f"strictness: {wanted}")
     return out
 
 
 def load(cwd: str | None = None) -> dict:
+    """The user's settings, then the project's. A project file comes with the code, so whoever wrote the code wrote it: it may
+    tighten, and may relax only once the user has trusted that exact file."""
     cfg = dict(DEFAULTS)
-    for path in (user_path(), project_path(cwd)):
-        for k, v in _clean(_read(path)).items():
-            cfg[k] = sorted(set(cfg[k]) | set(v)) if k in LIST_KEYS else v
+    for k, v in _clean(_read(user_path())).items():
+        cfg[k] = sorted(set(cfg[k]) | set(v)) if k in LIST_KEYS else v
+    path = project_path(cwd)
+    project = _clean(_read(path))
+    trusted = bool(_relaxing(project, cfg["strictness"])) and is_trusted(path)
+    for k, v in project.items():
+        if k in LIST_KEYS:
+            if trusted:
+                cfg[k] = sorted(set(cfg[k]) | set(v))
+        elif k != "strictness" or trusted or STRICTNESS_RANK[v] >= STRICTNESS_RANK[cfg[k]]:
+            cfg[k] = v
     return cfg
+
+
+# ------------------------------------------------------------------- trust
+def trust_path() -> str:
+    return os.path.join(os.path.expanduser("~/.honestly"), "trusted.json")
+
+
+def notices_path() -> str:
+    return os.path.join(os.path.expanduser("~/.honestly"), "notices.json")
+
+
+def _trust_key(path: str) -> str:
+    folder, name = os.path.split(os.path.abspath(path))
+    return os.path.join(os.path.realpath(folder), name)
+
+
+def _digest(path: str):
+    """The hash of a project file; None for a symlink, which could point at a file trusted for another folder."""
+    try:
+        if stat.S_ISLNK(os.lstat(path).st_mode):
+            return None
+    except (OSError, ValueError):
+        return None
+    data = _read_small_file(path)
+    return hashlib.sha256(data).hexdigest() if data is not None else None
+
+
+def is_trusted(path: str) -> bool:
+    digest = _digest(path)
+    return bool(digest) and _read(trust_path()).get(_trust_key(path)) == digest
+
+
+def project_relaxes(cwd: str | None = None) -> list:
+    """What the project file would relax, trusted or not."""
+    user = _clean(_read(user_path()))
+    return _relaxing(_clean(_read(project_path(cwd))), user.get("strictness", DEFAULTS["strictness"]))
+
+
+def ignored_settings(cwd: str | None = None) -> list:
+    """What the project file wants to relax and is being refused."""
+    relaxes = project_relaxes(cwd)
+    return [] if not relaxes or is_trusted(project_path(cwd)) else relaxes
+
+
+def trust(cwd: str | None = None) -> str:
+    path = project_path(cwd)
+    digest = _digest(path)
+    if digest is None:
+        return f"not trusted: {path} is missing, a symlink, or not an ordinary small file"
+    d = _read(trust_path())
+    d[_trust_key(path)] = digest
+    write_json_atomic(trust_path(), d, backup=False)
+    return f"trusted {path}; if the file changes, its settings are ignored again until you trust it again"
+
+
+def untrust(cwd: str | None = None) -> str:
+    path = project_path(cwd)
+    d = _read(trust_path())
+    if d.pop(_trust_key(path), None) is None:
+        return f"not trusted anyway: {path}"
+    write_json_atomic(trust_path(), d, backup=False)
+    return f"no longer trusted: {path}"
+
+
+def trusted_files() -> list:
+    return [(p, _digest(p) == h) for p, h in sorted(_read(trust_path()).items())]
+
+
+def first_notice(cwd: str | None, session: str) -> bool:
+    """True once per conversation and version of the file, so the note is seen and does not nag."""
+    key = hashlib.sha256(f"{_trust_key(project_path(cwd))}|{_digest(project_path(cwd))}|{session}".encode("utf-8", "replace")).hexdigest()
+    seen = _read(notices_path())
+    if key in seen:
+        return False
+    seen[key] = time.time()
+    newest = sorted(seen.items(), key=lambda kv: kv[1] if isinstance(kv[1], (int, float)) else 0)[-NOTICES_KEPT:]
+    try:
+        write_json_atomic(notices_path(), dict(newest), backup=False)
+    except OSError:
+        pass
+    return True
 
 
 _BASE_TEST = rules.VERIFY["test"]
@@ -197,4 +303,9 @@ def show(cwd: str | None = None) -> str:
              f"off              {', '.join(cfg['off']) or '(none)'}",
              "", f"files: {user_path()}" + (" (exists)" if os.path.exists(user_path()) else " (not created yet)"),
              f"       {project_path(cwd)}" + (" (exists)" if os.path.exists(project_path(cwd)) else " (none)")]
+    ignored = ignored_settings(cwd)
+    if ignored:
+        lines.append(f"       ignored from that file until you run `honestly trust`: {', '.join(ignored)}")
+    elif project_relaxes(cwd):
+        lines.append(f"       you trusted that file: {', '.join(project_relaxes(cwd))}")
     return "\n".join(lines)

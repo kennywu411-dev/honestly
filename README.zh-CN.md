@@ -122,7 +122,7 @@ honestly config language zh              # 固定提示语言（auto：跟随对
 honestly config                          # 看当前生效的全部设置
 ```
 
-设置在 `~/.honestly/config.json`。加 `--project` 写到 `./.honestly.json`，对这个仓库单独生效，可以提交进仓库让整个团队共用一套规则。
+设置在 `~/.honestly/config.json`。加 `--project` 写到 `./.honestly.json`，可以提交进仓库让整个团队共用一套规则。项目文件是跟着代码来的，所以在你信任它之前只能收紧：克隆来的仓库关不掉 guard。里面的 `off`、`ignore`、`verify_commands` 或更低的 `strictness` 会被忽略，并有一行提示告诉你，直到你在自己的终端运行 `honestly trust`。信任记录的是这份文件本身，文件一改，这些设置又会被忽略（`--list`、`--remove`）。
 
 从源头减少拦截，往助手读的项目说明里加一小段"先验证再下结论"：
 
@@ -220,7 +220,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 ## 它不是什么
 
 - **不判断代码对不对，也不判断测试够不够。**"已验证"只表示对应的检查在修改之后跑过、输出和那句话一致，不代表代码是对的、也不代表测试覆盖了改动。
-- **不是沙箱。**它拦的是无心之失，不防刻意绕过的助手：能执行 shell 的助手可以改自己的配置，项目里的 `.honestly.json` 也可以放宽这个项目的规则（`honestly doctor` 会列出这类覆盖）。`pytest || true`、`; exit 0` 这类明确的放行写法不拦；开了 `pipefail` 或读取 `${PIPESTATUS[0]}` 的管道视为正确写法。
+- **不是沙箱。**它拦的是无心之失，不防刻意绕过的助手：能执行 shell 的助手可以改自己的配置，项目里的 `.honestly.json` 要运行 `honestly trust` 之后才能放宽规则，但能执行 shell 的助手仍然可以改你自己的 `~/.honestly` 文件。`pytest || true`、`; exit 0` 这类明确的放行写法不拦；开了 `pipefail` 或读取 `${PIPESTATUS[0]}` 的管道视为正确写法。
 - **不是排行榜。**按模型的表只统计你自己的会话。
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**Cursor 的 hook 按官方文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过。Gemini CLI 用真实 CLI（0.67）跑过，回复由本地替身按脚本给出：接管道的 `pytest` 被拒绝，没跑测试或测试失败后说“测试通过”会被拦，真的通过则放行；还没有真实模型的会话确认。在 Gemini CLI 里，被拦的回复会留在屏幕上，后面跟着重试的内容。Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
