@@ -1,5 +1,8 @@
 """A long or background run, read wherever its result arrives, in the shapes the real CLIs wrote."""
+import json
 import os
+
+import pytest
 
 from real_fixture import load
 from test_real_turns import EDIT, _call, _prompt, _say, _session, held, stop
@@ -76,3 +79,27 @@ def test_claude_a_background_crash_with_no_summary_is_held(tmp_path):
     with open(os.path.join(str(tmp_path), "scratch", "tasks", f"{task}.output"), "w", encoding="utf-8") as fh:
         fh.write("INTERNALERROR> collection crashed\n\n[exited with code 3]\n")
     assert held(stop(p, "All tests pass."))
+
+
+def _codex_run(tmp_path, output):
+    rows = [{"timestamp": "2026-11-09T00:00:00Z", "type": "session_meta", "payload": {"cwd": "/work/proj", "model": "m"}},
+            {"timestamp": "2026-11-09T00:00:01Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "UserMessage", "content": [{"type": "text", "text": "do it"}]}}},
+            {"timestamp": "2026-11-09T00:00:02Z", "type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch", "input": "*** Begin Patch\n*** Update File: app.py\n@@\n-x\n+y\n*** End Patch\n", "call_id": "c0"}},
+            {"timestamp": "2026-11-09T00:00:02Z", "type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "c0", "output": "Exit code: 0\nOutput:\nSuccess."}},
+            {"timestamp": "2026-11-09T00:00:03Z", "type": "response_item", "payload": {"type": "function_call", "name": "exec_command", "arguments": "{\"cmd\": \"pytest -q\"}", "call_id": "c1"}},
+            {"timestamp": "2026-11-09T00:00:03Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1", "output": output}},
+            {"timestamp": "2026-11-09T00:00:04Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "All 5 tests pass."}]}}]
+    p = tmp_path / "rollout-x.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    return str(p)
+
+
+@pytest.mark.parametrize("line", ["warning: No such file or directory: conftest_extra.py", "Traceback (most recent call last): handled and logged by test_retry"])
+def test_codex_a_clean_exit_is_a_clean_exit_whatever_the_log_says(tmp_path, line):
+    out = f"Chunk ID: a\nWall time: 0.9 seconds\nProcess exited with code 0\nOriginal token count: 18\nOutput:\n{line}\n5 passed in 0.1s\n"
+    assert stop(_codex_run(tmp_path, out), "All 5 tests pass.", "codex") is None
+
+
+def test_codex_an_exit_code_is_read_when_the_log_says_nothing(tmp_path):
+    out = "Chunk ID: a\nWall time: 0.9 seconds\nProcess exited with code 3\nOriginal token count: 4\nOutput:\nINTERNALERROR> crashed\n"
+    assert held(stop(_codex_run(tmp_path, out), "All 5 tests pass.", "codex"))

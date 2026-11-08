@@ -207,7 +207,9 @@ def parse_session(path: str, start: int = 0, depth: int = 3):
                 ev = pending.get(str(p.get("call_id") or ""))
                 if ev is not None:
                     ev.result = clip_output(out)
-                    ev.is_error = bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
+                    ended = EXITED.search(out[:500])
+                    # the exit code is the answer when the tool states it: a passing run can log `No such file`. Otherwise this is a guess from what it printed.
+                    ev.is_error = int(ended.group(1)) != 0 if ended else bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
                     started = STILL_RUNNING.search(out[:500])
                     if started and ev.name == "Bash":
                         sessions[started.group(1)] = ev
@@ -215,7 +217,6 @@ def parse_session(path: str, start: int = 0, depth: int = 3):
                     command = sessions.get(polls.get(ev.tool_use_id, ""))
                     if command is not None:   # the command's own output, after however many polls
                         command.result = clip_output((command.result or "") + "\n" + out)
-                        ended = EXITED.search(out[:500])
                         if ended:
                             command.running, command.is_error = False, int(ended.group(1)) != 0
     if cur is not None:

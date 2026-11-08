@@ -5,7 +5,7 @@ import os
 import pytest
 
 from honestly import agents, claude_code
-from real_fixture import cut, load
+from real_fixture import load
 from test_real_turns import held, stop
 
 FILLER = "padding " * 400
