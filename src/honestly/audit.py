@@ -467,7 +467,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         hit = dataclasses.replace(hit, evidence_kinds=kinds)
     after = [x for x in ev[edit_idx + 1:end] if x.kind == "tool"]
     seg, last = "", None
-    if any(x.name in rules.OPAQUE_TOOLS for x in after):
+    if any(x.name in rules.OPAQUE_TOOLS and not x.running for x in after):   # a subagent known to be still running has reported nothing yet: it is judged on what has finished
         return "unverifiable", "a subagent/background/terminal tool ran after the last edit", seg, last
     if any(x.name == "Bash" and rules.too_big(x.text) for x in after):
         return "unverifiable", "a shell command after the last edit was too long to read", seg, last
@@ -504,6 +504,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     if not verifying and any(TASK_OUTPUT_READ.search(x.text or "") for x in after):
         return "unverifiable", "a background task's output was read after the edit; when that run happened is not on the transcript", seg, last
     if not verifying:
+        if any(x.running for x in after):
+            return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
     last, segs = verifying[-1]
     seg = segs[-1].text
@@ -523,6 +525,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
             if v2 == "backed" or (v2 == "contradicted" and verdict == "unverifiable"):
                 last, seg, verdict, reason = cand, csegs[-1].text, v2, r2
                 break
+    if verdict == "unverifiable" and last.running:
+        verdict, reason = "unbacked", "the check was still running when this was written, so nobody has seen its result"
     if verdict == "contradicted" and FAILS_BEFORE.search(hit.sentence):
         if _clean_pass(last.result):   # one command ran the new code (passed) and the old code (failed)
             verdict, reason = "backed", "the output has a passing run; the failing run was on the old code, as the claim says"

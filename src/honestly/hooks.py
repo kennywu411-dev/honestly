@@ -172,11 +172,14 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     failed = f.verdict == "contradicted"
     errored = not failed and "errored" in (f.reason or "")
     image_only = f.verdict == "weak"
+    running = "still running" in (f.reason or "")
     if zh:
         who = who or "AI"
         if not f.last_edit:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
         where = f"改完 {edited} 之后" if edited else "改完代码之后"
+        if running:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}还在运行（still running），结果还没出来。已要求其等到结果再回复。"
         if failed:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}结果显示失败。已要求其修复，或如实报告失败。"
         if errored:
@@ -190,6 +193,8 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     if not f.last_edit:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
     where = f"after editing {edited}" if edited else "after editing the code"
+    if running:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} was still running, so nobody has seen its result. It has been asked to wait for it.'
     if failed:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} reported a failure. It has been asked to fix it or report the failure.'
     if errored:
@@ -480,6 +485,16 @@ def _turn_to_judge(turns: list) -> tuple:
     return dataclasses.replace(turns[first], events=work + list(turns[last].events)), turns[first - 1] if first else None, held
 
 
+def _note_running(turn, tasks) -> None:
+    """Claude Code lists what is still running when it stops. A command or subagent on that list has no result yet, whatever its record says so far."""
+    ids = {str(t.get("id")) for t in tasks if isinstance(t, dict) and t.get("status") == "running"} if isinstance(tasks, list) else set()
+    for e in turn.events if ids else ():
+        if e.kind != "tool":
+            continue
+        unfinished_call = e.via.startswith("subagent:") and e.via.split(":", 1)[1] in ids and not e.result
+        e.running = e.running or e.task in ids or unfinished_call
+
+
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     from .audit import audit_turn
     from .claude_code import Event, Turn
@@ -506,6 +521,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         _note("stop", f"transcript_path does not exist, only the final message was checked: {path}")
     if turn is None:
         turn = Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or ""))
+    _note_running(turn, data.get("background_tasks"))
     if agent == "gemini" and second_pass and any(e.kind == "text" for e in turn.events):
         final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):

@@ -9,7 +9,7 @@ import glob
 import json
 import os
 import re
-from .claude_code import Event, Turn, clip_output
+from .claude_code import Event, Turn, clip_output, merge_into_turns
 
 CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
@@ -83,6 +83,14 @@ def _command_from_call(name: str, payload: dict) -> tuple[str, str]:
     return name or "tool", ""
 
 
+def _session_id(arguments) -> str:
+    try:
+        value = json.loads(arguments).get("session_id") if isinstance(arguments, str) else None
+    except (ValueError, AttributeError):
+        return ""
+    return str(value) if isinstance(value, (int, str)) else ""
+
+
 def _header(path: str) -> tuple:
     """(project, model) from the first lines, for a parse that starts further on."""
     project = model = ""
@@ -104,6 +112,8 @@ def parse_session(path: str, start: int = 0):
     cur: Turn | None = None
     project, model = _header(path) if start > 0 else ("", "")
     pending: dict[str, Event] = {}   # call_id -> event, to attach outputs
+    sessions: dict[str, Event] = {}  # a long command's session id -> the command, whose result arrives through write_stdin
+    polls: dict[str, str] = {}       # write_stdin's call_id -> session id
     with open(path, encoding="utf-8", errors="ignore") as fh:
         if start > 0:
             fh.seek(start)
@@ -163,6 +173,10 @@ def parse_session(path: str, start: int = 0):
                 cur.events.append(ev)
                 if ev.tool_use_id:
                     pending[ev.tool_use_id] = ev
+                if p.get("name") == "write_stdin":
+                    polled = _session_id(p.get("arguments"))
+                    if polled:
+                        polls[ev.tool_use_id] = polled
             elif kind in ("custom_tool_call_output", "function_call_output"):
                 out = p.get("output")
                 if isinstance(out, list):
@@ -172,6 +186,16 @@ def parse_session(path: str, start: int = 0):
                 if ev is not None:
                     ev.result = clip_output(out)
                     ev.is_error = bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
+                    started = STILL_RUNNING.search(out[:500])
+                    if started and ev.name == "Bash":
+                        sessions[started.group(1)] = ev
+                        ev.task, ev.running = started.group(1), True
+                    command = sessions.get(polls.get(ev.tool_use_id, ""))
+                    if command is not None:   # the command's own output, after however many polls
+                        command.result = clip_output((command.result or "") + "\n" + out)
+                        ended = EXITED.search(out[:500])
+                        if ended:
+                            command.running, command.is_error = False, int(ended.group(1)) != 0
     if cur is not None:
         turns.append(cur)
     return turns

@@ -192,7 +192,35 @@ def _gemini_project(path: str) -> str:
         return ""
 
 
-def gemini_parse(path: str, start: int = 0):
+MOVED_TO_BACKGROUND = re.compile(r"moved to background \(PID: (\d+)\)")
+
+
+def _merge_gemini_subagents(path: str, turns: list) -> None:
+    """A subagent records its work in chats/<the session's id>/<its id>.jsonl (header `kind: subagent`). Its tool calls are placed in the turn they happened in."""
+    import glob
+    from .claude_code import merge_into_turns
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            sid = json.loads(fh.readline()).get("sessionId")
+    except (OSError, ValueError, AttributeError):
+        return
+    if not isinstance(sid, str) or not sid:
+        return
+    events = []
+    for f in sorted(glob.glob(os.path.join(glob.escape(os.path.dirname(path)), glob.escape(sid), "*.jsonl"))):
+        agent_id = os.path.splitext(os.path.basename(f))[0]
+        found = [e for t in gemini_parse(f, subagents=False) for e in t.events if e.kind == "tool" and e.ts]
+        for e in found:
+            e.via = f"subagent:{agent_id}"
+        events.extend(found)
+    if events and merge_into_turns(turns, events):
+        for t in turns:
+            for e in t.events:
+                if e.kind == "tool" and e.name == "Agent":
+                    e.name = "Agent:read"
+
+
+def gemini_parse(path: str, start: int = 0, subagents: bool = True):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
     from .claude_code import Event, Turn, clip_output
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
@@ -201,6 +229,7 @@ def gemini_parse(path: str, start: int = 0):
     model = ""
     project = _gemini_project(path)
     compressed = False
+    background: dict[str, Event] = {}   # the PID of a command moved to the background -> the command
     records = list(_gemini_records(path, start))
     latest = {r["id"]: i for i, r in enumerate(records) if isinstance(r.get("id"), str)}   # a record is updated by appending it again under the same id
     for i, r in enumerate(records):
@@ -247,6 +276,16 @@ def gemini_parse(path: str, start: int = 0):
                 ev.is_error = True if st in ("error", "failed", "cancelled") else (False if st in ("success", "ok", "done") else None)
                 if code is not None:
                     ev.is_error = code != 0   # the call itself is "success" when the command ran and failed
+                if ev.name == "invoke_agent":
+                    ev.name = "Agent"   # work this record cannot see, until the subagent's own record is read
+                moved = MOVED_TO_BACKGROUND.search(res[:300])
+                if moved and ev.name == "Bash":
+                    background[moved.group(1)] = ev
+                    ev.task, ev.running = moved.group(1), True
+                args = call.get("args") if isinstance(call.get("args"), dict) else {}
+                command = background.get(str(args.get("pid"))) if ev.name == "read_background_output" else None
+                if command is not None and res.strip():   # the command's own output, whenever it was asked for
+                    command.result, command.running = clip_output(re.sub(r"^Full Log Output:\n?", "", res)), False
                 cur.events.append(ev)
             text = _parts_text(r.get("content"))
             if text.strip():

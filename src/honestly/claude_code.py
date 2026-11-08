@@ -26,6 +26,8 @@ class Event:
     ts: str = ""
     result: str = ""
     via: str = ""       # 'subagent:<id>' when the event ran inside a subagent and was merged into the parent turn
+    task: str = ""      # the id a background command or a subagent runs under, when it has one
+    running: bool = False   # it had not finished when the reply was written, so nobody has seen its result
 
 
 @dataclass
@@ -161,6 +163,28 @@ def _background_output(m, tool_input, project: str):
     return _task_file_tail(path)
 
 
+BG_EXIT = re.compile(r"\[exited with code (\d+)\]\s*$")
+AGENT_ID = re.compile(r"\bagentId: ([\w-]+)")
+
+
+def _raw_result(b: dict) -> str:
+    rc = b.get("content")
+    if isinstance(rc, list):
+        rc = " ".join(str(x.get("text") or "") for x in rc if isinstance(x, dict))
+    return rc if isinstance(rc, str) else ""
+
+
+def _task_of(tool: str, raw: str) -> str:
+    """The id a background command or a launched subagent runs under, from the harness's own note."""
+    if tool == "Bash":
+        m = background_notice(raw)
+        return (m.group("asked") or m.group("moved")) if m else ""
+    if tool in ("Agent", "Task"):
+        m = AGENT_ID.search(raw[:600])
+        return m.group(1) if m else ""
+    return ""
+
+
 def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "") -> str:
     rc = b.get("content")
     if isinstance(rc, list):
@@ -230,7 +254,9 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
                         name, inp = calls.get(b.get("tool_use_id", ""), ("", None))
-                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b, name, inp, project))
+                        out, task = _tool_result_text(b, name, inp, project), _task_of(name, _raw_result(b))
+                        ended = BG_EXIT.search(out[-200:]) if name == "Bash" and task else None   # a background command's exit code is the last line of its file
+                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")) or (ended is not None and int(ended.group(1)) != 0), out, task)
             text = content if isinstance(content, str) else " ".join(str(b.get("text") or "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text")
             if not text.strip():
                 continue
@@ -262,7 +288,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
     for turn in turns:
         for e in turn.events:
             if e.kind == "tool" and e.tool_use_id in results:
-                e.is_error, e.result = results[e.tool_use_id]
+                e.is_error, e.result, e.task = results[e.tool_use_id]
     return turns
 
 
@@ -295,6 +321,20 @@ def _merged_by_time(events: list, incoming: list) -> list:
         out.append(x)
     out.extend(incoming[j:])
     return out
+
+
+def merge_into_turns(turns: list, events: list) -> int:
+    """Place tool calls from elsewhere (a subagent's own record) into the turn they happened in, in timestamp order. Returns how many found a place."""
+    starts = sorted((t.ts, i) for i, t in enumerate(turns) if t.ts)
+    keys = [ts for ts, _ in starts]
+    arriving: dict[int, list] = {}
+    for e in events:
+        at = bisect.bisect_right(keys, e.ts) - 1
+        if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
+            arriving.setdefault(starts[at][1], []).append(e)
+    for i, incoming in arriving.items():
+        turns[i].events = _merged_by_time(turns[i].events, incoming)
+    return sum(len(v) for v in arriving.values())
 
 
 def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
