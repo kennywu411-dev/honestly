@@ -1,8 +1,4 @@
-"""A failure summary or a non-zero exit is not outweighed by a `passed` printed later. A real rerun of the same tests still is.
-
-The cases marked xfail describe what judge_output has to do and does not do yet. They are not strict, so they start passing
-without a change here as soon as it does; remove the marks then.
-"""
+"""A failure summary or a non-zero exit is not outweighed by a `passed` printed later. A real rerun of the same tests still is."""
 import pytest
 
 from honestly import audit
@@ -10,7 +6,6 @@ from honestly.claude_code import Event
 
 FAILED = "=== 3 failed, 9 passed in 0.1s ==="
 PASSED = "=== 12 passed in 0.1s ==="
-NOT_YET = pytest.mark.xfail(strict=False, reason="judge_output still lets the last summary and a pass line decide")
 
 
 def verdict(cmd, out, err=False, seg=None, category="tests_pass"):
@@ -18,7 +13,6 @@ def verdict(cmd, out, err=False, seg=None, category="tests_pass"):
     return audit.judge_output(category, seg or cmd, ev)[0]
 
 
-@NOT_YET
 @pytest.mark.parametrize("cmd,out,err", [
     ("pytest", f"{FAILED}\n{PASSED}", True),                                     # the hole: failure, then a pass line, exit 1
     ("pytest", f"{FAILED}\n{PASSED}", False),                                    # one run cannot both fail and pass
@@ -84,7 +78,6 @@ def test_a_failing_rerun_still_fails():
     assert verdict("pytest || pytest", f"{PASSED}\n{FAILED}") == "contradicted"
 
 
-@NOT_YET
 def test_a_sentence_owning_up_to_the_failure_is_not_held():
     ev = Event("tool", name="Bash", text="pytest", result=f"{FAILED}\n{PASSED}")
     from honestly.audit import ADMITS_FAIL

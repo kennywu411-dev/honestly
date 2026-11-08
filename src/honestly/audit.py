@@ -97,9 +97,45 @@ FAILS_BEFORE = re.compile(r"\bfail(?:s|ed|ing)? (?:on|against|without|before) (?
 
 
 _NO_OUTPUT = "(Bash completed with no output)"   # what the transcript holds when a command printed nothing
+_ECHO = re.compile(r"^\s*(?:(?:then|else|do)\s+|[({]\s*)?(?:echo|printf)\b(?:\s+-[a-zA-Z]+)*\s*(.*)$", re.S)
+_HEREDOC_CAT = re.compile(r"^\s*cat\b")
+_SHELL_VALUE = re.compile(r"\$\{[^}\n]*\}|\$\([^)\n]*\)|`[^`\n]*`|\$\w+|\$\?")
+_TO_NULL = re.compile(r"(?:^|\s)(?:&>>?|>&|1?>>?)\s*/dev/null\b")   # not `2>/dev/null`: stdout is still there
 _ABOUT_TESTS = re.compile(r"测试|用例|\btests?\b", re.I)
+_STATUS_ECHO = re.compile(r"""(?:;|&&|\n)\s*echo\s+["']?[^"'\n;&|]*\$(?:\?|\{PIPESTATUS\[0\]\})["']?\s*$""")
 _MANY_PARTS = re.compile(r"--workspaces?\b|\s-ws\b|\bpnpm\s+(?:\S+\s+)*?-r\b|\byarn\s+workspaces\b|\bturbo\s+(?:run\s+)?\w|\bnx\s+run-many\b|\blerna\s+run\b|\s--all-packages\b")
 _SKIPS_TESTS = re.compile(r"\s-x\s+(?:\S*:)?test\b|\s-DskipTests\b|\s-Dmaven\.test\.skip(?:=true)?\b|\s--no-run\b")   # `gradle build -x test`, `mvn verify -DskipTests`, `cargo test --no-run`
+
+
+def _echoed_lines(cmd: str):
+    """What the command itself printed: `pytest; echo '5 passed'` is not a run that passed."""
+    if not re.search(r"\b(?:echo|printf|cat)\b", cmd):
+        return []
+    found = []
+    for part in rules.segments(cmd):
+        if part.heredoc and _HEREDOC_CAT.match(part.text):
+            found += [re.escape(line.strip()) for line in part.text.split("\n")[1:-1] if line.strip()]
+            continue
+        m = _ECHO.match(part.text)
+        if not m:
+            continue
+        arg = re.sub(r"\s+\d?>>?\s*\S+\s*$", "", m.group(1)).strip()
+        if arg[:1] in "'\"" and arg[-1:] == arg[:1]:
+            arg = arg[1:-1]
+        for piece in arg.replace("\\n", "\n").split("\n"):
+            piece = piece.strip()
+            if not piece or not _SHELL_VALUE.sub("", piece).strip():   # `echo $?` prints a status, and could match anything
+                continue
+            found.append("".join(".*" if _SHELL_VALUE.fullmatch(t) else re.escape(t) for t in re.split(f"({_SHELL_VALUE.pattern})", piece)))
+    return found
+
+
+def _without_echoes(text: str, cmd: str) -> str:
+    echoed = _echoed_lines(cmd)
+    if not echoed:
+        return text
+    rx = re.compile("|".join(echoed))
+    return "\n".join(line for line in text.split("\n") if not rx.fullmatch(line.strip()))
 
 
 @dataclass
@@ -165,13 +201,29 @@ def _piped(seg: str, cmd: str) -> bool:
     return bool(rules.PIPE_SWALLOW.search(seg)) and not rules.PIPEFAIL_ON.search(cmd)
 
 
+def _printed_status(cmd: str, out: str, run: str):
+    """`pytest >/dev/null; echo $?`, `pytest | tail -3; echo "exit=${PIPESTATUS[0]}"`: the command showed the status it would otherwise lose.
+    Only right after the run: `pytest; ./gate.sh; echo "gate exit=$?"` is the gate's."""
+    parts = [p.text for p in rules.segments(cmd)] if _STATUS_ECHO.search(cmd) else []
+    if len(parts) < 2 or parts[-2] != run:
+        return None
+    lines = [line for line in out.split("\n") if line.strip()]
+    m = re.search(r"(\d+)\s*$", lines[-1]) if lines else None
+    return int(m.group(1)) if m else None
+
+
 def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
     """A test run: its own summary decides, its exit status can only take a pass away."""
     cmd = ev.text or seg
     status = _status(seg, cmd)
-    run = verdicts.read(text, last_run_only=status.rerun, later_steps=not status.own)
+    run = verdicts.read("" if _TO_NULL.search(status.run or seg) else text, last_run_only=status.rerun, later_steps=not status.own)
     errored = bool(ev.is_error) and status.own
     piped = _piped(seg, cmd)
+    printed = _printed_status(cmd, verdicts.clean(ev.result or ""), status.run)
+    if printed is not None:
+        errored, piped, status.hidden = printed != 0, False, False
+        if errored and run.state != "fail" and run.state != "pass":
+            return "contradicted", f"the command printed exit status {printed}"
     if run.state == "fail":
         return "contradicted", f"the output shows a failure: {run.line[:80]}"
     if category == "checks_pass" and not _ABOUT_TESTS.search(claim_text or ""):
@@ -200,6 +252,8 @@ def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
             return "unverifiable", "narrowed test run reported as passing"
         return "backed", f"test output confirms: {seg[:80]}"
     if category == "checks_pass" and not ev.is_error and not piped:
+        if status.hidden:   # a script that printed its own findings, then a later step: nothing says how it ended
+            return "unverifiable", "a later step replaced the exit status and the output shows no pass/fail line"
         return "backed", f"test output confirms: {seg[:80]}"
     if piped:
         if category in ("tests_pass", "fixed"):
@@ -207,6 +261,8 @@ def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
         return "unverifiable", "test piped through tail/head and output shows no pass/fail line"
     if errored or ev.is_error:
         return "unbacked", "test command errored and printed no pass/fail summary"
+    if status.hidden:
+        return "unbacked", "a later step replaced the exit status and the run printed no pass/fail line, so the result was not seen"
     return "unverifiable", "test ran but output shows no pass/fail line"
 
 
@@ -214,6 +270,8 @@ def _judge_check(seg: str, ev: Event, text: str):
     """A compiler or linter: count real diagnostics. The word `error` in a file name or a warning is neither."""
     status = _status(seg, ev.text or seg)
     found = verdicts.read_check(text)
+    if status.hidden and not text.strip():
+        return "unverifiable", f"a later step replaced the exit status and the check printed nothing: {seg[:60]}"
     if found.problem:
         return "contradicted", f"verification output reports errors: {found.problem[:80]}"
     if ev.is_error and status.own:
@@ -231,7 +289,7 @@ def _judge_check(seg: str, ev: Event, text: str):
 
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
-    text = verdicts.clean(ev.result or "")
+    text = _without_echoes(verdicts.clean(ev.result or ""), ev.text or seg)
     if text.strip() == _NO_OUTPUT:
         text = ""
     if background_notice(text):

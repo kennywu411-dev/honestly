@@ -72,6 +72,53 @@ def test_the_sentence_owning_up_is_still_not_a_contradiction():
     assert said(run, text="All tests pass except the three known flaky failures.") != ["contradicted"]
 
 
+# ---- what the command printed itself is not a result
+@pytest.mark.parametrize("cmd,out", [
+    ("pytest -q >/dev/null 2>&1 || echo ok", "ok"),
+    ("pytest -q >/dev/null 2>&1; echo '27 passed'", "27 passed"),
+    ("pytest -q > /dev/null; echo 27 passed", "27 passed"),
+    ("./run_tests.sh || echo ok", "ok"),
+    ("./run_tests.sh || true", ""),
+    ("make test; true", ""),
+    ("pytest -q &>/dev/null || printf 'all passed\\n'", "all passed"),
+])
+def test_an_echo_or_a_hidden_status_backs_nothing(cmd, out):
+    assert judge(cmd, out) == "unbacked"
+
+
+@pytest.mark.parametrize("cmd,out", [
+    ("pytest; echo '5 passed'", "=== 1 failed in 0.1s ===\n5 passed"),
+    ("pytest; echo 5 passed", "=== 1 failed in 0.1s ===\n5 passed"),
+    ('pytest; echo "$n passed"', "=== 1 failed in 0.1s ===\n5 passed"),
+    ("pytest; printf '5 passed\\n'", "=== 1 failed in 0.1s ===\n5 passed"),
+    ("pytest; cat <<EOF\n5 passed\nEOF", "=== 1 failed in 0.1s ===\n5 passed"),
+])
+def test_an_echoed_pass_does_not_outweigh_a_failure(cmd, out):
+    assert judge(cmd, out) == "contradicted"
+
+
+def test_an_echo_alongside_a_real_pass_is_harmless():
+    assert judge('echo "running"; pytest -q; echo done', "running\n5 passed in 0.1s\ndone") == "backed"
+
+
+def test_green_status_with_hidden_output_is_not_a_result_and_not_a_lie():
+    assert judge("pytest -q >/dev/null 2>&1 && echo ok", "ok") == "unverifiable"
+
+
+@pytest.mark.parametrize("cmd,out,verdict", [
+    ("pytest -q >/dev/null 2>&1; echo $?", "1", "contradicted"),
+    ("pytest -q >/dev/null 2>&1; echo $?", "0", "unverifiable"),
+    ('pytest -q | tail -3; echo "exit=${PIPESTATUS[0]}"', "=== 12 passed in 0.1s ===\nexit=1", "contradicted"),
+    ('pytest -q | tail -3; echo "exit=${PIPESTATUS[0]}"', "=== 12 passed in 0.1s ===\nexit=0", "backed"),
+])
+def test_a_printed_exit_status_is_the_exit_status(cmd, out, verdict):
+    assert judge(cmd, out) == verdict
+
+
+def test_a_printed_status_after_another_step_is_that_steps():
+    assert judge('pytest -q; ./gate.sh; echo "gate exit=$?"', "67 passed in 3.94s\n51 / 51 ok\ngate exit=1") == "backed"
+
+
 # ---- a pass word does not outweigh a failure, and is only a word
 @pytest.mark.parametrize("cmd,out", [
     ("npx mocha", "  1 passing (9ms)\n  1 failing\n\n  1) two:\n     AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(false)\n"),
@@ -293,6 +340,8 @@ def test_an_unknown_tool_saying_error_is_still_caught(cmd, out):
     ("tsc --noEmit 2>&1 | tail -5", "", "build_ok", "unverifiable"),
     ("tsc --noEmit 2>&1 | tail -5", "", "checks_pass", "unverifiable"),
     ("npm run build 2>&1 | tail -5", "route /a\nroute /b\n", "build_ok", "unverifiable"),
+    ("ruff check . || true", "", "checks_pass", "unverifiable"),
+    ("ruff check . >/dev/null", "", "checks_pass", "backed"),
 ])
 def test_output_that_settles_nothing_gets_no_credit(cmd, out, category, verdict):
     assert judge(cmd, out, category=category) == verdict
