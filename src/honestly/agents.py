@@ -341,66 +341,30 @@ def entries(agent: str, exe: str) -> dict:
     raise ValueError(agent)
 
 
-def _strip_ours(agent: str, groups: list) -> list:
-    if agent == "cursor":
-        return [h for h in groups if not _is_ours(h)]
-    return [g for g in groups if not any(_is_ours(h) for h in (g.get("hooks") or []))]
-
-
 def installed(agent: str) -> list[str]:
-    path = config_path(agent)
+    from . import guardfile
     try:
-        cfg = json.load(open(path, encoding="utf-8"))
-    except Exception:
+        _, _, _, obj = guardfile.read(config_path(agent))
+    except guardfile.Refused:
         return []
-    hooks = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
-    out = []
-    for ev, groups in hooks.items():
-        if not isinstance(groups, list):
-            continue
-        if agent == "cursor":
-            if any(_is_ours(h) for h in groups):
-                out.append(ev)
-        elif any(_is_ours(h) for g in groups if isinstance(g, dict) for h in (g.get("hooks") or [])):
-            out.append(ev)
-    return out
+    return guardfile.hook_events(obj, agent == "cursor")
 
 
 def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     """install | uninstall | status for codex, cursor or gemini. The file is backed up first; only our own entries are touched."""
+    from . import hooks as _hooks
     path = config_path(agent)
     name = NAMES[agent]
-    try:
-        cfg = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
-    except Exception as e:
-        return f"cannot read {path}: {e}"
-    if not isinstance(cfg, dict):
-        cfg = {}
+    flat = agent == "cursor"
     if action == "status":
-        on = installed(agent)
-        return f"honestly guard ({name}): {'installed for ' + ', '.join(on) if on else 'not installed'} ({path})"
-    hooks = cfg.setdefault("hooks", {})
-    if agent == "cursor":
-        cfg.setdefault("version", 1)
-    for ev, groups in entries(agent, exe).items():
-        current = hooks.get(ev) if isinstance(hooks.get(ev), list) else []
-        current = _strip_ours(agent, current)
-        if action == "install":
-            current = current + groups
-        if current:
-            hooks[ev] = current
-        else:
-            hooks.pop(ev, None)
-    if action == "uninstall":
-        for ev in list(hooks):
-            if isinstance(hooks[ev], list):
-                hooks[ev] = _strip_ours(agent, hooks[ev])
-                if not hooks[ev]:
-                    del hooks[ev]
+        return _hooks._status_line(name, path, flat)
+    top = {"version": 1} if flat else None
+    result, after = _hooks._guard_edit(name, path, action, entries(agent, exe) if action == "install" else {}, dry_run, flat, top)
     if dry_run:
-        return f"honestly guard would write this `hooks` section into {path}:\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2)
-    from . import config as _config
-    _config.write_json_atomic(path, cfg)
+        return f"honestly guard would write this `hooks` section into {path}:\n" + json.dumps({"hooks": after.get("hooks", {})}, ensure_ascii=False, indent=2)
+    if result == "unchanged":
+        return (f"honestly guard ({name}): already installed, nothing changed ({path})" if action == "install"
+                else f"honestly guard ({name}): not installed, nothing to remove ({path})")
     note = {"codex": "  Codex asks you to review new hooks once: run /hooks inside Codex.",
             "cursor": "  Cursor shows hook-visible transcripts only when they are enabled; the stop hook needs them to see what was said.",
             "gemini": ""}[agent]

@@ -44,6 +44,10 @@ def project_path(cwd: str | None) -> str:
     return os.path.join(cwd or os.getcwd(), PROJECT_FILE)
 
 
+class SymlinkRefused(OSError):
+    """A write inside a repository met a symbolic link."""
+
+
 def _read_small_file(path: str):
     """The file's bytes, or None unless it is an ordinary file of a sensible size. A repository can ship a symlink to /dev/zero or
     a FIFO under this name, so nothing is read before that is known, and opening never blocks."""
@@ -85,37 +89,86 @@ def _write(path: str, d: dict) -> None:
     write_json_atomic(path, d, backup=False)
 
 
-def write_json_atomic(path: str, obj, backup: bool = True) -> None:
-    """Write JSON so that a crash or a concurrent writer never leaves a half-written file.
+class FileChanged(Exception):
+    """The file is no longer what the caller read: another program wrote it in between."""
 
-    The temporary file is created next to the real target (a symlinked dotfile is written through, not replaced),
-    then moved over it with os.replace. With backup=True the previous file is copied to a backup whose name is never
-    reused, so an install followed by an uninstall in the same second keeps the original.
+
+BACKUPS_KEPT = 5
+
+
+def _prune_backups(target: str) -> None:
+    """Keep the oldest backup (the file as it was before honestly first touched it) and the newest ones."""
+    import glob
+    baks = sorted(glob.glob(glob.escape(target) + ".bak-honestly-*"))
+    for old in baks[1:-(BACKUPS_KEPT - 1)]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+
+
+def _new_file_mode() -> int:
+    mask = os.umask(0)
+    os.umask(mask)
+    return 0o666 & ~mask
+
+
+def write_text_atomic(path: str, text: str, backup: bool = True, follow_symlinks: bool = True, expect: bytes = None, check_expect: bool = False) -> None:
+    """Write a file so that a crash or a concurrent writer never leaves it half-written.
+
+    The temporary file is created next to the real target and moved over it with os.replace. A symlinked dotfile in the user's own
+    settings is written through; follow_symlinks=False refuses one, for files inside a repository, which anyone can make point anywhere.
+    With backup=True the previous file is copied to a name never reused, so an install followed by an uninstall in the same second keeps
+    the original. check_expect makes the write give up with FileChanged when the file no longer holds `expect` (None: no file).
+    A read-only file is refused rather than replaced.
     """
-    import shutil, tempfile, time
+    import errno, shutil, tempfile, time
+    if not follow_symlinks and os.path.islink(path):
+        raise SymlinkRefused(f"{path} is a symbolic link, and a file inside a project is not written through one. Nothing changed.")
     target = os.path.realpath(path)
     folder = os.path.dirname(target) or "."
     os.makedirs(folder, exist_ok=True)
-    if backup and os.path.exists(target):
-        stem = target + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S")
-        bak, n = stem, 1
-        while os.path.exists(bak):
-            bak, n = f"{stem}-{n}", n + 1
-        shutil.copy2(target, bak)
+    exists = os.path.exists(target)
+    if exists and not os.access(target, os.W_OK):
+        raise PermissionError(errno.EACCES, "the file is read-only", target)
     fd, tmp = tempfile.mkstemp(prefix=".honestly-", suffix=".json", dir=folder)
+    bak = None
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(obj, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
-        if os.path.exists(target):
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        if exists:
             shutil.copymode(target, tmp)
+        else:
+            os.chmod(tmp, _new_file_mode())
+        if check_expect:
+            try:
+                with open(target, "rb") as fh:
+                    current = fh.read()
+            except OSError:
+                current = None
+            if current != expect:
+                raise FileChanged(target)
+        if backup and exists:
+            stem = target + ".bak-honestly-" + time.strftime("%Y%m%d%H%M%S")
+            bak, n = stem, 1
+            while os.path.exists(bak):
+                bak, n = f"{stem}-{n:03d}", n + 1
+            shutil.copy2(target, bak)
         os.replace(tmp, target)
     except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass   # the temporary file is already gone; the original error below is the one that matters
+        for leftover in (tmp, bak):
+            try:
+                if leftover:
+                    os.unlink(leftover)
+            except OSError:
+                pass   # already gone; the original error below is the one that matters
         raise
+    if bak:
+        _prune_backups(target)
+
+
+def write_json_atomic(path: str, obj, backup: bool = True, follow_symlinks: bool = True) -> None:
+    write_text_atomic(path, json.dumps(obj, ensure_ascii=False, indent=2) + "\n", backup=backup, follow_symlinks=follow_symlinks)
 
 
 def _clean(d: dict) -> dict:

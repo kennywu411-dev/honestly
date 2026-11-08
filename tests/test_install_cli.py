@@ -161,3 +161,319 @@ def test_windows_agent_line_cannot_carry_a_shell_expansion(tmp_path, monkeypatch
     monkeypatch.setattr(sys, "argv", [r"C:\a $(x)\honestly.exe"])
     with pytest.raises(SystemExit):
         hooks.guard("install", agent="codex")
+
+
+# ---------------------------------------------------------------- editing the user's settings file
+ALL_AGENTS = ["claude-code", "codex", "cursor", "gemini"]
+GROUPED_AGENTS = ["claude-code", "codex", "gemini"]
+EVENT = {"claude-code": "Stop", "codex": "Stop", "gemini": "AfterAgent", "cursor": "stop"}
+
+
+@pytest.fixture
+def where(tmp_path, monkeypatch):
+    """Point every assistant's settings file into tmp_path; returns agent -> path."""
+    paths = {"claude-code": tmp_path / "claude" / "settings.json", "codex": tmp_path / "codex" / "hooks.json",
+             "cursor": tmp_path / "cursor" / "hooks.json", "gemini": tmp_path / "gemini" / "settings.json"}
+    monkeypatch.setattr(hooks, "settings_path", lambda: str(paths["claude-code"]))
+    monkeypatch.setattr(agents, "config_path", lambda agent: str(paths[agent]))
+    return paths
+
+
+def _write(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
+
+
+def _backups(path):
+    return sorted(p for p in path.parent.iterdir() if ".bak-honestly-" in p.name)
+
+
+def _no_temp_left(path):
+    assert not [p for p in path.parent.iterdir() if p.name.startswith(".honestly-")]
+
+
+ORIGINALS = [
+    '{\n    "zeta": 1,\n    "exp": 1e3,\n    "esc": "caf\\u00e9",\n    "dup": 1, "dup": 2,\n    "arr": [1, 2],\n    "alpha": {"b": 1, "a": 2}\n}\n',
+    '{"model":"x"}\n',
+    '{"model":"x"}',
+    '{"a": 1, "b": 2}\n',
+    '{\r\n  "model": "x",\r\n  "hooks": {\r\n    "Other": [\r\n      {\r\n        "hooks": [ { "type": "command", "command": "mine" } ]\r\n      }\r\n    ]\r\n  }\r\n}\r\n',
+    '﻿{\n\t"model": "x"\n}\n',
+    '{\n  "hooks": {"Notification": [{"hooks": [{"type": "command", "command": "n"}]}], "Bar": []}\n}\n',
+    '{\n  "hooks": {\n    "Other": [{"matcher":"x","hooks":[{"type":"command","command":"a"}]},\n              {"hooks":[{"type":"command","command":"b"}]}]\n  },\n  "z": null\n}\n',
+    '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "mine"}]}], "AfterAgent": [{"hooks": [{"type": "command", "command": "mine"}]}]}, "z": [1, 2.50, true]}\n',
+]
+
+
+@pytest.mark.parametrize("agent", GROUPED_AGENTS)
+@pytest.mark.parametrize("original", ORIGINALS)
+def test_install_then_uninstall_gives_back_the_same_bytes(where, agent, original):
+    path = where[agent]
+    _write(path, original)
+    hooks.guard("install", agent=agent)
+    after = path.read_bytes().decode("utf-8")
+    assert hookline.MARK in after
+    json.loads(after.lstrip("﻿"))
+    hooks.guard("uninstall", agent=agent)
+    assert path.read_bytes().decode("utf-8") == original
+    _no_temp_left(path)
+
+
+def test_only_the_hooks_change_when_installing(where):
+    path = where["claude-code"]
+    _write(path, ORIGINALS[0])
+    hooks.guard("install")
+    text = path.read_text(encoding="utf-8")
+    for kept in ('"exp": 1e3', '"esc": "caf\\u00e9"', '"dup": 1, "dup": 2', '"arr": [1, 2]', '"alpha": {"b": 1, "a": 2}', '\n    "zeta": 1'):
+        assert kept in text   # no reformatting, no re-encoding
+    assert list(json.loads(text)) == ["zeta", "exp", "esc", "dup", "arr", "alpha", "hooks"]
+
+
+def test_a_user_hook_in_an_event_we_use_keeps_its_exact_text(where):
+    path = where["claude-code"]
+    mine = '{"hooks":[{"type":"command","command":"mine"   }]}'
+    _write(path, '{\n  "hooks": {\n    "Stop": [\n      ' + mine + '\n    ]\n  }\n}\n')
+    hooks.guard("install")
+    assert mine in path.read_text(encoding="utf-8")
+    hooks.guard("uninstall")
+    assert mine in path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("agent", GROUPED_AGENTS)
+@pytest.mark.parametrize("action", ["install", "uninstall"])
+def test_a_user_hook_sharing_a_group_with_ours_stays(where, agent, action):
+    path = where[agent]
+    ev = EVENT[agent]
+    _write(path, json.dumps({"hooks": {ev: [{"matcher": "x", "hooks": [{"type": "command", "command": "my-keep-this"},
+                                                                       {"type": "command", "command": "/old/honestly hook stop  # honestly hook"}]}]}}, indent=2))
+    hooks.guard(action, agent=agent)
+    cfg = json.loads(path.read_text(encoding="utf-8"))
+    group = next(g for g in cfg["hooks"][ev] if any(h["command"] == "my-keep-this" for h in g["hooks"]))
+    assert group["matcher"] == "x" and [h["command"] for h in group["hooks"]] == ["my-keep-this"]
+    assert sum("/old/honestly" in h["command"] for g in cfg["hooks"][ev] for h in g["hooks"]) == 0
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+def test_uninstall_leaves_what_only_mentions_the_words_and_shapes_it_does_not_know(where, agent):
+    path = where[agent]
+    theirs = "echo 'honestly hook ran' >> log"
+    hook = {"type": "command", "command": theirs}
+    group = hook if agent == "cursor" else {"hooks": [hook]}
+    original = json.dumps({"hooks": {"Foo": {"a": 1}, "Bar": [], "Baz": "s", "Qux": [group, 1, "x", None], EVENT[agent]: [group]}, "z": 1}, indent=2) + "\n"
+    _write(path, original)
+    message = hooks.guard("uninstall", agent=agent)
+    assert "not installed" in message and "nothing to remove" in message
+    assert path.read_text(encoding="utf-8") == original and not _backups(path)
+
+
+@pytest.mark.parametrize("agent", GROUPED_AGENTS)
+def test_install_keeps_entries_it_cannot_read_in_a_list(where, agent):
+    path = where[agent]
+    ev = EVENT[agent]
+    _write(path, json.dumps({"hooks": {ev: [1, "x", None, {"hooks": "s"}, {"hooks": [2]}]}}))
+    hooks.guard("install", agent=agent)
+    assert json.loads(path.read_text(encoding="utf-8"))["hooks"][ev][:5] == [1, "x", None, {"hooks": "s"}, {"hooks": [2]}]
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+@pytest.mark.parametrize("bad", ['{"hooks": [1, 2]}', '{"hooks": "x"}', '{"hooks": {"EVENT": "x"}}', '{"hooks": {"EVENT": {"a": 1}}}'])
+def test_install_refuses_a_shape_it_would_have_to_overwrite(where, agent, bad):
+    path = where[agent]
+    text = bad.replace("EVENT", EVENT[agent])
+    _write(path, text)
+    with pytest.raises(SystemExit) as e:
+        hooks.guard("install", agent=agent)
+    assert e.value.code not in (0, None) and str(path) in str(e.value)
+    assert path.read_text(encoding="utf-8") == text and not _backups(path)
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+@pytest.mark.parametrize("bad", ['// comment\n{"a": 1}\n', '{"a": 1,}\n', "{not json", "[1, 2]\n", "null\n", '"x"\n', b'{"a": "\xff"}\n'])
+@pytest.mark.parametrize("action", ["install", "uninstall"])
+def test_a_file_it_cannot_read_stops_with_an_error_and_is_left_alone(where, agent, bad, action):
+    path = where[agent]
+    _write(path, bad)
+    before = path.read_bytes()
+    with pytest.raises(SystemExit) as e:
+        hooks.guard(action, agent=agent)
+    assert e.value.code not in (0, None)   # a string: Python prints it and exits 1
+    assert path.read_bytes() == before and not _backups(path)
+    status = hooks.guard("status", agent=agent)
+    assert "cannot read" in status or "not a JSON object" in status
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+@pytest.mark.parametrize("empty", ["", "  \n", '{"hooks": null}'])
+def test_an_empty_file_and_null_hooks_are_room_to_write(where, agent, empty):
+    path = where[agent]
+    _write(path, empty)
+    hooks.guard("install", agent=agent)
+    assert EVENT[agent] in json.loads(path.read_text(encoding="utf-8"))["hooks"]
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+def test_installing_again_changes_nothing_and_makes_no_backup(where, agent):
+    path = where[agent]
+    _write(path, '{"keep": 1}\n')
+    hooks.guard("install", agent=agent)
+    first = path.read_bytes()
+    n = len(_backups(path))
+    for _ in range(2):
+        assert "already installed" in hooks.guard("install", agent=agent)
+    assert path.read_bytes() == first and len(_backups(path)) == n
+
+
+def test_an_upgrade_replaces_our_entry_where_it_is(where):
+    path = where["claude-code"]
+    old = {"matcher": "", "hooks": [{"type": "command", "command": "/old/sober hook stop  # sober hook", "timeout": 30}]}
+    mine = {"hooks": [{"type": "command", "command": "mine"}]}
+    _write(path, json.dumps({"hooks": {"Stop": [old, mine], "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "sober hook pre  # sober hook"}]}]}}, indent=2))
+    hooks.guard("install")
+    cfg = json.loads(path.read_text(encoding="utf-8"))["hooks"]
+    assert [g["hooks"][0]["command"] for g in cfg["Stop"]] == [hooks._entries()["Stop"]["hooks"][0]["command"], "mine"]
+    assert cfg["PreToolUse"][0]["matcher"] == "Bash|PowerShell" and len(cfg["PreToolUse"]) == 1
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+def test_uninstall_with_nothing_installed_creates_nothing(where, agent):
+    assert "nothing to remove" in hooks.guard("uninstall", agent=agent)
+    assert not where[agent].exists() and not where[agent].parent.exists()
+
+
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+def test_a_file_that_only_held_our_hooks_goes_away_on_uninstall(where, agent):
+    path = where[agent]
+    hooks.guard("install", agent=agent)
+    assert "uninstalled" in hooks.guard("uninstall", agent=agent)
+    assert not path.exists() and not _backups(path)
+
+
+@posix_only
+def test_a_symlinked_settings_file_stays_a_symlink_after_uninstall(where, tmp_path):
+    real = tmp_path / "dotfiles" / "s.json"
+    _write(real, "{}\n")
+    path = where["claude-code"]
+    path.parent.mkdir()
+    path.symlink_to(real)
+    hooks.guard("install")
+    assert path.is_symlink() and "hooks" in json.loads(real.read_text())
+    hooks.guard("uninstall")
+    assert path.is_symlink() and json.loads(real.read_text()) == {}
+
+
+def test_backups_are_byte_exact_and_do_not_pile_up(where):
+    path = where["claude-code"]
+    original = '{ "first":   "version" }\n'
+    _write(path, original)
+    hooks.guard("install")
+    assert _backups(path)[0].read_text() == original
+    for _ in range(12):
+        hooks.guard("uninstall")
+        hooks.guard("install")
+    baks = _backups(path)
+    assert len(baks) <= 5
+    assert baks[0].read_text() == original   # the one from before honestly was ever there is kept
+
+
+def test_dry_run_writes_nothing_for_every_agent(where):
+    for agent in ALL_AGENTS:
+        _write(where[agent], '{"keep": 1}\n')
+        out = hooks.guard("install", agent=agent, dry_run=True)
+        assert "would write" in out and json.loads(out[out.index("{"):])["hooks"]
+        assert where[agent].read_text() == '{"keep": 1}\n' and not _backups(where[agent])
+
+
+def test_install_all_reports_every_agent_and_fails_when_one_failed(where):
+    _write(where["gemini"], "// comment\n{}\n")
+    with pytest.raises(SystemExit) as e:
+        hooks.guard("install", agent="all")
+    assert "cannot read" in str(e.value) and "Claude Code" not in str(e.value) or "installed" in str(e.value)
+    assert where["codex"].exists() and where["claude-code"].exists() and where["cursor"].exists()
+
+
+# ---------------------------------------------------------------- when writing fails
+@posix_only
+def test_a_read_only_file_is_refused_not_replaced(where):
+    if os.geteuid() == 0:
+        pytest.skip("root ignores file modes")
+    path = where["claude-code"]
+    _write(path, '{"model": "x"}\n')
+    path.chmod(0o444)
+    with pytest.raises(SystemExit) as e:
+        hooks.guard("install")
+    assert "read-only" in str(e.value) and str(path) in str(e.value)
+    assert path.read_text() == '{"model": "x"}\n' and not _backups(path)
+
+
+@posix_only
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+def test_a_read_only_folder_gives_one_clear_line(where, agent):
+    if os.geteuid() == 0:
+        pytest.skip("root ignores file modes")
+    path = where[agent]
+    _write(path, '{"model": "x"}\n')
+    path.parent.chmod(0o555)
+    try:
+        with pytest.raises(SystemExit) as e:
+            hooks.guard("install", agent=agent)
+    finally:
+        path.parent.chmod(0o755)
+    assert "cannot write" in str(e.value) and path.read_text() == '{"model": "x"}\n' and not _backups(path)
+
+
+def test_a_file_where_the_folder_should_be_gives_one_clear_line(where):
+    _write(where["claude-code"].parent.with_name("x"), "")
+    where["claude-code"].parent.write_text("a file")
+    with pytest.raises(SystemExit) as e:
+        hooks.guard("install")
+    assert "cannot write" in str(e.value)
+
+
+def test_a_failed_write_leaves_the_file_and_no_empty_backup(where, monkeypatch):
+    from honestly import config
+    path = where["claude-code"]
+    _write(path, '{"model": "x"}\n')
+    def full(*a, **k):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(config.os, "replace", full)
+    with pytest.raises(SystemExit) as e:
+        hooks.guard("install")
+    assert "No space left" in str(e.value)
+    assert path.read_text() == '{"model": "x"}\n' and not _backups(path)
+    _no_temp_left(path)
+
+
+def test_another_program_writing_the_file_is_not_overwritten(where, monkeypatch):
+    from honestly import config
+    path = where["claude-code"]
+    _write(path, '{"n": 0}\n')
+    real = config.write_text_atomic
+    calls = []
+    def race(*a, **k):
+        if not calls:
+            calls.append(1)
+            path.write_text('{"n": 1}\n')   # after honestly read the file, before its copy is moved in
+        return real(*a, **k)
+    monkeypatch.setattr(config, "write_text_atomic", race)
+    hooks.guard("install")
+    cfg = json.loads(path.read_text())
+    assert cfg["n"] == 1 and "hooks" in cfg
+
+
+# ---------------------------------------------------------------- status and the overview never crash
+@pytest.mark.parametrize("agent", ALL_AGENTS)
+@pytest.mark.parametrize("text", ["[]", "null", '"x"', "{}", '{"hooks": 5}', '{"hooks": {"Stop": 5}}', '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": null}]}]}}',
+                                  '{"hooks": {"stop": [{"command": 5}], "AfterAgent": [{"hooks": [{"command": ["x"]}]}]}}'])
+def test_status_and_overview_survive_any_shape(where, agent, text, capsys):
+    from honestly import cli
+    _write(where[agent], text)
+    assert hooks.guard("status", agent="all")
+    assert isinstance(agents.installed("codex"), list)
+    cli.main([])
+    assert "honestly" in capsys.readouterr().out
+
+
+def test_status_says_when_the_command_behind_the_entry_is_gone(where):
+    _write(where["claude-code"], json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/gone/honestly hook stop  # honestly hook"}]}]}}))
+    status = hooks.guard("status")
+    assert "installed for Stop" in status and "/gone/honestly" in status and "guard install" in status

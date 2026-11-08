@@ -25,9 +25,7 @@ from .audit import audit_turn
 from .claude_code import Event, Turn
 from .redact import redact, strip_controls
 
-MARK = "honestly hook"
-LEGACY_MARKS = ("sober hook",)   # entries written by the package's previous name
-MARKS = (MARK,) + LEGACY_MARKS
+MARK = hookline.MARK
 
 
 def _ours(h: dict) -> bool:
@@ -1326,56 +1324,60 @@ def _entries():
     }
 
 
+def _status_line(label: str, path: str, flat: bool = False) -> str:
+    """`status` reports a broken settings file instead of failing, and says when an entry's program is gone."""
+    from . import guardfile
+    try:
+        _, _, _, obj = guardfile.read(path)
+    except guardfile.Refused as e:
+        return f"honestly guard: {e}" if label == "Claude Code" else str(e)
+    on = guardfile.hook_events(obj, flat)
+    if not on:
+        return f"honestly guard ({label}): not installed ({path})"
+    gone = sorted({e.exe for e in map(hookline.parse_entry, guardfile.commands(obj, flat)) if not hookline.runnable(e.exe)})
+    dead = f", but its command is gone: {', '.join(gone)} (run honestly guard install)" if gone else ""
+    return f"honestly guard ({label}): installed for {', '.join(on)}{dead} ({path})"
+
+
+def _guard_edit(label: str, path: str, action: str, entries: dict, dry_run: bool, flat: bool = False, top: dict = None) -> tuple:
+    from . import guardfile
+    prefix = "honestly guard" if label == "Claude Code" else f"honestly guard ({label})"
+    try:
+        return guardfile.change(path, action, entries, flat=flat, dry_run=dry_run, top=top)
+    except guardfile.Refused as e:
+        raise SystemExit(f"{prefix}: {e}") from None
+    except OSError as e:
+        raise SystemExit(f"{prefix}: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
+
+
 def guard(action: str, dry_run: bool = False, agent: str = "claude-code") -> str:
     if agent == "all":
-        return "\n".join(guard(action, dry_run, a) for a in agents.SUPPORTED)
+        out, failed = [], False
+        for a in agents.SUPPORTED:   # one assistant's broken file does not stop the others
+            try:
+                out.append(guard(action, dry_run, a))
+            except SystemExit as e:
+                out.append(str(e.code))
+                failed = True
+        if failed:
+            raise SystemExit("\n".join(out))
+        return "\n".join(out)
     if action == "install" and not dry_run:
         _check_installable(agent)
     if agent != "claude-code":
         return agents.guard(agent, action, _exe(), dry_run)
     path = settings_path()
-    try:
-        cfg = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
-    except Exception as e:
-        return _fail(action, f"honestly guard: cannot read {path}: {e}  (the file was left untouched)")
-    if not isinstance(cfg, dict):
-        return _fail(action, f"honestly guard: {path} is not a JSON object (the file was left untouched)")
-    hooks = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
-    installed = {ev: any(_ours(h) for g in groups_of(hooks, ev) for h in hooks_of(g)) for ev in hooks}
     if action == "status":
-        on = [ev for ev, v in installed.items() if v]
-        return f"honestly guard (Claude Code): {'installed for ' + ', '.join(on) if on else 'not installed'} ({path})"
-    before = json.dumps(cfg, sort_keys=True)
-    cfg["hooks"] = hooks
-    if action == "install":
-        for ev, entry in _entries().items():
-            groups = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]   # replace older entries (path or name may have changed)
-            groups.append(entry)
-            hooks[ev] = groups
-    elif action == "uninstall":
-        for ev in list(hooks):
-            kept = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]
-            if kept:
-                hooks[ev] = kept
-            else:
-                del hooks[ev]
-    if not hooks:
-        cfg.pop("hooks", None)
+        return _status_line("Claude Code", path)
+    entries = {ev: [entry] for ev, entry in _entries().items()} if action == "install" else {}
+    result, after = _guard_edit("Claude Code", path, action, entries, dry_run)
     if dry_run:
         return (f"honestly guard would write the following `hooks` section into {path} (a timestamped backup of the file is made first; "
-                f"`honestly guard uninstall` removes exactly these entries):\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2))
-    if json.dumps(cfg, sort_keys=True) == before:
+                f"`honestly guard uninstall` removes exactly these entries):\n" + json.dumps({"hooks": after.get("hooks", {})}, ensure_ascii=False, indent=2))
+    if result == "unchanged":
         return (f"honestly guard: already installed, nothing changed ({path})" if action == "install"
                 else f"honestly guard: not installed, nothing to remove ({path})")
-    config.write_json_atomic(path, cfg)
     return f"honestly guard: {action}ed → {path}"
-
-
-def _fail(action: str, msg: str) -> str:
-    """`status` reports a broken settings file; `install` / `uninstall` exit non-zero on it so scripts notice."""
-    if action == "status":
-        return msg
-    raise SystemExit(msg)
 
 
 def groups_of(hooks: dict, ev: str) -> list:
