@@ -43,7 +43,7 @@ SPECS: dict[str, Spec] = {
         noun="look"),
     "scheduled": Spec(
         tool=re.compile(r"(CronCreate|create_scheduled_task|update_scheduled_task|ScheduleWakeup|schedule)", _I),
-        bash=re.compile(r"(\bcrontab\b|launchctl (load|bootstrap|submit)|\bschtasks\b|^\s*at \d|systemctl .*timer)", _I),
+        bash=re.compile(r"(\bcrontab\b|launchctl (load|bootstrap|submit)|\bschtasks\b|^\s*at \d|systemctl .*timer|\bsleep \$\(\()", _I),   # `caffeinate -is sleep $((t-now))`: a wait until a set time
         noun="schedule"),
     "verified": Spec(
         tool=re.compile(r"^(Read|mcp__.*(computer|screenshot|browser_batch|javascript_tool|read_page|get_page_text)|js)$", _I),

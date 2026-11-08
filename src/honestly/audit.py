@@ -242,6 +242,74 @@ def _clean_pass(out: str) -> bool:
 
 
 RANK = {"backed": 0, "weak": 1, "unverifiable": 2, "unbacked": 3, "contradicted": 4}
+FILE_CREATED = re.compile(r"created successfully|Successfully created", re.I)   # Claude Code's Write, Gemini CLI's write_file
+TEST_PATH = re.compile(r"(?:^|[\\/._-])(?:tests?|spec)(?:[\\/._-]|$)|\.(?:test|spec)\.", re.I)
+GIT_HOOK_RUN = re.compile(r"\bgit (?:commit|push)\b")
+GIT_COMMIT_TITLE = re.compile(r"^\[[^\]\n]+\] [^\n]*$", re.M)   # `[main abc1234] Fix, 12 passed` quotes the message, it is not a run
+SELF_CHECK_OK = re.compile(r"^\s*\[(?:OK|PASS(?:ED)?)\]", re.M | re.I)
+SELF_CHECK_BAD = re.compile(r"^\s*\[(?:FAIL(?:ED)?|ERROR)\]", re.M | re.I)
+DRY_RUN_CLAIM = re.compile(r"空跑|\bdry[- ]run\b", re.I)
+DRY_RUN_FLAG = re.compile(r"\s--dry(?:[-_]run)?\b")
+COUNTED_TESTS = re.compile(r"(\d+)\s*(?:个|项)?\s*(?:测试|用例|tests?\b)", re.I)
+COMMITTED_RECAP = re.compile(r"^\s*(?:[-*]\s*)?\**\s*(?:已提交|已经提交|committed\b)", re.M | re.I)   # a list heading over the sentence, not a word inside it
+
+
+def _new_file(e) -> bool:
+    return e.kind == "tool" and FILE_CREATED.search(e.result or "") is not None and not TEST_PATH.search(e.text or "")
+
+
+def _before_new_files(ev: list, flags: list, edit_idx: int) -> int:
+    """The last edit that changed existing code: a brand-new file cannot break what a run before it proved. -1 when there is none."""
+    k = edit_idx
+    while k >= 0 and (not flags[k] or _new_file(ev[k])):
+        k -= 1
+    return k
+
+
+def _hook_run(after: list):
+    """A commit or push whose hook printed a test summary is a test run, as (event, its output without the commit's own title line)."""
+    for x in reversed(after):
+        if x.name == "Bash" and GIT_HOOK_RUN.search(x.text or ""):
+            out = GIT_COMMIT_TITLE.sub("", x.result or "")
+            if SUMMARY_LINE.search(out):
+                return dataclasses.replace(x, result=out)
+    return None
+
+
+def _self_check(edit_ev, after: list):
+    """A script of the project run after the edit that reports its own checks as `[OK] ...` lines, with none failed."""
+    for x, only_after in reversed([(edit_ev, True)] + [(a, False) for a in after]):
+        if x.name != "Bash" or not SELF_CHECK_OK.search(x.result or "") or SELF_CHECK_BAD.search(x.result or ""):
+            continue
+        if rules.verifying_segments(x.text, {"run"}, after_edit_only=only_after):
+            return x
+    return None
+
+
+def _dry_run(edit_ev, after: list):
+    """A command run with --dry or --dry-run after the edit, and not just a flag named in a heredoc's script."""
+    for x in reversed([edit_ev] + after):
+        if x.name == "Bash" and not x.is_error and any(not s.heredoc and DRY_RUN_FLAG.search(s.text) for s in rules.segments(x.text)):
+            return x
+    return None
+
+
+def _relayed_count(hit, ev: list, automated: bool) -> bool:
+    """A turn another session or a task started, and a test count that no run in this turn printed: the number is that report's."""
+    m = COUNTED_TESTS.search(hit.sentence)
+    return automated and m is not None and not any(re.search(rf"\b{m.group(1)} passed\b", x.result or "") for x in ev if x.kind == "tool")
+
+
+def _passed_then_committed(ev: list) -> bool:
+    """A clean test pass and a commit at or after it."""
+    passed = False
+    for x in ev:
+        if x.kind != "tool" or x.name != "Bash":
+            continue
+        passed = passed or _clean_pass(x.result)
+        if passed and re.search(r"\bgit commit\b", x.text or ""):
+            return True
+    return False
 
 
 def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
@@ -261,6 +329,19 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         segs = rules.verifying_segments(edit_ev.text, hit.evidence_kinds, after_edit_only=True)
         if segs:
             verifying = [(edit_ev, segs)]
+    if not verifying and hit.category in ("tests_pass", "checks_pass", "fixed"):
+        hooked = _hook_run(after)
+        if hooked is not None:
+            verdict, reason = judge_output("tests_pass", "git commit", hooked, hit.sentence)
+            return verdict, f"a commit hook ran the tests: {reason}", "git commit", hooked
+    if not verifying and hit.category == "checks_pass":
+        own = _self_check(edit_ev, after)
+        if own is not None:
+            return "backed", "the script reports its own checks as [OK] and none failed", own.text[-200:], own
+    if not verifying and DRY_RUN_CLAIM.search(hit.sentence):
+        dry = _dry_run(edit_ev, after)
+        if dry is not None:
+            return "backed", "the dry run the sentence names ran after the edit", dry.text[-200:], dry
     elsewhere = False
     if not verifying:
         alt = _other_project_check(ev, flags, edit_idx, end, hit)
@@ -355,6 +436,16 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
                     v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"})
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
+                if verdict == "unbacked":
+                    earlier = _before_new_files(ev, flags, edit_idx)
+                    if 0 <= earlier < edit_idx:
+                        v3 = _judge_code(hit, ev, flags, earlier, i, hit.evidence_kinds - {"exercise", "run"})
+                        if v3[0] == "backed":
+                            verdict, reason, seg, last = "backed", "only new files were created after this run; " + v3[1], v3[2], v3[3]
+                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev, automated):
+                    verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
+                if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
+                    verdict, reason = "unverifiable", "a recap of work already committed; a later edit is not part of it"
             vb = seg if verdict in ("backed", "unverifiable", "contradicted") and edit_idx >= 0 else ""
             out_snip = last.result[:300].replace("\n", " ") if vb and last is not None else ""
             out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
