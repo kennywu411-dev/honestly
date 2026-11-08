@@ -13,6 +13,7 @@ import pytest
 from honestly import hooks
 
 needs_alarm = pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="no SIGALRM on this platform")
+CATASTROPHIC = "".join(["(=+)", "+x"])   # takes forever on a long run of `=`, which is the point here
 
 
 def _run(monkeypatch, capsys, which="stop", agent="claude-code", payload=None):
@@ -33,7 +34,7 @@ def _stub(monkeypatch, fn, seconds=0.2):
 @needs_alarm
 @pytest.mark.parametrize("which,word", [("stop", "reply"), ("pre", "command")])
 def test_a_catastrophic_regex_is_stopped_and_reported(tmp_path, monkeypatch, capsys, which, word):
-    _stub(monkeypatch, lambda: re.search(r"(=+)+x", "=" * 40))
+    _stub(monkeypatch, lambda: re.search(CATASTROPHIC, "=" * 40))
     out, took = _run(monkeypatch, capsys, which)
     assert took < 3.0
     assert "not checked" in out["systemMessage"] and word in out["systemMessage"]

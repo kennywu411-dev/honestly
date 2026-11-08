@@ -67,12 +67,15 @@ def _finding(**kw):
 
 @posix_only
 def test_an_install_from_before_is_tightened(home):
-    home.mkdir(mode=0o755)
-    (home / "catches.jsonl").write_text("{}\n")
-    os.chmod(home / "catches.jsonl", 0o644)
-    (home / "cache").mkdir()
-    (home / "cache" / "x.json").write_text("[]")
-    os.chmod(home / "cache" / "x.json", 0o644)
+    old = os.umask(0o022)   # what an older version wrote under: the system's usual default
+    try:
+        home.mkdir(mode=0o755)
+        (home / "catches.jsonl").write_text("{}\n")
+        (home / "cache").mkdir()
+        (home / "cache" / "x.json").write_text("[]")
+    finally:
+        os.umask(old)
+    assert mode(home / "catches.jsonl") & 0o044
     store.tighten()
     assert mode(home) == 0o700 and mode(home / "catches.jsonl") == 0o600 and mode(home / "cache" / "x.json") == 0o600
 

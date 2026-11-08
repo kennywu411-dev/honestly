@@ -84,3 +84,10 @@ def test_the_release_steps_are_written_down():
     text = _text(os.path.join(ROOT, "docs", "release.md"))
     for word in ("Trusted Publisher", "release.yml", "pypi", "git tag -s"):
         assert word in text, word
+
+
+def test_codeql_skips_the_tests_and_nothing_else():
+    config = _text(os.path.join(ROOT, ".github", "codeql", "codeql-config.yml"))
+    assert re.findall(r"^\s*-\s*(\S+)", config, re.M) == ["tests"]
+    assert not re.search(r"^paths:", config, re.M)
+    assert "config-file: ./.github/codeql/codeql-config.yml" in _read("codeql.yml")

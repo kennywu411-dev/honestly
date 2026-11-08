@@ -1,5 +1,6 @@
 """Windows runs a program from the current directory before System32, so a repository's powershell.exe would win. A PATH with an empty entry does the same on POSIX."""
 import os
+import stat
 import sys
 
 import pytest
@@ -11,7 +12,7 @@ def _make(folder, name):
     folder.mkdir(parents=True, exist_ok=True)
     p = folder / name
     p.write_text("")
-    os.chmod(p, 0o755)
+    os.chmod(p, stat.S_IRWXU)
     return str(p)
 
 
