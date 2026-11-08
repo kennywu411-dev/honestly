@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "honestly"
-version = "0.7.0"
+version = "0.7.1"
 description = "Blocks a coding agent's \"tests pass\" / \"fixed\" / \"pushed\" reply when no check ran after its last edit. Hooks for Claude Code and Codex (Cursor, Gemini CLI experimental); audits past sessions. Standard-library Python, no model calls."
 readme = "README.md"
 requires-python = ">=3.9"
