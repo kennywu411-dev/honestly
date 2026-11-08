@@ -163,3 +163,18 @@ def test_a_browser_in_the_turn_means_it_could_not_be_checked():
 def test_nothing_behind_it_stays_held():
     assert _v(_tool("Bash", "ls ~/Downloads", result="a.zip")) == [("downloaded", "unbacked")]
     assert _v(_tool("Bash", "git status", result="clean"), text="下载好了。") == [("downloaded", "unbacked")]
+
+
+def test_a_manual_download_the_turn_shows_by_name_is_evidence():
+    assert _v(_tool("Bash", "unzip -l ~/Downloads/kb3d_pack.zip | head -15", result="Archive:  /Users/u/Downloads/kb3d_pack.zip\n  Length  Name\n  12 a.png")) == [("downloaded", "backed")]
+    assert _v(_tool("Bash", "ls -la ~/Downloads/kb3d_pack.zip", result="-rw-r--r-- 1 u s 1600000000 Oct 23 kb3d_pack.zip")) == [("downloaded", "backed")]
+    assert _v(_tool("Bash", "tar -tzf data/weights.tar.gz | head", result="weights/a.bin")) == [("downloaded", "backed")]
+
+
+def test_an_archive_the_turn_does_not_show_stays_held():
+    assert _v(_tool("Bash", "ls ~/Downloads/a.zip", err=True, result="ls: a.zip: No such file or directory")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "unzip -l a.zip", err=True, result="unzip:  cannot find or open a.zip")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -la ~/Downloads/a.zip", result="")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "echo a.zip", result="a.zip")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -lt ~/Downloads | head -4", result="b.pdf")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -la a.zip", result="-rw-r--r-- 1 u s 9 a.zip"), text="已下载 b.zip。") == [("downloaded", "unbacked")]

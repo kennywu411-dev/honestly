@@ -79,6 +79,7 @@ def _shell_text(cmd: str) -> str:
 
 
 COMMENT_LINE = re.compile(r"^[ \t]*(?:#|//).*$", re.M)
+SHELL_HEAD = re.compile(r"\s*(?:[\w./~-]{0,200}/)?(?:bash|sh|zsh|dash)\b")
 
 
 def _heredoc_did_it(spec: Spec, cmd: str) -> bool:
@@ -90,7 +91,7 @@ def _heredoc_did_it(spec: Spec, cmd: str) -> bool:
         if not (seg.heredoc and seg.interp and "\n" in seg.text):
             continue
         body = seg.text.split("\n", 1)[1]
-        if rules.SHELL_HEAD.match(seg.text):
+        if SHELL_HEAD.match(seg.text):
             if spec.bash.search(_shell_text(body)):
                 return True
         elif spec.heredoc.search(COMMENT_LINE.sub("", QUOTED_STRING.sub('""', body))):
@@ -117,6 +118,21 @@ DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\b
 
 
 DOWNLOAD_FAILED = re.compile(r"\bcurl: \(\d{1,3}\)|\bwget: |\bno such file\b|(?<!matches )\bnot found\b|\bunable to\b|\bcould not\b|\bcannot\b", re.I)
+
+
+NAMED_ARCHIVE = re.compile(r"(?:^|[\s;&|(])(?:ls|stat|file|du|unzip|zipinfo|tar)\s(?:[^|;&\n]{0,120}?\s)??[\"']?([\w.~/ -]{0,160}?\.(?:zip|tar|tgz|gz|bz2|xz|7z|rar|dmg|pkg|deb|whl|safetensors|gguf|ckpt|onnx))[\"']?(?=[\s|;&]|$)", re.I)
+
+
+def _shows_a_named_archive(t) -> bool:
+    """`unzip -l x.zip`, `ls -la x.zip`, `tar -tzf x.tgz`: the command names the file and its output shows something came back."""
+    if t.is_error or not (t.result or "").strip():
+        return False
+    m = NAMED_ARCHIVE.search(_shell_text(t.text or ""))
+    if not m:
+        return False
+    if re.match(r"\s*(?:[^|;&\n]*[;&|(]\s*)?(?:unzip|zipinfo|tar)\b", m.group(0)):
+        return True
+    return m.group(1).rsplit("/", 1)[-1].lower() in (t.result or "").lower()
 
 
 def _a_later_step_failed(spec: Spec, t) -> bool:
@@ -197,6 +213,11 @@ def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: l
     if category == "sent" and SEND_SELF.search(sentence):
         # "sent you the image": only SendUserFile-like tools count, a mail client does not
         hits = [t for t in hits if re.search(r"SendUserFile|PushNotification|send", t.name or "", re.I)]
+    if not hits and category == "downloaded" and not PATH_IN_CLAIM.search(sentence):
+        shown = [t for t in tools if t.name == "Bash" and _shows_a_named_archive(t)]
+        if shown:   # the person downloaded it by hand, and the turn looked at that very file
+            last = shown[-1]
+            return "backed", f"file seen on disk: {last.name}: {(last.text or '')[:80]}", f"{last.name}: {(last.text or '')[:80]}", (last.result or "")[:300]
     if not hits and category in ("downloaded", "saved"):
         path = PATH_IN_CLAIM.search(sentence) or DIR_IN_CLAIM.search(sentence)
         base = path.group(1).rstrip("/").rsplit("/", 1)[-1].lower() if path else ""
