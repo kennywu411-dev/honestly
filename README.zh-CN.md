@@ -45,6 +45,7 @@ honestly doctor --lang zh       # 体检安装，并现场做两次自测
 
 ```
   ok   自测（代码）：伪造一句改完代码就说「All tests pass.」，没跑测试 → 已拦截
+  ok   自测（非代码）：伪造一句「I've sent you the report.」，没有发送动作 → 已拦截
 一切正常：guard 已安装并能正常拦截。
 ```
 
@@ -70,7 +71,7 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 
 助手被要求现在就去做并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。它的这次回答同样会被检查：如果仍然没有依据就说通过，为避免反复拦截不会再拦第二次，但会显示一条提醒，告诉你这句话未经验证。
 
-第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到一次完整运行的结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。只是找某一样东西的不拦：`pytest -rs | grep SKIP`、`pytest -k spikes | head`、`pytest tests/test_a.py | head`。下面这些也放行：`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
+第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到一次完整运行的结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。只是找某一样东西的不拦：`pytest -rs | grep SKIP`、`pytest -k spikes | head`、`pytest tests/test_a.py | head`；如果回复接着说测试通过，而屏幕上没有结果，就会被拦。下面这些也放行：`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
 
 hook 不影响正常使用：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
 
@@ -103,8 +104,6 @@ honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linu
 | 定时任务设好了 | CronCreate、定时任务工具、crontab、launchctl |
 | 验证过、跑通了、实测通过 | 任何运行或检查；句子里点名了某个工具（docker、pytest……）就必须出现那个工具 |
 
-默认只有关于代码的说法才会拦下回复，也就是表里到“修好了”为止的几行。从“验证过”往下的几行只在 `honestly audit` 里列出，只有 `strictness strict` 才拦，因为在真实会话里，这些规则错的比对的多得多。
-
 它刻意不标的：计划（"我接下来跑测试"）、提问、引用、代码块、标题和表格、主语是用户的句子（"你发给我的……"）、状态描述（"数据只保存在本地"）、文献标题（"fixed bed reactor"）、只是总结上一轮的回复。看不到的东西（远程 CI、浏览器操作、你自己的终端）一律记为"无法核实"，不会变成冤枉的"无支撑"。
 
 子代理做的事也算：`Agent` 调用里跑的测试是主助手结论的依据，后台命令的输出从任务文件里读回来。和主助手并行运行的后台子代理所做的修改，不会让主助手自己的检查作废。
@@ -115,7 +114,7 @@ honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linu
 
 ```bash
 honestly ignore "fixed bed reactor"      # 含这个短语的句子永远不算结论（--remove 删掉，--list 查看）
-honestly config strictness strict        # 严格：非代码的说法、证据偏弱的说法和测试输出上的过滤都拦
+honestly config strictness strict        # 严格：只看截图判断的"修好了"和测试输出上的过滤也拦
 honestly config strictness lenient       # 宽松：只拦"跑了检查但检查失败"的
 honestly config verify "make verify"     # 你自己的命令算作跑测试
 honestly config off sent,checked         # 关掉某几类（config on … 再打开）
@@ -197,7 +196,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 3. **之后有没有对应的检查。** 见上表。`verify_commands` 里的自定义命令算测试。
 4. **输出说了什么。** 最后一行汇总说了算：`12 passed` 支持结论，`2 failed` 反驳，`fail 0` 是通过；一个测试都没收集到的运行（`no tests ran`、`Ran 0 tests`、`0 passing`、`[no tests to run]`）什么都不支持，退出码是绿的也一样。缩小范围的运行（`pytest -k`、单个文件）只在结论写了同样的数量时才算。最后一次检查没说通过还是失败（比如只是读 CI 状态），就用前面最近一次说了的。
 5. **非代码结论**看整轮加上一轮（回复经常开头先汇报上一轮做了什么），而且必须对得上：说"已保存到 report.csv"就得写过 `report.csv`；说"图发你了"得有发送工具，脚本正文里出现 mail 命令不算。
-6. **视觉修复。** "重叠修好了"后面跟着渲染和看截图，记为"弱"：单独列出，不算验证也不算无支撑（只有 `strictness strict` 才拦）。“修好了”之前跑过的检查已通过、之后又改了一处，或者“测试通过”之前测试已通过、最后一次修改之后跑过 lint、类型或构建检查，也算 `weak`：结果不是编的，那处修改有没有影响要读代码才知道。修改之后什么都没跑就说“测试通过”，仍然会拦。
+6. **视觉修复。** "重叠修好了"后面跟着渲染和看截图，记为"弱"：单独列出，不算验证也不算无支撑（只有 `strictness strict` 才拦）。
 7. **看不见的一律"无法核实"**：远程运行（CI、Kaggle）、浏览器操作、你自己的终端、其他会话、没有捕获的输出。
 
 分叉的会话会去重，同一轮只算一次。全部规则和排除项在 [`src/honestly/rules.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/rules.py) 和 [`src/honestly/noncode.py`](https://github.com/kennywu411-dev/honestly/blob/main/src/honestly/noncode.py)。
@@ -214,8 +213,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 | 非代码 | 41 | 0/41 | 5/41 | 总结句、上一轮的工作、后台任务都被标了；改成结构性规则后同一批记录上 0 条标记 |
 | 0.5.3 | 18 | 14/18 正确、4 不确定、0 错 | 未做 | 0.5.3 的修复；只标了一遍，非盲标 |
 | 0.7.0 | 13 | 12/13 | 未做 | 逐条看过 0.6 规则在 60 天里标记的全部结论（65 条，219 个会话）；中途的进度说明、在别的仓库里的改动、只写临时目录的脚本、`>/dev/null` 以及十几种句式不再误标。只标了一遍，非盲标。0.7.2 的盲标复查没有支持这个数字 |
-| 0.7.2 | 9 | 未做 | 4/8（+1 不确定） | 对 0.7.1 的标记做了盲标复查（15 条：1 对、7 错、7 不确定，当时标注表把命令截断了），据此修复：提交钩子跑的测试、脚本自己的 `[OK]` 行、句子点名的空跑都算依据，新建文件不再让之前的测试作废。它仍判错的多数是“测试之后又改了一处”，而那处改动碰不到这句话说的内容；这个形状规则有意继续拦 |
-| 0.7.3（现行规则） | 5 条，其中 4 条拦回复 | 未做 | 拦下的里 3/4，用同一次盲标的结果 | 只拦关于代码的说法；之后跑过别的检查的旧通过，以及之前检查已通过的“修好了”，都算 `weak`。第 4 条是 README 的演示，盲标认为有依据 |
+| 0.7.2（现行规则） | 9 | 未做 | 4/8（+1 不确定） | 对 0.7.1 的标记做了盲标复查（15 条：1 对、7 错、7 不确定，当时标注表把命令截断了），据此修复：提交钩子跑的测试、脚本自己的 `[OK]` 行、句子点名的空跑都算依据，新建文件不再让之前的测试作废。它仍判错的多数是“测试之后又改了一处”，而那处改动碰不到这句话说的内容；这个形状规则有意继续拦 |
 
 第 3 到 5 轮、0.5.3 这一遍和召回率研究见 [docs/precision.md](https://github.com/kennywu411-dev/honestly/blob/main/docs/precision.md)。**召回率：**对 66 条审计没有标记的结论做了同样的标注，找到 5 处不同的漏判，4 处已修；`honestly` 仍然宁可"无法核实"也不误报。最早的误报来自另一台机器的记录（英文文献标题里的 "fixed bed reactor"、Windows 编码），最早的漏判来自一次现场演示（脚本正文里的 `curl` 被当成了发送）；这三件事现在都是回归测试。眼下最有用的贡献是 Python、JavaScript 之外技术栈上的一条带标注的结论：开一个 issue，写上那句话和那一轮做了什么。
 
@@ -227,7 +225,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
 - **Cursor 和 Gemini CLI 的拦截是实验性的。**Cursor 的 hook 按官方文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过。Gemini CLI 用真实 CLI（0.67）跑过，回复由本地替身按脚本给出：接管道的 `pytest` 被拒绝，没跑测试或测试失败后说“测试通过”会被拦，真的通过则放行；还没有真实模型的会话确认。在 Gemini CLI 里，被拦的回复会留在屏幕上，后面跟着重试的内容。Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
-- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，715 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
+- CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，687 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
 ## 相关项目
 
