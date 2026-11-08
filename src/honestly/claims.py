@@ -191,7 +191,7 @@ ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之�
 ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
     r"没有?|未(?!来)|并非|不是|不能|不敢|不可|不要|不用|不必|没法|无法|难以|别|勿|"
-    r"接下来|下一步|然后再|准备|打算|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
+    r"接下来|下一步|然后再|再确认|下面(?!的|这|是)|为了让|为了使|为的是|以便|好让|准备|打算|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
     r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
     r"因为|由于|原因是|导致|看起来|似乎|好像|貌似|其实|疑似|可能|也许|或许|大概|估计|只是|"
@@ -204,7 +204,7 @@ ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想�
 ZH_AFTER = re.compile(r"\s?(?:了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|回我|告诉我|跟我说|叫我|通知我|发我|还是不行|也不行|还不行|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
 EN_VETO = re.compile(
     r"\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot|without|hardly|barely|unable)\b|n't\b"
-    r"|\b(?:fail(?:s|ed)?|refus(?:es|ed)|going|about|have|has|had|trying|supposed|required|ought) to\b"
+    r"|\b(?:fail(?:s|ed)?|refus(?:es|ed)|going|about|have|has|had|trying|supposed|required|ought) to\b|\b(?:to make|in order to)\b"
     r"|\b(?:will|shall|gonna|would|could|might|may|must|should|need|needs|want|wants|intend|intends|goal|aim|todo|hope|hopes)\b|\b(?:plan|plans|planned|planning) to\b|\bthe plan is\b"
     r"|'ll\b|\bcan\b(?! confirm)|\blet me\b|\blet's\b|\blets\b"
     r"|\b(?:if|unless|once|when|whenever|until|till|whether|lest|assuming|assume|provided|suppose|supposing|imagine|even though|in case|as soon as|how many|how much|to see)\b"
