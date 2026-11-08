@@ -15,142 +15,23 @@ from dataclasses import dataclass
 from . import shell as _sh
 
 # ----------------------------------------------------------------- claims
-CLAIM_PATTERNS = [
-    ("tests_pass", re.compile(
-        r"((?:all (?:the )?)?tests? (?:are |all )?(?:now )?pass(?:es|ed|ing)?\b(?!\s+(?:a|an|the|its|this|that|my|our|your|each|every|some|any|\w+ (?:to|into|through|as|along|down))\b)(?!\s+\d[\d.]*\s*(?:%|for|as|to|into|instead)\b)(?!\s+(?:whole|raw|plain|real|negative|positive|fractional|decimal)\b)(?!\s+(?:percent(?:age)?s?|values?|numbers?|arguments?|args|strings?|integers?|ints|floats?|decimals?|fractions?|inputs?|params|parameters?|objects?|dicts?|lists?|arrays?|mocks?|fixtures?|data|None|null|True|False|kwargs|cents|prices?|amounts?)\b)"
-        r"|\btest suite (?:now )?pass(?:es|ed)?\b|\btests? (?:are|is) (?:all |now )?green\b"
-        r"|\b\d+ (tests? )?passed\b|\d+ 个?(测试|用例)(全部|都|均)?通过|测试(全部|都|已|已经|均)?通过|用例(全部|都)?通过)", re.I), {"test"}),
-    ("checks_pass", re.compile(
-        r"(checks? (all )?pass(es|ed)?\b|lint(ing)? pass(es|ed)?\b|type ?check(s|ing)? pass(es|ed)?\b|build pass(es|ed)?\b|检查(结果)?[:：]?\s*(全部|都|均)?通过|全部通过|lint (全部)?通过|\b0 (错误|warnings?|errors?))", re.I), {"test", "build"}),   # "10 errors" is not "0 errors"
-    ("build_ok", re.compile(
-        r"(build (succeeded|succeeds|passed|passes|is green|ok)|compiles? (cleanly|fine|ok)|编译通过|构建(成功|通过)|打包(成功|完成)|类型检查通过|lint 通过|ruff 也?通过)", re.I), {"build", "test", "run"}),
-    ("rendered", re.compile(
-        r"(render(ed|ing)? (is )?(complete|finished|done)(?!\s+(?:on|by|in|at|before)\b)|渲染(完成|成功|好了|出来了)|已渲染|成片(渲染)?(完成|已出)|已经渲染)", re.I), {"render", "run"}),
-    ("pushed", re.compile(
-        r"(\b(?:is|are|was|were|been|got|all|both|everything)\s+pushed\b(?!\s+(?:back|down|through|out|aside|into|onto|over|forward|around|away|up against)\b)|\bpushed\b(?=\s*(?:$|[.,;:!)(\]]|to\b|up to\b|it\b|and\b|everything\b|both\b|the (?:branch|commit|commits|fix|change|changes|code|tag|tags|PR)\b|\S+/\S+))"
-        r"|\bgit pushed\b|已推送|推送(完成|成功|到了))", re.I), {"push"}),  # "pushed back", "pushed the button" are not git
-    ("committed", re.compile(
-        r"(\bcommitted\b(?=\s*(?:$|[.,;:!)(\]]|and\b|it\b|everything\b|both\b|as\b|with\b|on\b|to (?:git|the repo|main|master|\S+ branch)\b|the (?:fix|change|changes|code|files?|work)\b|\d))"
-        r"|已提交到?(仓库|git|分支|主分支)|提交了 ?commit|打了 ?(tag|标签))", re.I), {"commit"}),  # "committed to the plan", "committed to memory" are not git
-    ("fixed", re.compile(
-        r"((?:\b(?:is|are|was|were|now|got|been|just|I|we|it's|that's|bug|issue|problem|error|crash|leak|typo|regression)\s+fixed\b(?!\s+(?:at|bed|point|width|size|length|rate|cost|income|price|position|number|value|set|interval|schedule|header|layout|effect|asset|term)\b)"
-        r"|\bfixed\b(?!\.\w)(?=\s*(?:$|[.,;:!)\]]|the\b|it\b|this\b|that\b|both\b|all\b|these\b|those\b|in\b|by\b|and\b|now\b|with\b|via\b|up\b|a\b|an\b|my\b|your\b|our\b|\d)))"
-        r"|已修复|修复了|修好了|修复完成|bug 已解决|问题已解决)", re.I), {"test", "build", "render", "exercise"}),  # "fixed bed reactor", "fixed-point", "fixed width" are adjectives, not a claim; running the fixed code (a repro script, a snippet, curl) counts
-    ("verified", re.compile(r"(\b(?:is|are|was|were|been|all|now|I|we|both|everything)\s+verified\b(?!\s+(?:wording|results?|numbers?|data|version|claims?|facts?)\b)|\bverified\b(?=\s*(?:$|[.,;:!)]|by\b|against\b|with\b|that\b|in\b))|\bI('ve| have) (tested|checked|confirmed)\b|已验证|验证通过|核对无误|确认无误|跑通了|实测(通过|可用|正常)|检查过了)", re.I), {"verified"}),  # needs a run, a read or a screenshot in the turn
-]
-_noncode_added = False
-
-
-def claim_patterns() -> list:
-    """CLAIM_PATTERNS with the claims about sending, deploying, downloading, saving, checking and scheduling. Those live in noncode.py,
-    which only judging a reply needs: the hook that runs before every shell command does not load it."""
-    global _noncode_added
-    if not _noncode_added:
-        from . import noncode
-        CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in noncode.CLAIMS]
-        _noncode_added = True
-    return CLAIM_PATTERNS
-
-
-NOT_A_CLAIM = re.compile(
-    r"((?:\d+|[一二三四五六七八九十几多])类[：:]|types? of claims?|claim (?:types|categories)|kinds? of claims?|(?:只|仅|都|全部)?保存在(?:本地|仓库|数据库|服务器|云端)|(?:is|are) (?:only |all )?(?:stored|kept) (?:in|on|locally)|\b(?:the )?(?:user|you|they|he|she|someone|the team|the maintainers?) (?:sent|said|asked|replied|pushed|deployed|saved|checked|downloaded)\b|(?:用户|你|他|她|对方|他们)(?:已经|刚|刚刚)?(?:发了|发来|发过|推了|部署了|保存了|查了|下载了)|接下来|下一步|我会|我将|我来|然后再|正在|还没|尚未|未验证|未经验证|not yet|haven'?t|hasn'?t|(?:AI|助手|智能体|模型|Claude|Codex|agent)[^。！？\n]{0,30}?(?:就说|又说|说了|声称|宣称|谎称|报告说)|\b(?:the|your|my|an?) (?:agent|AI|assistant|model)\b[^.!?\n]{0,40}?\b(?:says|said|claims|claimed|reports|reported|insists|insisted)\b|不能说|不敢说|没法说|无法(?:确认|保证|断言|说)|不能(?:确认|保证|断言)|还不能|(?:没有|没)(?:实际)?(?:运行|跑)(?:过)?(?:任何)?(?:测试|pytest|用例)(?![^。！？.!?]*(?:现在|刚才|已经|然后|随后))|can'?t (?:say|claim|confirm|promise|guarantee)|cannot (?:say|claim|confirm|guarantee)|\bunverified\b|\bnot verified\b|(?:did not|didn'?t|do not|don'?t) (?:run|execute) (?:the |any )?(?:tests?|pytest|test suite)\b(?![^.!?]*\b(?:now|then|after that|so I ran)\b)|nothing (?:is|was|has been)|\bnot \w+ yet\b|isn'?t \w+ yet|should pass|应该(能|会)|等.{0,8}(完成|渲染|通过|通知)|通知我|被标记|标记为|标记\"|syntax[- ]?check|只做了语法检查"
-    r"|需要你|请你|你可以|you can|\?|？|待验证"
-    r"|\b[1-9]\d* failed\b|\d+ 个?失败|but (?:now |still )?fail|但.{0,12}(报错|失败|出错|不过)"
-  # honest partial results are not a pass claim
-    r"|\bupstream\b|according to|\bin (?:v\d|version \d|python ?\d|node ?\d|chrome ?\d|#\d)|上游|按照?文档|文档(说|写|里)|之前已|已修复的|曾经|\b(?:pass(?:ed|es)?|green|succeeded)\s+(?:\w+\s+){0,2}?(?:earlier|previously)\b(?![^.!?]*\b(?:now|still|again|after)\b)|\b(?:earlier|previously)[, ]+(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]*\b(?:now|still|again|after)\b)"  # someone else fixed it, somewhere else
-    r"|通过率|通过的(条件|用例|标准)|position:\s*fixed|transaction"
-    r"|我也会|我还会|我再|完成后会|之后会|会出现在|默认保存|通常保存|一般保存|会保存到|核实过的|核对过的|验证过的|下载完成后|不会丢"  # future, generic behaviour, adjectives, state
-    r"|意思是[:：]|\b(you|he|she|they) (said|say|wrote|claimed)\b|你说|他说|它说|审查员|reviewer (said|wrote)"  # explaining or quoting, not claiming
-    r"|\bprevious(?:ly| (?:run|session|turn|attempt|time|conversation))\b(?![^.!?]*\b(?:now|still|again)\b)|yesterday|last (?:week|run|time)|only on \w+ (?:but|and)|only (?:on|in) (?:linux|mac|windows|ci)\b"  # another time or place
-    r"|\[J\]|\bet al\b|\bdoi\b|\bvol\.\s*\d|\bpp\.\s*\d|\bISBN\b|\bISSN\b"  # bibliography entries
-    r"|\bI'?m re-?(running|rendering|testing|checking)\b|\bto (check|verify|confirm)\b"  # says a check is still coming
-    r"|(?:命令|脚本|它|这条|这个|运行后|跑完|执行后)[^，。,；;]{0,4}会(?:显示|提示|打印|输出|告诉你)|\b(?:it|this|that|the (?:command|script|tool|run|output))\s+will\s+(?:show|print|display|tell you|report)\b"  # describes what a command will do
-    r"|\d[\d.,]*\s*[KMGT]i?B\s*(?:/|of)\s*\d[\d.,]*\s*[KMGT]i?B"  # a progress fraction such as 635 GB / 680 GB
-    r"|\b(?:the|a|stop|honestly(?:'s)?)\s+hook\s+(?:stopped|blocked|held|caught|flagged)\s+(?:me|this|the|my|it)\b|\bhonestly\s+(?:stopped|blocked|held|caught|flagged|stepped in)\b|被\s*(?:honestly|hook|钩子|stop ?hook)\s*拦|(?:我|回复|这条回复|上一条回复)(?:刚才|之前)?被拦(?:下|截|住)?|拦(?:截|下)(?:的)?原因"
-    r"|\bbecause I (?:had )?(?:said|claimed)\b|\bI (?:had )?(?:said|claimed)\b[^.!?\n]{0,80}\b(?:without|before (?:I|running|re-?checking|checking)|but (?:hadn'?t|had not|didn'?t|did not))\b)", re.I)  # explaining a block: "the hook stopped me because I said..."
-# sentences that open with a progress word or an explanation ("Running the tests now.", "That means ...")
-NOT_A_CLAIM_START = re.compile(r"(?:running|re-running|checking|verifying|now (?:running|re-?running|checking|verifying|testing|building|rendering|let)|next"
-                               r"|(?:意思是|也就是说|换句话说|即|比如|例如|e\.g\.|i\.e\.|that means|this means|in other words|for example|meaning)\b)", re.I)
-# forward-looking words only disqualify a claim when they come BEFORE it ("if tests pass" vs "tests pass, even if X")
-PREFIX_NOT_CLAIM = re.compile(r"(准备|will |I'll|I’ll|we'll|next,? I|let me|going to|while |如果|\bif |一旦|\bonce |^then |直到|\buntil\b|\bbefore (?:I|we|my|the|this)\b|make sure|\bensure\b)", re.I)   # "make sure tests pass" is an instruction; "tests pass, make sure to…" still a claim
-# a step written for the reader: what they will see and what it means ("跑测试，看到 12 passed 就说明环境配好了", "you should see 12 passed").
-# Judged around the match: an expectation verb right before it, or "see X" right before and "就说明 / means" right after.
-_ZH_GAP, _EN_GAP = r"\s*[:：]?\s*[「“\"'`]?[^，。；;:：！!？?\n]{0,8}$", r"\s*[:\"“'`]?[^.,;:!?\n]{0,24}$"   # "看到测试全部通过", "see all 12 tests pass"
-READER_SEES = re.compile(r"(?:会|将|应该|应当|就能|才能)[^，。；;！!？?\n]{0,12}?(?:看到|看见|显示|打印出?|输出|出现|提示)" + _ZH_GAP +
-                         r"|\b(?:you|they|it|this|that|the (?:output|terminal|console|page|screen|command|script|run))(?:'ll|’ll| will| should| would)\s+"
-                         r"(?:see|get|notice|print|show|display|output|say)\b" + _EN_GAP + r"|\bwhen (?:you|they) (?:see|get)\b", re.I)
-SEE_BEFORE = re.compile(r"(?:看到|看见)(?!了)" + _ZH_GAP + r"|\bseeing\b" + _EN_GAP, re.I)   # the reader sees; "输出 12 passed，就说明…" is the agent's output
-MEANS_AFTER = re.compile(r"^\s*[」”\"'`]?\s*(?:的话|[，,]?\s*(?:就|即|便|则|才)(?:说明|代表|表示|意味着|证明|是|行|算|可|好|对|成功|没问题|完成|OK\b))"
-                         r"|^\s*[\"”'`]?\s*(?:means|tells you|shows|confirms|indicates)\b", re.I)
-OWN_RUN = re.compile(r"(?:我|我们)(?:刚才|刚刚|已经|已|也|又|再|先)?(?:跑|运行|执行|测|试|看到|看了)|(?:刚才|刚刚|刚)(?:跑|运行|执行|测)|(?:跑|运行|执行|测试)(?:了|过)|看到了"
-                     r"|\bI (?:ran|re-?ran|saw|got|just|have)\b|\bI'?ve\b|\bwe (?:ran|saw|got)\b|\bran\b", re.I)   # the agent's own run: still a claim
-
-
-def _reader_step(sent: str, start: int, end: int) -> bool:
-    if OWN_RUN.search(sent):
-        return False
-    before = sent[:start]
-    return bool(READER_SEES.search(before) or (SEE_BEFORE.search(before) and MEANS_AFTER.search(sent[end:])))
-
+# The detector is claims.py. Only judging a reply needs it, so the hook that runs before every shell command does not load it.
 
 REMOTE_RUN = re.compile(r"(kaggle|冒烟|压力测试|\bCI\b|notebook|公榜|提交版|提交前检查|runpod|colab|github actions|workflow run)", re.I)
-QUOTES = "\"“”「」『』"
-APOSTROPHE_QUOTE = re.compile(r"(?<!\w)['’]|['’](?!\w)")   # a straight or curly quote that is not inside a word (I've, user's)
-
-
-@dataclass
-class ClaimHit:
-    category: str
-    sentence: str
-    evidence_kinds: set
-
-
-def split_sentences(text: str):
-    text = re.sub(r"```.*?```", " ", text, flags=re.S)
-    text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith(">"))
-    text = re.sub(r"`([^`\n]*)`", r"\1", text)   # keep the words inside inline code: file names and commands are what the claim is about
-    text = "\n".join(l for l in text.splitlines() if not re.match(r"\s*(#{1,6}\s|\|)", l) and not re.match(r"\s*\*\*[^*\n]{1,80}\*\*\s*[:：]?\s*$", l))   # headings, table rows, bold-only lines
-    text = re.sub(r"(?m)^\s*(?:[-*+]\s+)?(?:\[[ xX]\]\s+)?", "", text)                        # list markers, checkboxes
-    parts = re.split(r"(?<=[。！!\.?？])\s+|\n+|(?<=[。！？])", text)   # a question ends a sentence too
-    return [p.strip() for p in parts if p and p.strip()]
-
-
-def _quote_count(s: str) -> int:
-    return sum(s.count(q) for q in QUOTES) + len(APOSTROPHE_QUOTE.findall(s))
-
-
-def _inside_quotes(sent: str, start: int, end: int) -> bool:
-    return _quote_count(sent[:start]) >= 1 and _quote_count(sent[end:]) >= 1
-
-
 IGNORE_PHRASES: tuple = ()        # set by config.apply(): a sentence containing one of these is never a claim
 DISABLED: frozenset = frozenset()  # set by config.apply(): claim categories switched off
 
 
-LINK_TEXT = re.compile(r"\[[^\[\]\n]*\]\([^)\s]*\)")
-
-
-def _inside_link(sent: str, start: int, end: int) -> bool:
-    return any(m.start() < start and end <= m.end() for m in LINK_TEXT.finditer(sent))
-
-
 def find_claims(text: str):
-    hits = []
-    for sent in split_sentences(text):
-        if len(sent) > 400 or NOT_A_CLAIM.search(sent) or NOT_A_CLAIM_START.match(sent):
-            continue
-        low = sent.lower()
-        if any(p in low for p in IGNORE_PHRASES):
-            continue
-        for name, pat, kinds in claim_patterns():
-            if name in DISABLED:
-                continue
-            m = pat.search(sent)
-            if m and not _inside_quotes(sent, m.start(), m.end()) and not _inside_link(sent, m.start(), m.end()) and not PREFIX_NOT_CLAIM.search(sent[:m.start()]) \
-                    and not _reader_step(sent, m.start(), m.end()):
-                hits.append(ClaimHit(name, sent, kinds))
-                break
-    return hits
+    from . import claims
+    return claims.find_claims(text, IGNORE_PHRASES, DISABLED)
+
+
+def __getattr__(name: str):
+    if name in ("ClaimHit", "NOT_A_CLAIM", "split_sentences"):
+        from . import claims
+        return getattr(claims, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ------------------------------------------------------------ edits & paths

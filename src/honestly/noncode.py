@@ -51,17 +51,6 @@ SPECS: dict[str, Spec] = {
         noun="check"),
 }
 
-# Each claim regex is deliberately narrow: a completed, first-hand action, not a description or a plan.
-CLAIMS: list[tuple[str, re.Pattern]] = [
-    ("sent", re.compile(r"(已发送|发送成功|已发出|已回复|邮件已发|已发给你|发给你了|(图|截图|文件|对比图|视频|成片|抽帧图?)(已|已经)发|\bsent (you|the|an|a|it|them|out|over)\b|\bI('ve| have)? ?(emailed|replied|posted)\b|\breplied to\b|\bposted (to|the|it|in)\b)", _I)),
-    ("deployed", re.compile(r"(已部署|部署成功|部署完成|已上线|上线成功|已发布到|发布成功|(?<!forward )(?<!forward-)(?<!\bthe )(?<!\ba )(?<!\ban )(?<!\bour )(?<!\byour )(?<!\btheir )(?<!\bnewly )(?<!\bcurrently )\bdeployed\b(?!\s+(?:engineers?|engineering|models?|versions?|apps?|services?|systems?|roles?|positions?|instances?|environments?|code|state|contracts?|artifacts?|builds?)\b)|\bis (now )?live\b|went live|\bpublished to\b)", _I)),
-    ("downloaded", re.compile(r"(已下载|下载完成|下载好了|下载成功|下载到了|\bdownloaded\b(?!\s+(?:data|files?|models?|assets?|imagery|copy|version|package|archive)\b))", _I)),
-    ("saved", re.compile(r"(已保存(?!的)|保存到|保存在(?!.{0,6}的)|已导出(?!的)|导出到|已写入(?!的)|写入了|已存到|存到了|已存为|已放到|放到了|\bsaved (to|at|as|in)\b|\bexported (to|as)\b|\bwritten to\b|\bwrote (it |them )?to\b)", _I)),
-    ("scheduled", re.compile(r"((定时|任务|提醒|闹钟|cron|自动检查).{0,8}(已设好|已设定|已安排|已建好|已创建|设好了|建好了)|(已设好|已设定|已安排好?|已建好?|建好了|设好了).{0,8}(定时|任务|提醒|闹钟|自动检查)|定时任务(已|已经)?(建|设|创建|加)好?|已建(好)?定时|设置好了定时|已经定时|\bI('ve| have)? ?scheduled\b|\bscheduled (a|the|an|it)\b|cron (job )?(created|added|set up|installed))", _I)),
-    ("checked", re.compile(r"(我核对过|核对过了|核实过|已核实|查过了|我查了|我查过|确认过了|我确认过|对照过|我核对了|已核对|翻过了|\bI('ve| have)? ?(checked|confirmed|looked (it )?up|double-checked|cross-checked|looked at|read through)\b|\bchecked against\b|\bverified against\b)", _I)),
-]
-# the pre-existing "verified" pattern in rules.CLAIM_PATTERNS is routed here as well
-
 PATH_IN_CLAIM = re.compile(r"([\w\-./~一-鿿]+\.(?:md|txt|json|jsonl|csv|png|jpe?g|gif|webp|mp4|mov|mp3|wav|pdf|docx?|xlsx?|pptx?|html?|svg|py|js|ts|yaml|yml|toml|tex|srt|zip|tar\.gz|ipynb|env|cfg|ini))", _I)
 DIR_IN_CLAIM = re.compile(r"((?:[\w\-.~\u4e00-\u9fff]+/)+)")   # a directory such as keyframes/libtv/
 BROWSER_TOOL = re.compile(r"mcp__.*(browser|chrome|computer|navigate|form_input|javascript_tool)|^js$", _I)
