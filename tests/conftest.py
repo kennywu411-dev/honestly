@@ -1,5 +1,5 @@
 import pytest
-from honestly import hooks
+from honestly import hooks, report
 
 
 @pytest.fixture(autouse=True)
@@ -7,6 +7,14 @@ def _isolated_catch_log(tmp_path, monkeypatch):
     """Hooks under test must never write into the developer's real ~/.honestly/catches.jsonl."""
     monkeypatch.setattr(hooks, "catches_path", lambda: str(tmp_path / "catches.jsonl"))
     monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "hook-errors.log"))
+
+
+@pytest.fixture(autouse=True)
+def _no_real_browser(monkeypatch):
+    """A headless Chrome under a temporary HOME asks macOS for a keychain and shows the user a popup. No test may start one."""
+    def nothing(cmd, **kw):
+        raise FileNotFoundError(cmd[0])
+    monkeypatch.setattr(report, "_run", nothing)
 
 
 @pytest.fixture(autouse=True)
