@@ -452,7 +452,7 @@ NOT_A_RUN = rules.NOT_A_RUN
 GROUP_PIPE = re.compile(r"\{(?P<body>[^{}]*)\}(?:\s*\d?>(?:&[\d-])?)*\s*\|&?\s*(?P<pipe>[^;&|]+)")   # a `{ ...; }` group piped into another command; a target fd only follows `&`, so `9>9>...` has one parse and cannot backtrack exponentially
 ENV_ASSIGN = re.compile(r"^(?:\s*\w+=\S*\s+)+")   # leading `VAR=value ` assignments; a quoted value is already blanked by QUOTED
 RUNNER = re.compile(r"\s*(?:\w+=\S+\s+)*(?:\S*/)?(?:python3?|uv|poetry|hatch|pipenv|node|npx|bun|deno|go|bash|sh|zsh|make|ruby|bundle|php|dotnet|swift|cargo)\b")
-SHELL_INLINE = re.compile(r"\s*(?:\S*/)?(?:bash|sh|zsh|dash)\s+(?:-\S+\s+)*?-[a-z]*c\b")   # `bash -c "..."`, `bash -e -lc "..."`: the quoted text runs
+SHELL_INLINE = re.compile(r"\s*(?:\S*/)?(?:(?:bash|sh|zsh|dash)\s+(?:-\S+\s+)*?-[a-z]*c\b|(?:pwsh|powershell)(?:\.exe)?\s+(?:-\S+\s+)*?-c(?:ommand)?\b|cmd(?:\.exe)?\s+/[ck]\b)", re.I)   # `bash -c "..."`, `bash -e -lc "..."`: the quoted text runs
 SHELL_HEREDOC = re.compile(r"^\s*(?:\S*/)?(?:bash|sh|zsh|dash)\b[^<\n]*<<")                 # `bash <<'EOF'`: the heredoc body runs
 STAGE_PREFIX = re.compile(r"^\s*(?:(?:\w+=\S*|time|nice|nohup|xargs(?:\s+-\S+)*|timeout\s+\S+|env)\s+)+")   # wrappers in front of the command that runs
 
@@ -524,7 +524,7 @@ GREP_NAMES = {"grep", "egrep", "fgrep", "rg", "ag", "ack"}
 
 def _stage_kind(stage: str):
     """What a pipeline stage runs: "test", "multi" (a runner that does not repeat an early failure at the end), "build", "lint", or None."""
-    bare = STAGE_PREFIX.sub("", ENV_ASSIGN.sub("", stage))
+    bare = rules.posix_probe(re.sub(r"^\s*\$\w+\s*=\s*", "", STAGE_PREFIX.sub("", ENV_ASSIGN.sub("", stage))))   # `$x = pytest`: PowerShell's assignment runs it
     word = re.sub(r"^(\s*)\S*/(?=[^\s/]+(?:\s|$))", r"\1", bare)   # `/path/.venv/bin/pip install pytest` is pip
     if READ_ONLY.search(word) or rules.NON_VERIFY_VERB.match(word) or NOT_A_CHECK.match(word) or re.match(r"\s*git (commit|push|tag|add)\b", word):
         return None   # `grep pytest log`, `gh repo edit --add-topic pytest`, `git show HEAD:tox.ini`, `brew install ruff`
@@ -655,42 +655,70 @@ def _split_args(text: str) -> list:
         return text.split()
 
 
+def _ps_list(token: str) -> list:
+    """`'a','b'` or `'a', 'b'`: PowerShell's list. A comma inside `{1,3}` belongs to the regex."""
+    return [p for p in re.split(r",(?![^{}]*\})", token) if p]
+
+
 def _sls_parts(rest: str):
     """Select-String's arguments in `_grep_parts` form. Its matching is case-insensitive unless told otherwise; `-Pattern a,b` is a list."""
     flags, pats, toks, i = {"i"}, [], _split_args(rest), 0
     while i < len(toks):
-        t = toks[i].lower()
+        name, colon, value = toks[i].partition(":")   # `-Pattern:foo`, `-Quiet:$true`
+        t = name.lower()
         if len(t) < 2 or t[0] != "-":
-            pats += toks[i].split(",")
+            pats += _ps_list(toks[i])
         elif "-pattern".startswith(t) and len(t) > 2:
-            i += 1
-            pats += toks[i].split(",") if i < len(toks) else []
+            if colon:
+                pats += _ps_list(value)
+            else:
+                i += 1
+                while i < len(toks):   # `-Pattern 'a', 'b'`: the list goes on while a token ends in a comma
+                    pats += _ps_list(toks[i])
+                    if not toks[i].endswith(","):
+                        break
+                    i += 1
         elif "-quiet".startswith(t):
-            flags.add("q")
+            if value.lower() != "$false":
+                flags.add("q")
         elif "-notmatch".startswith(t) and len(t) > 3:
             flags.add("v")
         elif "-simplematch".startswith(t):
             flags.add("F")
         elif "-casesensitive".startswith(t) and len(t) > 2:
             flags.discard("i")
-        elif any(p.startswith(t) for p in SLS_VALUE_PARAMS):
+        elif any(p.startswith(t) for p in SLS_VALUE_PARAMS) and not colon:
             i += 1
         i += 1
     return "rg", flags, pats   # .NET regexes read like rg's
 
 
 def _findstr_parts(rest: str):
-    """cmd's findstr in `_grep_parts` form: `/C:"a b"` is one literal, other words are alternatives; literal unless /R."""
+    """cmd's findstr in `_grep_parts` form: regexes by default, a space separates alternatives even inside quotes, `/C:"a b"` is one literal.
+    Switches combine: `/VI`, `/IC:foo`."""
+    flags, pats, literal = set(), [], False
+    for t in _split_args(rest):
+        m = re.match(r"/([a-z]*)(?:([cg]):(.*))?$", t, re.I | re.S)
+        if not m:
+            pats += t.split()
+            continue
+        for ch in m.group(1).lower():
+            flags |= {"v"} if ch == "v" else {"i"} if ch == "i" else set()
+            literal = literal or ch == "l"
+        if (m.group(2) or "").lower() == "g":
+            return "rg", flags, []   # patterns in a file: unknown
+        if m.group(2):
+            pats.append(re.escape(m.group(3)))
+    return "rg", flags, ([re.escape(p) for p in pats] if literal else pats)
+
+
+def _find_parts(rest: str):
+    """cmd's find: one literal string, `/V` inverts, `/I` ignores case, `/C` counts."""
     flags, pats = {"F"}, []
     for t in _split_args(rest):
         low = t.lower()
-        if low.startswith("/c:"):
-            pats.append(t[3:])
-        elif low.startswith("/g:"):
-            return "rg", flags, []   # patterns in a file: unknown
-        elif low.startswith("/"):
-            flags |= {"v"} if low == "/v" else {"i"} if low == "/i" else set()
-            flags -= {"F"} if low == "/r" else set()
+        if low.startswith("/"):
+            flags |= {"v"} if low == "/v" else {"i"} if low == "/i" else {"c"} if low == "/c" else set()
         else:
             pats.append(t)
     return "rg", flags, pats
@@ -703,7 +731,7 @@ def _ps_consumer(name: str, rest: str):
         return "count"
     if name == "out-null":
         return "silent"
-    return _pattern_keeps_verdict(*(_findstr_parts(rest) if name == "findstr" else _sls_parts(rest)))
+    return _pattern_keeps_verdict(*{"findstr": _findstr_parts, "find": _find_parts}.get(name, _sls_parts)(rest))
 
 
 def _consumer(stage: str) -> str:
@@ -714,6 +742,8 @@ def _consumer(stage: str) -> str:
     rest = s[len(parts[0]):] if parts else ""
     if re.sub(r"\.exe$", "", name.lower()) in PS_PIPES:
         return _ps_consumer(re.sub(r"\.exe$", "", name.lower()), rest)
+    if name == "find" and re.match(r"""\s*(?:/\w+\s+)*["']""", rest):
+        return _ps_consumer("find", rest)   # cmd's find takes a quoted string; POSIX find takes paths
     if name == "awk" and re.search(r"\bNR\s*(?:<=?|==)\s*\d+", rest):
         return "head"   # `awk 'NR<=10'`
     if name in ("jq", "awk") and re.search(r"fail|error|FAIL", rest):
@@ -761,8 +791,10 @@ def find_hidden_status(cmd: str):
     that turns on pipefail before the pipe (`set -o pipefail`, `set -euo pipefail`, `bash -o pipefail -c`, zsh `setopt pipefail`)
     or reads each stage's status (`${PIPESTATUS[0]}`), and any tool that prints no verdict.
     """
-    if re.search(r"\$\{?(?:PIPESTATUS|pipestatus)\b|\$LASTEXITCODE\b", rules._strip_comments(cmd), re.I):
+    if re.search(r"\$\{?(?:PIPESTATUS|pipestatus)\b|\$LASTEXITCODE\b(?!\s*=[^=])", rules._strip_comments(cmd), re.I):
         return None
+    if "<<" not in cmd:   # a pipe or a PowerShell backtick at the end of a line goes on to the next one
+        cmd = re.sub(r"(\|&?)[ \t]*\r?\n[ \t]*", r"\1 ", re.sub(r"`[ \t]*\r?\n[ \t]*", " ", cmd))
     for body in re.findall(r"\$\(([^()]*)\)", cmd):   # `result=$(pytest -q | head -5)`
         hit = find_hidden_status(body)
         if hit:
@@ -807,11 +839,15 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     data = agents.normalize(agent, "pre", data if data is not None else _read_stdin())
     if data.get("tool_name") not in ("Bash", "PowerShell"):   # the PowerShell tool is Claude Code's main shell on Windows
         return None
-    cfg = config.load(data.get("cwd") or None)
+    cwd = data.get("cwd")
+    cfg = config.load(cwd if cwd and isinstance(cwd, str) else None)
     config.apply(cfg)
     if cfg.get("strictness") == "lenient":
         return None
-    cmd = (data.get("tool_input") or {}).get("command", "") or ""
+    ti = data.get("tool_input")
+    cmd = ti.get("command") if isinstance(ti, dict) else ""
+    if not cmd or not isinstance(cmd, str):
+        return None
     hit = find_hidden_status(cmd)
     if not hit:
         return None

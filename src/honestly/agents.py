@@ -125,21 +125,33 @@ def _gemini_records(path: str):
                 yield r
 
 
-SHELL_OUTPUT = re.compile(r"(?:^|\n)Output: (.*?)(?=\n(?:Error|Exit Code|Signal|Background PIDs|Process Group PGID): |\n</untrusted_context>|\Z)", re.S)
-EXIT_CODE = re.compile(r"^Exit Code: (\d+)", re.M)
+SHELL_TRAILER = re.compile(r"^(?:Process Group PGID: |Background PIDs: |Signal: |Exit Code: |Error: \(none\)$)")   # lines the tool adds after a command's own output
+EXIT_CODE = re.compile(r"^Exit Code: (\d{1,9})\s*$")
+SHELL_LEADER = re.compile(r"^(?:Command|Directory): ")
 
 
 def _gemini_result(res) -> tuple:
     """(what the tool printed, its exit code or None). 0.67 keeps a call's result as functionResponse parts and wraps a shell command's
-    output as `<untrusted_context>\\nOutput: ...\\nExit Code: 1\\n...`; a line-anchored rule must see the output itself."""
+    output as `<untrusted_context>\\nOutput: ...\\nExit Code: 1\\n...`. Only the lines at the very end are the tool's: a test can print `Error: ...` itself."""
     if isinstance(res, list):
         res = "\n".join(_function_response(p) if isinstance(p, dict) and isinstance(p.get("functionResponse"), dict) else _parts_text([p]) for p in res)
     elif isinstance(res, dict):
         res = res.get("llmContent") or res.get("output") or res.get("content") or json.dumps(res, ensure_ascii=False)
     text = res if isinstance(res, str) else _parts_text(res)
-    code = EXIT_CODE.search(text)
-    out = SHELL_OUTPUT.search(text)
-    return (out.group(1).strip("\n") if out else text), (int(code.group(1)) if code else None)
+    lines = text.split("\n")
+    wrapped = bool(lines) and lines[0].strip() == "<untrusted_context>" and lines[-1].strip() == "</untrusted_context>"
+    if wrapped:
+        lines = lines[1:-1]
+    code = None
+    if wrapped or any(line.startswith("Output: ") for line in lines):
+        while lines and SHELL_TRAILER.match(lines[-1]):
+            m = EXIT_CODE.match(lines.pop())
+            code = int(m.group(1)) if m and code is None else code
+        while lines and SHELL_LEADER.match(lines[0]):
+            lines.pop(0)
+        if lines and lines[0].startswith("Output: "):
+            lines[0] = lines[0][len("Output: "):]
+    return "\n".join(lines).strip("\n"), code
 
 
 def _function_response(part: dict) -> str:
@@ -150,7 +162,7 @@ def _function_response(part: dict) -> str:
 def _gemini_project(path: str) -> str:
     """The folder the session ran in: the recording's header no longer names it, a `.project_root` file next to `chats/` does."""
     try:
-        with open(os.path.join(os.path.dirname(os.path.dirname(path)), ".project_root"), encoding="utf-8") as fh:
+        with open(os.path.join(os.path.dirname(os.path.dirname(path)), ".project_root"), encoding="utf-8", errors="ignore") as fh:
             return fh.read().strip()
     except OSError:
         return ""
@@ -164,9 +176,9 @@ def gemini_parse(path: str):
     model = ""
     project = _gemini_project(path)
     records = list(_gemini_records(path))
-    latest = {r["id"]: i for i, r in enumerate(records) if r.get("id")}   # a record is updated by appending it again under the same id
+    latest = {r["id"]: i for i, r in enumerate(records) if isinstance(r.get("id"), str)}   # a record is updated by appending it again under the same id
     for i, r in enumerate(records):
-        if "$patch" in r or "$set" in r or "$rewindTo" in r or (r.get("id") and latest[r["id"]] != i):
+        if "$patch" in r or "$set" in r or "$rewindTo" in r or latest.get(r["id"] if isinstance(r.get("id"), str) else "", i) != i:
             continue
         if isinstance(r.get("projectHash"), str) and not r.get("type"):
             dirs = r.get("directories")
@@ -188,7 +200,8 @@ def gemini_parse(path: str):
                 cur = Turn(session=session, index=0, version=model, prompt="", ts=ts, agent="gemini", project=project)
             if isinstance(r.get("model"), str) and not cur.model:
                 cur.model = model = r["model"]
-            for call in r.get("toolCalls") or []:
+            calls = r.get("toolCalls")
+            for call in calls if isinstance(calls, list) else []:
                 if not isinstance(call, dict):
                     continue
                 ev = _tool_event(str(call.get("name") or ""), call.get("args"), ts)

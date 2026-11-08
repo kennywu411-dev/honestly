@@ -418,8 +418,9 @@ def _under_cd(paths: list, seg: Segment, whole_cmd: str) -> list:
     return [p if not p or os.path.isabs(os.path.expanduser(p)) else os.path.join(here, p) for p in paths]
 
 
-PS_WRITE = re.compile(r"(?:^|\|)\s*(?:set-content|add-content|out-file)\b([^|;\n]*)", re.I)   # PowerShell's `cat > file`
-PS_WRITE_SOURCE = re.compile(r"""\s*(?:["'$(]|get-content\b|gc\b)""", re.I)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
+PS_WRITE = re.compile(r"(?:^|[|{])[ \t]*(?:set-content|add-content|out-file)\b([^|;}\n]*)", re.I)   # PowerShell's `cat > file`
+PS_WRITE_SOURCE = re.compile(r"""["'$(@]|get-content\b|gc\b|echo\b|write-output\b|if\b""", re.I)
+PS_FILE_WRITE = re.compile(r"""\[(?:System\.)?IO\.File\]::(?:WriteAll(?:Text|Lines|Bytes)|AppendAll(?:Text|Lines))\([ \t]*["']([^"']+)["']""", re.I)   # [IO.File]::WriteAllText("src/app.py", ...)   # what is piped in was authored here, unlike `pytest | Out-File log.txt`
 PS_PATH_PARAM = re.compile(r"-(?:file)?path|-literalpath|-pspath", re.I)
 PS_VALUE_PARAM = re.compile(r"-(?:value|encoding|width|inputobject|stream|filter|include|exclude|credential)", re.I)
 
@@ -454,10 +455,13 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
     else:
         c = COMMIT_MSG.sub(" ", PLAIN_EDIT_EXCLUDE.sub(" ", seg.text))
         bare = _QUOTE_SPAN.sub(lambda q: q.group(0)[0] + "x" * (len(q.group(0)) - 2) + q.group(0)[-1], c)
+        io = PS_FILE_WRITE.search(c)
+        if io:
+            return not path_is_doc(io.group(1).replace("\\", "/"))
         ps = PS_WRITE.search(bare)
         if ps:
             target, source = _ps_write_target(c[ps.start(1):ps.end(1)]), c[:ps.start()]
-            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source)):
+            if not target or target.startswith("$") or (source.strip() and not PS_WRITE_SOURCE.match(source.lstrip())):
                 return False   # no known target (`$env:TEMP\\x`), or a program's output
             return not all(path_is_doc(t) for t in _under_cd([target.replace("\\", "/")], seg, whole_cmd))
         if not PLAIN_EDIT.search(bare):   # `echo "name <a@b>"`: a ">" inside quotes redirects nothing
@@ -468,7 +472,7 @@ def segment_is_edit(seg: Segment, whole_cmd: str = "") -> bool:
         # a plain `cmd > file` only authors a file when the verb writes agent-authored content;
         # `pytest > log`, `honestly audit > summary.json`, `ffmpeg ... > x` are program output, not code edits
         if not re.search(r"(sed -i|\btee\b|cat >>?|git checkout --|git checkout \S+ -- |git reset --hard|git stash (pop|apply)|git revert|git apply|(?:^|\|)\s*(?:sudo\s+)?patch\b)", c):
-            if not re.match(r"\s*(cat|echo|printf|tee|sed|awk|perl|jq|cp|mv)\b", c):
+            if not re.match(r"""\s*(?:(?:cat|echo|printf|tee|sed|awk|perl|jq|cp|mv)\b|["'@])""", c):   # PowerShell: `"x = 1" > src/app.py`
                 return False
     targets = [t.strip() for t in segment_targets(seg, whole_cmd)]
     if targets and all(path_is_doc(t) for t in _under_cd(targets, seg, whole_cmd)):
@@ -598,7 +602,7 @@ def bash_is_edit(cmd: str) -> bool:
     segs = segments(cmd)
     if segs and TMP_CWD.search(segs[0].text):
         return False
-    if re.search(r"((?:^|[\s=\"'(])/private/tmp/|(?:^|[\s=\"'(])/tmp/|(?:^|[\s=\"'(])/var/folders/|/scratchpad\b|AppData/Local/Temp|tempfile\.|mkdtemp\(|NamedTemporaryFile|TemporaryDirectory)", cmd) and not re.search(r"(sed -i|write_text|write_bytes|writeFile|open\([^)]*['\"](?:[wax]|r[bt]?\+))", cmd):
+    if re.search(r"((?:^|[\s=\"'(])/private/tmp/|(?:^|[\s=\"'(])/tmp/|(?:^|[\s=\"'(])/var/folders/|/scratchpad\b|AppData/Local/Temp|\b[A-Za-z]:/(?:Temp|tmp)/|tempfile\.|mkdtemp\(|NamedTemporaryFile|TemporaryDirectory)", cmd) and not re.search(r"(sed -i|write_text|write_bytes|writeFile|open\([^)]*['\"](?:[wax]|r[bt]?\+))", cmd):
         return False
     return any(segment_is_edit(s, cmd) for s in segs)
 
@@ -607,7 +611,7 @@ def bash_is_edit(cmd: str) -> bool:
 VERIFY = {
     "test": re.compile(r"(\bpytest\b|python3? -m pytest|python3? -m unittest|\bunittest\b|\btox\b|\bnox\b|hatch test|poetry run pytest|uv run pytest"
                        r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun (run )?test|deno test|manage\.py test|(?:bin/)?rails test|artisan test|\bjust test|hatch run test|pdm (run )?test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
-                       r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw? (test|verify)|gradlew? (test|check)|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check|\binvoke-pester\b"
+                       r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw?\b[^|;&\n]*\s(?:test|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:test|check)\b|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check|\binvoke-pester\b"
                        r"|(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:eval\.py|[\w-]*_test\.(?:go|py|ts|js)|[\w-]*test[\w-]*\.(?:sh|py)|check[\w-]*\.sh|run_tests[\w.]*|validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|gate\.py)\b|gh pr checks|gh run (view|list|watch)|statusCheckRollup)", re.I),
     "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
                         r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next build|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
@@ -625,11 +629,18 @@ NARROWED_TEST = re.compile(r"(pytest[^|\n]*\s-k\s|--testNamePattern|-t ['\"]|pyt
 OPAQUE_TOOLS = {"Agent", "Task", "Monitor", "mcp__terminal__run_in_terminal", "Workflow"}
 
 
-NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=|(?i:get-content|gc|get-childitem|gci|get-item|get-process|select-string|sls|write-output|write-host|set-location|test-path|new-item|copy-item|move-item|remove-item|set-content|add-content)\b)")
+NON_VERIFY_VERB = re.compile(r"^\s*(export |cd |pip3? |pipx |uv (?:pip|add|sync|lock|tool)\b|poetry (?:add|install|lock)\b|npm (?:install|i|ci|ls|list|view|info)\b|yarn (?:add|install)\b|pnpm (?:add|install|i)\b|apt(?:-get)? |conda |ls\b|cat\b|grep\b|rg\b|echo\b|printf\b|find\b|wc\b|head\b|tail\b|sed\b|awk\b|less\b|more\b|diff\b|jq\b|cut\b|sort\b|uniq\b|xargs\b|stat\b|tree\b|nl\b|bat\b|column\b|brew\b|which\b|pkill\b|kill\b|sleep\b|until\b|while\b|mkdir\b|cp\b|mv\b|rm\b|git (add|status|log|diff|remote|config|stash|checkout)|gh (?!run\b|pr checks\b|workflow\b)\S+|ps\b|lsof\b|open\b|df\b|du\b|date\b|man\b|type\b|history\b|whatis\b|apropos\b|tldr\b|command -v\b|docker (?:compose )?logs\b|kubectl logs\b|journalctl\b|\w+=|(?i:(?:get|test|select|set|new|copy|move|remove|stop|start|write|out|format|measure|sort|where|foreach|tee|add|clear|convert|export|import|compare)-\w+|gc|gci|sls|findstr|where(?:\.exe)?|python[\d.]*(?:\.exe)? -m pip)\b)")
 SERVER = re.compile(r"(uvicorn|http\.server|\bserve\b|(?<!/)\bdev\b(?!/)|--watch|streamlit run|gunicorn|flask run|next dev|vite\b)", re.I)
 
 
-INTERP_INLINE = re.compile(r"(?:^|[\s/])(?:bash|sh|zsh|dash|python[\d.]*|node|bun|deno|ruby|perl)\s+(?:-\w+\s+)*-l?[ce]\b")
+INTERP_INLINE = re.compile(r"(?:^|[\s/])(?:bash|sh|zsh|dash|python[\d.]*|node|bun|deno|ruby|perl)\s+(?:-\w+\s+)*-l?[ce]\b|(?:^|[\s/])(?:pwsh|powershell)\s+(?:-\w+\s+)*-c(?:ommand)?\b|(?:^|[\s/])cmd\s+/[ck]\b", re.I)
+WIN_EXT = re.compile(r"(?<=[\w-])\.(?:exe|cmd|bat|ps1)\b", re.I)
+WIN_SEP = re.compile(r"(?<=[\w.])\\(?=[\w.])")
+
+
+def posix_probe(text: str) -> str:
+    """`.\\gradlew.bat test`, `go.exe test`, `.\\scripts\\run_tests.ps1`: read a Windows command like the POSIX one. Only for matching; never executed."""
+    return WIN_EXT.sub("", WIN_SEP.sub("/", text))
 QUOTED_ARG = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")
 
 
@@ -717,7 +728,7 @@ def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
             continue
         probe = s.text.split("\n", 1)[0] if s.heredoc else s.text   # judge interpreter heredocs by their header line
         probe = LOOP_HEAD.sub("", probe)   # `for f in a.py check_x.py; do ...`: the word list runs nothing, the body does
-        probe = re.sub(r"^(\s*\w+=\S+\s+)+", "", probe)   # strip leading VAR=value prefixes
+        probe = posix_probe(re.sub(r"^(\s*\w+=\S+\s+)+", "", probe))   # strip leading VAR=value prefixes
         if not probe.strip():
             continue
         if "test" in kinds and (s.interp or INTERP_INLINE.search(probe)) and TEST_IMPORT.search(s.text) and TEST_CALL.search(s.text):
