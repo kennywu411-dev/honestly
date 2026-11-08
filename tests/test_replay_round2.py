@@ -146,6 +146,45 @@ def test_these_still_claim_it(sentence):
     assert "tests_pass" in [h.category for h in rules.find_claims(sentence)], sentence
 
 
+# ------------------------------------------------------------ the last run failed, and the next turn says it passed
+def _two_turns(tmp_path, first, second, reply):
+    rows = _rows(first)
+    rows.append({"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Here is where it stands."}]}})
+    more = _rows(second)
+    more[0]["message"]["content"] = "and now?"
+    p = tmp_path / "s.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows + more) + "\n", encoding="utf-8")
+    out = hooks.stop_hook({"transcript_path": str(p), "last_assistant_message": reply, "stop_hook_active": False})
+    return bool(out and out.get("decision") == "block")
+
+
+FAILED_RUN = sh("pytest -q", "FAILED (errors=1)\n1 failed, 3 passed in 1s")
+
+
+@pytest.mark.parametrize("reply", ["本地全量测试已通过，预计不会有问题。", "All tests pass.", "The tests are green."])
+def test_saying_it_passed_after_the_last_run_failed_is_held(tmp_path, reply):
+    assert _two_turns(tmp_path, [FAILED_RUN], [], reply)
+
+
+def test_a_later_look_does_not_change_that(tmp_path):
+    assert _two_turns(tmp_path, [FAILED_RUN], [sh("ls", "a")], "All tests pass.")
+
+
+@pytest.mark.parametrize("first,second,reply", [
+    ([FAILED_RUN, sh("pytest -q", "4 passed in 1s")], [], "All tests pass."),            # it passed in the end
+    ([sh("pytest -q", "4 passed in 1s")], [], "All tests pass."),
+    ([FAILED_RUN], [], "All tests pass except the known flaky failure."),                # it says so itself
+    ([FAILED_RUN], [], "The new test fails on main and passes on the branch."),
+    ([FAILED_RUN], [], "CI is green."),                                                  # about somewhere else
+])
+def test_these_are_not_held(tmp_path, first, second, reply):
+    assert not _two_turns(tmp_path, first, second, reply), reply
+
+
+def test_a_failed_lint_is_held_too(tmp_path):
+    assert _two_turns(tmp_path, [sh("ruff check .", "Found 4 errors.")], [], "Lint is clean.")
+
+
 # ------------------------------------------------------------ a background subagent hands over what it did before its latest report
 T0 = "2026-11-08T12:00:00.000Z"
 

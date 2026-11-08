@@ -779,6 +779,27 @@ def _never_in_session(hit, session_tools, automated: bool) -> bool:
     return True
 
 
+def _last_run_failed(hit, session_tools, automated: bool):
+    """`Local tests pass` in a turn with no edit, when the session's latest run of that check failed. The reason, or None.
+    A subagent's run or one started elsewhere says nothing here: this session may not have seen it, and it may be about other code."""
+    if session_tools is None or automated or hit.category not in ("tests_pass", "checks_pass", "build_ok") or rules.REMOTE_RUN.search(hit.sentence) or noncode.OTHER_SESSION.search(hit.sentence):
+        return None
+    events = session_tools()
+    for x in reversed(events or []):
+        if x.kind != "tool" or x.name != "Bash":
+            continue
+        segs = rules.verifying_segments(x.text or "", hit.evidence_kinds)
+        if not segs:
+            continue
+        if x.via:
+            return None
+        verdict, reason = judge_output(hit.category, segs[-1].text, x, hit.sentence)
+        if verdict == "contradicted" and not ADMITS_FAIL.search(hit.sentence) and not FAILS_BEFORE.search(hit.sentence):
+            return f"the latest run of this in the session failed: {reason}"
+        return None
+    return None
+
+
 def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_reply_only: bool = False):
     """session_tools: a callable giving every tool call in the session so far, or None if that cannot be known."""
     out = []
@@ -841,6 +862,10 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                 verdict, reason = "not_this_turn", "no code edit in this turn before the claim"
                 if _never_in_session(hit, session_tools, automated and not own_notice):
                     verdict, reason = "unbacked", "nothing in this session ran what this claims"
+                else:
+                    failed = _last_run_failed(hit, session_tools, automated and not own_notice)
+                    if failed:
+                        verdict, reason = "contradicted", failed
             else:
                 verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i, reports=reports)
                 if verdict in ("unbacked", "unverifiable") and any(x.kind == "tool" for x in ev[i + 1:]):
