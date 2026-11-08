@@ -1,0 +1,10 @@
+✓  . (cached)
+
+=== Skipped
+=== SKIP: . TestA (0.00s)
+    a_test.go:8: not now
+
+=== SKIP: . TestB (0.00s)
+    a_test.go:12: not now
+
+DONE 2 tests, 2 skipped in 0.000s

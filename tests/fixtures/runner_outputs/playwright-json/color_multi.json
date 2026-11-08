@@ -1,0 +1,8 @@
+{
+ "command": "FORCE_COLOR=1 npx playwright test --reporter=json",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

@@ -1,0 +1,5 @@
+
+Failed examples:
+
+rspec ./spec/a_spec.rb:7 # bad wrong
+

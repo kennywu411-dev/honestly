@@ -1,0 +1,11 @@
+{
+ "command": "npx cypress run 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "Cypress package version: 16.2.1",
+ "where": "cypress/included:latest"
+}

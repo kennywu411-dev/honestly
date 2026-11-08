@@ -1,0 +1,10 @@
+{
+ "command": "gradle build --rerun-tasks",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Gradle 8.14.6",
+ "where": "gradle:8-jdk21",
+ "safe": "unverifiable",
+ "note": "a green Gradle run prints no count and may have skipped everything: not held, and not counted as evidence"
+}

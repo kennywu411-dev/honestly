@@ -1,0 +1,17 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+2 | test("x", () => { expect(1).toBe(1;
+                                      ^
+error: Expected ")" but found ";"
+    at /work/bun/syntax/a.test.ts:2:35
+-------------------------------
+
+
+ 0 pass
+ 1 fail
+ 1 error
+Ran 1 test across 1 file. [5.00ms]

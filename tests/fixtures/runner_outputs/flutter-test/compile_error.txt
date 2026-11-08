@@ -1,0 +1,43 @@
+Resolving dependencies...
+Downloading packages...
++ async 2.13.1
++ boolean_selector 2.1.2
++ characters 1.4.1
++ clock 1.1.2 (1.1.3 available)
++ collection 1.19.1
++ fake_async 1.3.3
++ flutter 0.0.0 from sdk flutter
++ flutter_test 0.0.0 from sdk flutter
++ leak_tracker 11.0.2
++ leak_tracker_flutter_testing 3.0.10
++ leak_tracker_testing 3.0.2
++ matcher 0.12.19 (0.12.20 available)
++ material_color_utilities 0.13.0 (0.13.1 available)
++ meta 1.18.0 (1.19.0 available)
++ path 1.9.1
++ sky_engine 0.0.0 from sdk flutter
++ source_span 1.10.2
++ stack_trace 1.12.1 (1.12.2 available)
++ stream_channel 2.1.4
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ test_api 0.7.11 (0.7.15 available)
++ vector_math 2.2.0 (2.4.4 available)
++ vm_service 15.4.0
+Changed 24 dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /w/flutter/compile/test/a_test.dart
+test/a_test.dart:4:26: Error: A value of type 'String' can't be assigned to a variable of type 'int'.
+  test('x', () { int i = 'str'; expect(i, 1); });
+                         ^
+00:00 +0 -1: loading /w/flutter/compile/test/a_test.dart [E]
+  Failed to load "/w/flutter/compile/test/a_test.dart":
+  Compilation failed for testPath=/w/flutter/compile/test/a_test.dart: test/a_test.dart:4:26: Error: A value of type 'String' can't be assigned to a variable of type 'int'.
+    test('x', () { int i = 'str'; expect(i, 1); });
+                           ^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  /w/flutter/compile/test/a_test.dart: loading /w/flutter/compile/test/a_test.dart

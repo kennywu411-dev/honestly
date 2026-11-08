@@ -1,0 +1,14 @@
+
+An error occurred while loading ./spec/broken_spec.rb. - Did you mean?
+                    rspec ./spec/good_spec.rb
+
+Failure/Error: require "does_not_exist_anywhere"
+
+LoadError:
+  cannot load such file -- does_not_exist_anywhere
+# ./spec/broken_spec.rb:1:in '<top (required)>'
+
+
+Finished in 0.00006 seconds (files took 0.12582 seconds to load)
+0 examples, 0 failures, 1 error occurred outside of examples
+

@@ -1,0 +1,8 @@
+{
+ "command": "python manage.py test -v 2",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "django 6.1.3",
+ "where": "macOS-arm64-local"
+}

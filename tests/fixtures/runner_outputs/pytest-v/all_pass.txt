@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0 -- /opt/tools/py/bin/python
+cachedir: .pytest_cache
+rootdir: /work/pytest/green
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collecting ... collected 3 items
+
+test_a.py::test_one PASSED                                               [ 33%]
+test_a.py::test_two PASSED                                               [ 66%]
+test_a.py::test_three PASSED                                             [100%]
+
+============================== 3 passed in 0.13s ===============================

@@ -1,0 +1,16 @@
+[95mPester v6.2.0[0m
+[95m
+[95mRunning tests from 1 files.[0m
+[95m
+[95mRunning tests from '/w/pester/onebad/a.Tests.ps1'[0m
+[92mDescribing math[0m
+[32m  [+] one[0m[90m 143ms[0m
+[32m  [+] two[0m[90m 7ms[0m
+[32m  [+] three[0m[90m 8ms[0m
+[0m
+[92mDescribing bad[0m
+[91m  [-] wrong[0m[90m 49ms[0m
+[91m   Expected 2, but got 1.
+[91m   at It 'wrong' { 1 | Should -Be 2 }, /w/pester/onebad/a.Tests.ps1:7[0m
+[97mTests completed in 771ms[0m
+[97mTests Passed: 3, [0m[91mFailed: 1, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m

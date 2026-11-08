@@ -1,0 +1,8 @@
+{
+ "command": "turbo run test",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "turbo 2.11.10",
+ "where": "macOS-arm64-local"
+}

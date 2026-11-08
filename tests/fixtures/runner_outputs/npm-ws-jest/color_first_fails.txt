@@ -1,0 +1,63 @@
+
+> a@1.0.0 test
+> jest
+
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2m./[22m[1ma.test.js[22m
+  [32m✓[39m [2mone (3 ms)[22m
+  [32m✓[39m [2mtwo[22m
+  [31m✕[39m [2mbad (4 ms)[22m
+
+[1m[31m  [1m● [22m[1mbad[39m[22m
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m1[39m
+
+[2m    [0m [90m 1 |[39m test([32m'one'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m1[39m)[33m;[39m })[33m;[39m[22m
+[2m     [90m 2 |[39m test([32m'two'[39m[33m,[39m () [33m=>[39m { expect([35m2[39m)[33m.[39mtoBe([35m2[39m)[33m;[39m })[33m;[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 3 |[39m test([32m'bad'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m2[39m)[33m;[39m })[33m;[39m[22m
+[2m     [90m   |[39m                               [31m[1m^[22m[2m[39m[22m
+[2m     [90m 4 |[39m[0m[22m
+
+[2m      [2mat Object.toBe ([22m[2m[0m[36ma.test.js[39m[0m[2m:3:31)[22m[2m[22m
+
+[1mTest Suites: [22m[1m[31m1 failed[39m[22m, 1 total
+[1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[32m2 passed[39m[22m, 3 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.325 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono2/jest_first/packages/a
+npm error workspace a@1.0.0
+npm error location /work/mono2/jest_first/packages/a
+npm error command failed
+npm error command sh -c jest
+
+
+> b@1.0.0 test
+> jest
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2m./[22m[1mb.test.js[22m
+  [32m✓[39m [2mone (4 ms)[22m
+  [32m✓[39m [2mtwo[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[32m2 passed[39m[22m, 2 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.345 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m
+
+> c@1.0.0 test
+> jest
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2m./[22m[1mc.test.js[22m
+  [32m✓[39m [2mone (4 ms)[22m
+  [32m✓[39m [2mtwo[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[32m2 passed[39m[22m, 2 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.241 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m

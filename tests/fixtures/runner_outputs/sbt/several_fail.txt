@@ -1,0 +1,36 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/manybad/project
+[info] loading settings for project manybad from build.sbt...
+[info] set current project to manybad (in build file:/w/jvm/sbt/manybad/)
+[info] compiling 1 Scala source to /w/jvm/sbt/manybad/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] ATest:
+[info] - one
+[info] - two
+[info] - three
+[info] - bad *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (ATest.scala:7)
+[info] - bad2 *** FAILED ***
+[info]   nope (ATest.scala:8)
+[info] - err *** FAILED ***
+[info]   java.lang.RuntimeException: boom
+[info]   at ATest.testFun$proxy6$1(ATest.scala:9)
+[info]   at ATest.$init$$$anonfun$6(ATest.scala:9)
+[info]   at org.scalatest.Transformer.apply$$anonfun$1(Transformer.scala:22)
+[info]   at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+[info]   at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:31)
+[info]   at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:22)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:21)
+[info]   at org.scalatest.funsuite.AnyFunSuiteLike$$anon$1.apply(AnyFunSuiteLike.scala:206)
+[info]   at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+[info]   ...
+[info] Run completed in 430 milliseconds.
+[info] Total number of tests run: 6
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	ATest
+[error] (Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 6 s, completed Nov 8, 2026, 1:18:31 PM

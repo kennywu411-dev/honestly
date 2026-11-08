@@ -1,0 +1,7 @@
+
+Running tests in #{"test"}
+Syntax error reading source at (a_test.clj:3:1).
+EOF while reading, starting at line 2
+
+Full report at:
+/tmp/clojure-4862987218650597964.edn

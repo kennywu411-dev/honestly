@@ -1,0 +1,27 @@
+
+Running 4 tests using 1 worker
+
+[1/4] tests/a.spec.ts:2:1 › one
+[2/4] tests/a.spec.ts:3:1 › two
+[3/4] tests/a.spec.ts:4:1 › in browser
+[4/4] tests/a.spec.ts:5:1 › bad
+  1) tests/a.spec.ts:5:1 › bad ─────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      3 | test('two', async () => { expect('a'.toUpperCase()).toBe('A'); });
+      4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });
+    > 5 | test('bad', async () => { expect(1).toBe(2); });
+        |                                     ^
+      6 |
+        at /w/playwright/onebad/tests/a.spec.ts:5:37
+
+    Error Context: test-results/a-bad/error-context.md
+
+
+  1 failed
+    tests/a.spec.ts:5:1 › bad ──────────────────────────────────────────────────────────────────────
+  3 passed (1.0s)

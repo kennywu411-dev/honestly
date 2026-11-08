@@ -1,0 +1,11 @@
+✖  .
+
+=== Failed
+=== FAIL: .  (0.00s)
+FAIL	example.com/m [build failed]
+
+=== Errors
+./a.go:5:28: cannot use "nope" (untyped string constant) as int value in return statement
+
+
+DONE 0 tests, 1 failure, 1 error in 0.000s

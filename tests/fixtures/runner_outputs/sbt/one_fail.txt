@@ -1,0 +1,21 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/onebad/project
+[info] loading settings for project onebad from build.sbt...
+[info] set current project to onebad (in build file:/w/jvm/sbt/onebad/)
+[info] compiling 1 Scala source to /w/jvm/sbt/onebad/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] ATest:
+[info] - one
+[info] - two
+[info] - three
+[info] - bad *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (ATest.scala:7)
+[info] Run completed in 354 milliseconds.
+[info] Total number of tests run: 4
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	ATest
+[error] (Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 6 s, completed Nov 8, 2026, 1:18:16 PM

@@ -1,0 +1,47 @@
+yarn workspaces v1.22.22
+
+> a
+yarn run v1.22.22
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/a[39m
+
+ [32m✓[39m a.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:16
+[2m   Duration [22m 310ms[2m (import 38%, worker 36%, transform 13%, tests 13%)[22m
+
+Done in 1.93s.
+
+> b
+yarn run v1.22.22
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/b[39m
+
+ [32m✓[39m b.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:18
+[2m   Duration [22m 428ms[2m (import 38%, tests 30%, worker 17%, transform 15%)[22m
+
+Done in 1.53s.
+
+> c
+yarn run v1.22.22
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/c[39m
+
+ [32m✓[39m c.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:20
+[2m   Duration [22m 259ms[2m (import 46%, worker 23%, transform 17%, tests 13%, environment 1%)[22m
+
+Done in 0.96s.
+Done in 5.54s.

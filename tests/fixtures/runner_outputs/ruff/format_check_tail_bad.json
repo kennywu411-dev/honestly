@@ -1,0 +1,11 @@
+{
+ "command": "ruff format --check . 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "ruff 0.17.4",
+ "where": "macOS-arm64-local"
+}

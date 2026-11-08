@@ -1,0 +1,11 @@
+{
+ "command": "eslint . 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "v10.14.0",
+ "where": "macOS-arm64-local"
+}

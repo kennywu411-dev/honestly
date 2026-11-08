@@ -1,0 +1,11 @@
+{
+ "command": "cargo nextest run",
+ "exit_code": 101,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "cargo-nextest 0.9.151 (6b3f99457 2026-11-02)",
+ "where": "rust:1"
+}

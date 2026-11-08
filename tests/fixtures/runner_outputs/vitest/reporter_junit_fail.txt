@@ -1,0 +1,1 @@
+JUNIT report written to /work/vitest/onebad/.vitest/junit/output.xml

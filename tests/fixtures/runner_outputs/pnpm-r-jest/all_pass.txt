@@ -1,0 +1,31 @@
+Scope: 3 of 4 workspace projects
+$ jest
+PASS ./a.test.js
+  ✓ one (2 ms)
+  ✓ two
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.238 s, estimated 1 s
+Ran all test suites.
+$ jest
+PASS ./b.test.js
+  ✓ one (2 ms)
+  ✓ two
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.263 s, estimated 1 s
+Ran all test suites.
+$ jest
+PASS ./c.test.js
+  ✓ one (3 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.261 s, estimated 1 s
+Ran all test suites.

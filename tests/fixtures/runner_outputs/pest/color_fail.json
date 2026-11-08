@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/pest --colors=always",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "",
+ "where": "composer:2"
+}

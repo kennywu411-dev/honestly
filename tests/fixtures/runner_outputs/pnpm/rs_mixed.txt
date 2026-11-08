@@ -1,0 +1,63 @@
+Scope: 3 of 4 workspace projects
+packages/a test$ node --test
+packages/b test$ node --test
+packages/c test$ node --test
+packages/a test: ✔ one (3.837209ms)
+packages/a test: ✔ two (0.213541ms)
+packages/a test: ℹ tests 2
+packages/a test: ℹ suites 0
+packages/a test: ℹ pass 2
+packages/a test: ℹ fail 0
+packages/a test: ℹ cancelled 0
+packages/a test: ℹ skipped 0
+packages/a test: ℹ todo 0
+packages/a test: ℹ duration_ms 193.27075
+packages/a test: Done
+packages/b test: ✔ one (0.8595ms)
+packages/b test: ✔ two (0.308167ms)
+packages/b test: ✖ bad (1.138ms)
+packages/b test: ℹ tests 3
+packages/b test: ℹ suites 0
+packages/b test: ℹ pass 2
+packages/b test: ℹ fail 1
+packages/b test: ℹ cancelled 0
+packages/b test: ℹ skipped 0
+packages/b test: ℹ todo 0
+packages/b test: ℹ duration_ms 174.477083
+packages/b test: 
+packages/b test: ✖ failing tests:
+packages/b test: 
+packages/b test: test at b.test.js:5:1
+packages/b test: ✖ bad (1.138ms)
+packages/b test:   AssertionError [ERR_ASSERTION]: 1 == 2
+packages/b test:       at TestContext.<anonymous> (/work/mono/pn_mixed/packages/b/b.test.js:5:28)
+packages/b test:       at Test.runInAsyncScope (node:async_hooks:226:14)
+packages/b test:       at Test.run (node:internal/test_runner/test:1402:25)
+packages/b test:       at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+packages/b test:       at Test.postRun (node:internal/test_runner/test:1542:19)
+packages/b test:       at Test.run (node:internal/test_runner/test:1467:12)
+packages/b test:       at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+packages/b test:     generatedMessage: true,
+packages/b test:     code: 'ERR_ASSERTION',
+packages/b test:     actual: 1,
+packages/b test:     expected: 2,
+packages/b test:     operator: '==',
+packages/b test:     diff: 'simple'
+packages/b test:   }
+packages/c test: ✔ one (1.16275ms)
+packages/c test: ✔ two (0.251041ms)
+packages/b test: Failed
+[ELIFECYCLE] Test failed. See above for more details.
+packages/c test: ℹ tests 2
+packages/c test: ℹ suites 0
+packages/c test: ℹ pass 2
+packages/c test: ℹ fail 0
+packages/c test: ℹ cancelled 0
+packages/c test: ℹ skipped 0
+packages/c test: ℹ todo 0
+packages/c test: ℹ duration_ms 182.346625
+packages/c test: Done
+Error: ERR_PNPM_RECURSIVE_FAIL
+
+  × "pnpm recursive run" failed in 1 packages
+

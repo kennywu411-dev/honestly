@@ -1,0 +1,8 @@
+{
+ "command": "gotestsum -- ./...",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "gotestsum version v1.13.0",
+ "where": "golang:1"
+}

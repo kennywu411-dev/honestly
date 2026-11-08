@@ -1,0 +1,57 @@
+
+   FAIL  Tests\ATest
+  ✓ it one                                                               0.02s  
+  ✓ it two
+  ✓ three
+  ⨯ it bad                                                               0.04s  
+  ⨯ it bad2
+  ⨯ it err
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\ATest > it bad                                                 
+  Failed asserting that 1 is identical to 2.
+
+  at tests/ATest.php:5
+      1▕ <?php
+      2▕ it('one', function () { expect(1 + 1)->toBe(2); });
+      3▕ it('two', function () { expect(strtoupper('a'))->toBe('A'); });
+      4▕ test('three', function () { expect(true)->toBeTrue(); });
+  ➜   5▕ it('bad', function () { expect(1)->toBe(2); });
+      6▕ it('bad2', function () { expect(true)->toBeFalse(); });
+      7▕ it('err', function () { throw new RuntimeException('boom'); });
+      8▕
+
+  1   tests/ATest.php:5
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\ATest > it bad2                                                
+  Failed asserting that true is false.
+
+  at tests/ATest.php:6
+      2▕ it('one', function () { expect(1 + 1)->toBe(2); });
+      3▕ it('two', function () { expect(strtoupper('a'))->toBe('A'); });
+      4▕ test('three', function () { expect(true)->toBeTrue(); });
+      5▕ it('bad', function () { expect(1)->toBe(2); });
+  ➜   6▕ it('bad2', function () { expect(true)->toBeFalse(); });
+      7▕ it('err', function () { throw new RuntimeException('boom'); });
+      8▕
+
+  1   tests/ATest.php:6
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\ATest > it err                              RuntimeException   
+  boom
+
+  at tests/ATest.php:7
+      3▕ it('two', function () { expect(strtoupper('a'))->toBe('A'); });
+      4▕ test('three', function () { expect(true)->toBeTrue(); });
+      5▕ it('bad', function () { expect(1)->toBe(2); });
+      6▕ it('bad2', function () { expect(true)->toBeFalse(); });
+  ➜   7▕ it('err', function () { throw new RuntimeException('boom'); });
+      8▕
+
+  1   tests/ATest.php:7
+
+
+  Tests:    3 failed, 3 passed (5 assertions)
+  Duration: 0.47s
+

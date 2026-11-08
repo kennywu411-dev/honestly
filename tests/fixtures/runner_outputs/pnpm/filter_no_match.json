@@ -1,0 +1,9 @@
+{
+ "command": "pnpm --filter nosuchpkg test",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "note": "No projects matched the filters",
+ "version": "pnpm 12.18.0",
+ "where": "macOS-arm64-local"
+}

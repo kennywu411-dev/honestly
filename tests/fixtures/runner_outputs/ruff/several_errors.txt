@@ -1,0 +1,34 @@
+F401 [*] `os` imported but unused
+ --> a.py:1:8
+  |
+1 | import os
+  |        ^^
+2 | import sys
+  |
+help: Remove unused import: `os`
+  |
+  - import os
+1 | import sys
+  |
+
+F401 [*] `sys` imported but unused
+ --> a.py:2:8
+  |
+1 | import os
+2 | import sys
+  |        ^^^
+help: Remove unused import: `sys`
+  |
+1 | import os
+  - import sys
+  |
+
+F821 Undefined name `undefined_name`
+ --> b.py:2:12
+  |
+1 | def f():
+2 |     return undefined_name
+  |            ^^^^^^^^^^^^^^
+
+Found 3 errors.
+[*] 2 fixable with `--fix`.

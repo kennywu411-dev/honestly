@@ -1,0 +1,12 @@
+FAILED to reach upstream
+Traceback (most recent call last):
+  File "/work/unittest/noisy/test_a.py", line 8, in test_error_path
+    1/0
+    ~^~
+ZeroDivisionError: division by zero
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+ERROR: connection failed (expected)

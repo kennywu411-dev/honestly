@@ -1,0 +1,12 @@
+{
+ "command": "tox",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "note": "only env is skipped; tox says evaluation failed",
+ "version": "4.67.13 from /home/user/honest",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,12 @@
+
+  [41;1m Error [49;22m
+
+[39;1m  Failed opening required 'does_not_exist_anywhere.php' (include_path='.:/usr/local/lib/php')[39;22m
+
+  at [32mtests/BrokenTest.php[39m:[32m2[39m
+      1▕ <?php
+  ➜   2▕ require 'does_not_exist_anywhere.php';
+      3▕
+
+
+

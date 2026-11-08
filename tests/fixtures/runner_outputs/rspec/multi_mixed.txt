@@ -1,0 +1,20 @@
+......F...
+
+Failures:
+
+  1) bad wrong
+     Failure/Error: it("wrong") { expect(1).to eq(2) }
+
+       expected: 2
+            got: 1
+
+       (compared using ==)
+     # ./spec/b_spec.rb:7:in 'block (2 levels) in <top (required)>'
+
+Finished in 0.02234 seconds (files took 0.098 seconds to load)
+10 examples, 1 failure
+
+Failed examples:
+
+rspec ./spec/b_spec.rb:7 # bad wrong
+

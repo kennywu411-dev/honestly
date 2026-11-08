@@ -1,0 +1,5 @@
+    "Literal[1]" is not assignable to "str" (reportAssignmentType)
+/work/lint/my_many/b.py
+  /work/lint/my_many/b.py:2:12 - error: Type "int" is not assignable to return type "str"
+    "int" is not assignable to "str" (reportReturnType)
+3 errors, 0 warnings, 0 informations

@@ -1,0 +1,9 @@
+
+math
+  one
+  two
+  three
+
+Finished in 0.0077 seconds (files took 0.12386 seconds to load)
+3 examples, 0 failures
+

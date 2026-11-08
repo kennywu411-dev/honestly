@@ -1,0 +1,15 @@
+
+Running tests in #{"test"}
+
+Testing a-test
+
+Testing b-test
+
+FAIL in (bad) (b_test.clj:4)
+expected: (= 1 2)
+  actual: (not (= 1 2))
+
+Testing c-test
+
+Ran 7 tests containing 7 assertions.
+1 failures, 0 errors.

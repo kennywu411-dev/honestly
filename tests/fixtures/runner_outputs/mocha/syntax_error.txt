@@ -1,0 +1,21 @@
+
+ Exception during run: /work/mocha/syntax/test/a.spec.js:1
+describe('x', () => { it('y', () => { assert(1;
+                                             ^
+
+SyntaxError: missing ) after argument list
+    at wrapSafe (node:internal/modules/cjs/loader:1900:18)
+    at Module._compile (node:internal/modules/cjs/loader:1942:20)
+    at Object..js (node:internal/modules/cjs/loader:2108:10)
+    at Module.load (node:internal/modules/cjs/loader:1690:32)
+    at Module._load (node:internal/modules/cjs/loader:1480:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:376:15)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:248:9)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async formattedImport (/work/mocha/_deps/node_modules/mocha/lib/nodejs/esm-utils.cjs:11:14)
+    at async Object.requireModule [as requireOrImport] (/work/mocha/_deps/node_modules/mocha/lib/nodejs/esm-utils.cjs:106:30)
+    at async exports.loadFilesAsync (/work/mocha/_deps/node_modules/mocha/lib/nodejs/esm-utils.cjs:182:20)
+    at async singleRun (/work/mocha/_deps/node_modules/mocha/lib/cli/run-helpers.cjs:174:3)
+    at async exports.handler (/work/mocha/_deps/node_modules/mocha/lib/cli/run.cjs:143:5)

@@ -1,0 +1,73 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 tests/a.spec.ts:2:1 › one (17ms)
+  ✓  2 tests/a.spec.ts:3:1 › two (29ms)
+  ✓  3 tests/a.spec.ts:4:1 › in browser (143ms)
+  ✘  4 tests/a.spec.ts:5:1 › bad a (8ms)
+  ✘  5 tests/a.spec.ts:6:1 › bad b (340ms)
+  ✘  6 tests/a.spec.ts:7:1 › bad c (4ms)
+
+
+  1) tests/a.spec.ts:5:1 › bad a ───────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      3 | test('two', async () => { expect('a'.toUpperCase()).toBe('A'); });
+      4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });
+    > 5 | test('bad a', async () => { expect(1).toBe(2); });
+        |                                       ^
+      6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });
+      7 | test('bad c', async () => { throw new Error('boom'); });
+      8 |
+        at /w/playwright/manybad/tests/a.spec.ts:5:39
+
+    Error Context: test-results/a-bad-a/error-context.md
+
+  2) tests/a.spec.ts:6:1 › bad b ───────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('h1')
+    Expected: "bye"
+    Received: "hi"
+    Timeout:  200ms
+
+    Call log:
+      - Expect "toHaveText" locator('h1') with timeout 200ms
+      - waiting for locator('h1')
+        6 × locator resolved to <h1>hi</h1>
+          - unexpected value "hi"
+
+
+      4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });
+      5 | test('bad a', async () => { expect(1).toBe(2); });
+    > 6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });
+        |                                                                                                            ^
+      7 | test('bad c', async () => { throw new Error('boom'); });
+      8 |
+        at /w/playwright/manybad/tests/a.spec.ts:6:108
+
+    Error Context: test-results/a-bad-b/error-context.md
+
+  3) tests/a.spec.ts:7:1 › bad c ───────────────────────────────────────────────────────────────────
+
+    Error: boom
+
+      5 | test('bad a', async () => { expect(1).toBe(2); });
+      6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });
+    > 7 | test('bad c', async () => { throw new Error('boom'); });
+        |                                   ^
+      8 |
+        at /w/playwright/manybad/tests/a.spec.ts:7:35
+
+    Error Context: test-results/a-bad-c/error-context.md
+
+  3 failed
+    tests/a.spec.ts:5:1 › bad a ────────────────────────────────────────────────────────────────────
+    tests/a.spec.ts:6:1 › bad b ────────────────────────────────────────────────────────────────────
+    tests/a.spec.ts:7:1 › bad c ────────────────────────────────────────────────────────────────────
+  3 passed (3.7s)

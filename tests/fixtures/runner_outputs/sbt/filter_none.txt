@@ -1,0 +1,7 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/green/project
+[info] loading settings for project green from build.sbt...
+[info] set current project to green (in build file:/w/jvm/sbt/green/)
+[info] Passed: Total 0, Failed 0, Errors 0, Passed 0
+[info] No tests to run for Test / testOnly
+[success] Total time: 2 s, completed Nov 8, 2026, 1:19:15 PM

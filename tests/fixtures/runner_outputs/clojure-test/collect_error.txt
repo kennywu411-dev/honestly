@@ -1,0 +1,7 @@
+
+Running tests in #{"test"}
+Execution error (FileNotFoundException) at a-test/eval1939$loading (a_test.clj:1).
+Could not locate does/not/exist__init.class, does/not/exist.clj or does/not/exist.cljc on classpath.
+
+Full report at:
+/tmp/clojure-871638776847942505.edn

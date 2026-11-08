@@ -1,0 +1,28 @@
+
+   PASS  Tests\ATest
+  ✓ it one                                                               0.02s  
+  ✓ it two
+  ✓ three
+
+   FAIL  Tests\BTest
+  ⨯ it bad                                                               0.04s  
+
+   PASS  Tests\CTest
+  ✓ it one
+  ✓ it two
+  ✓ three
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\BTest > it bad                                                 
+  Failed asserting that 1 is identical to 2.
+
+  at tests/BTest.php:2
+      1▕ <?php
+  ➜   2▕ it('bad', function () { expect(1)->toBe(2); });
+      3▕
+
+  1   tests/BTest.php:2
+
+
+  Tests:    1 failed, 6 passed (7 assertions)
+  Duration: 0.31s
+

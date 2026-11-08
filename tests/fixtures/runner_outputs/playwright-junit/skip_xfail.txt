@@ -1,0 +1,33 @@
+<testsuites id="" name="" tests="4" failures="0" skipped="2" errors="0" time="0.739962">
+<testsuite name="a.spec.ts" timestamp="2026-11-08T13:09:44.580Z" hostname="" tests="4" failures="0" skipped="2" time="0.016" errors="0">
+<testcase name="one" classname="a.spec.ts" time="0.009">
+</testcase>
+<testcase name="later" classname="a.spec.ts">
+<properties>
+<property name="skip" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="known bug" classname="a.spec.ts" time="0.007">
+<properties>
+<property name="fail" value="">
+</property>
+</properties>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/a-known-bug/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="fix me" classname="a.spec.ts">
+<properties>
+<property name="fixme" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>

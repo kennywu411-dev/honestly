@@ -1,0 +1,16 @@
+Generated m app
+Running ExUnit with seed: 194945, max_cases: 14
+
+
+== Compilation error in file test/a_test.exs ==
+** (MismatchedDelimiterError) mismatched delimiter found on test/a_test.exs:5:3:
+    error: unexpected reserved word: end
+    │
+  4 │     assert(1 ==
+    │           └ unclosed delimiter
+  5 │   end
+    │   └ mismatched closing delimiter (expected ")")
+    │
+    └─ test/a_test.exs:5:3
+    (elixir 1.20.5) lib/kernel/parallel_compiler.ex:664: Kernel.ParallelCompiler.require_file/2
+    (elixir 1.20.5) lib/kernel/parallel_compiler.ex:547: anonymous fn/5 in Kernel.ParallelCompiler.spawn_workers/8

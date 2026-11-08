@@ -1,0 +1,22 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/mixed/project
+[info] loading settings for project mixed from build.sbt...
+[info] set current project to mixed (in build file:/w/jvm/sbt/mixed/)
+[info] compiling 2 Scala sources to /w/jvm/sbt/mixed/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] BTest:
+[info] - bad *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (BTest.scala:4)
+[info] ATest:
+[info] - one
+[info] - two
+[info] - three
+[info] Run completed in 278 milliseconds.
+[info] Total number of tests run: 4
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 3, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	BTest
+[error] (Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 7 s, completed Nov 8, 2026, 1:20:01 PM

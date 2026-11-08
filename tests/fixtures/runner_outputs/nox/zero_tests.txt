@@ -1,0 +1,8 @@
+nox > Running session tests
+nox > Creating virtual environment (uv) using python in .nox/tests
+nox > uv pip install pytest
+nox > pytest -q
+
+no tests ran in 0.00s
+nox > Command pytest -q failed with exit code 5
+nox > Session tests failed.

@@ -1,0 +1,5 @@
+        PASS [   0.011s] (1/3) m tests::three
+        PASS [   0.011s] (2/3) m tests::one
+        PASS [   0.011s] (3/3) m tests::two
+────────────
+     Summary [   0.012s] 3 tests run: 3 passed, 0 skipped

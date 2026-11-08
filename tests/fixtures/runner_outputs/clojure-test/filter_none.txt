@@ -1,0 +1,7 @@
+
+Running tests in #{"test"}
+Execution error (ExceptionInfo) at cognitect.test-runner/var-filter$fn (test_runner.clj:23).
+Could not resolve var: a-test/does-not-exist
+
+Full report at:
+/tmp/clojure-8310826243836838521.edn

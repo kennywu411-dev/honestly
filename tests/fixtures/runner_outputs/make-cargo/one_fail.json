@@ -1,0 +1,8 @@
+{
+ "command": "make test",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "cargo 1.99.1 (5f94df478 2026-08-27)",
+ "where": "rust:1"
+}

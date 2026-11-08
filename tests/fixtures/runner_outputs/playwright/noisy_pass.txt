@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+  ✓  1 tests/a.spec.ts:2:1 › returns error when request failed (11ms)
+
+  1 passed (843ms)

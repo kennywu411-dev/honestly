@@ -1,0 +1,39 @@
+
+> a@1.0.0 test
+> jest
+
+PASS ./a.test.js
+  ✓ one (2 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.389 s
+Ran all test suites.
+
+> b@1.0.0 test
+> jest
+
+PASS ./b.test.js
+  ✓ one (1 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.433 s
+Ran all test suites.
+
+> c@1.0.0 test
+> jest
+
+PASS ./c.test.js
+  ✓ one (1 ms)
+  ✓ two
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.543 s
+Ran all test suites.

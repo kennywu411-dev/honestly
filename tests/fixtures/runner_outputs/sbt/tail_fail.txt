@@ -1,0 +1,5 @@
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	ATest
+[error] (Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 2 s, completed Nov 8, 2026, 1:20:46 PM

@@ -1,0 +1,8 @@
+{
+ "command": "CARGO_TERM_COLOR=always cargo nextest run",
+ "exit_code": 100,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "cargo-nextest 0.9.151 (6b3f99457 2026-11-02)",
+ "where": "rust:1"
+}

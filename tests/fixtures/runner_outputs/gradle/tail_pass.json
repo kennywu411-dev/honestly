@@ -1,0 +1,10 @@
+{
+ "command": "gradle test --rerun-tasks 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Gradle 8.14.6",
+ "where": "gradle:8-jdk21",
+ "safe": "unbacked",
+ "note": "the tail is the build tool's verdict with no test count: a run of no tests ends the same way, so it holds"
+}

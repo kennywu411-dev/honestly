@@ -1,0 +1,2 @@
+# example.com/m
+./a.go:4:5: declared and not used: ok

@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  P -> /w/dotnet100/xunit/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/xunit/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 20 ms - P.dll (net10.0)

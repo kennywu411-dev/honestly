@@ -1,0 +1,5 @@
+2 |     return undefined_name
+  |            ^^^^^^^^^^^^^^
+
+Found 3 errors.
+[*] 2 fixable with `--fix`.

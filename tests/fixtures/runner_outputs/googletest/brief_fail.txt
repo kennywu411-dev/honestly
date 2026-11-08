@@ -1,0 +1,9 @@
+Running main() from ./googletest/src/gtest_main.cc
+/w/cpp/gt_onebad/t.cpp:6: Failure
+Expected equality of these values:
+  1
+  2
+
+[  FAILED  ] M.Bad (0 ms)
+[==========] 4 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 3 tests.

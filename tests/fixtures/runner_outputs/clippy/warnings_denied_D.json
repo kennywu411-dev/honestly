@@ -1,0 +1,14 @@
+{
+ "command": "cargo clippy -- -D warnings",
+ "exit_code": 101,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "cargo 1.99.1 (5f94df478 2026-08-27)",
+ "where": "rust:1"
+}

@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/phpunit",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "PHPUnit 10.5.66 by Sebastian Bergmann and contributors.",
+ "where": "php:8.3-cli"
+}

@@ -1,0 +1,6 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/green/phpunit.xml
+
+No tests executed!

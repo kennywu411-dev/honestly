@@ -1,0 +1,8 @@
+{
+ "command": "python -m unittest",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "Python 3.13.16",
+ "where": "macOS-arm64-local"
+}

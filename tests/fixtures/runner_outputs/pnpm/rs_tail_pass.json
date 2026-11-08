@@ -1,0 +1,10 @@
+{
+ "command": "pnpm -r --no-bail test 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "pnpm 12.18.0",
+ "where": "macOS-arm64-local",
+ "safe": "unbacked",
+ "note": "tail -5 cuts off `ℹ pass N`: the same lines end a run of nothing, so it holds and says the count was cut off"
+}

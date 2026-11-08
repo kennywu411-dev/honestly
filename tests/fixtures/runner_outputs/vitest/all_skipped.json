@@ -1,0 +1,8 @@
+{
+ "command": "npx vitest run",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "vitest/5.1.0 darwin-arm64 node-v26.11.1",
+ "where": "macOS-arm64-local"
+}

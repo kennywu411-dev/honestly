@@ -1,0 +1,12 @@
+{
+ "command": "npm run build",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "note": "a clean build; one emitted file is error-<hash>.js",
+ "version": "vite/8.3.6 darwin-arm64 node-v26.11.1",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,26 @@
+FAIL ./a.test.js
+  ✓ one (2 ms)
+  ✓ two
+  ✓ three (1 ms)
+  ✕ bad (2 ms)
+
+  ● bad
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 2
+
+      2 | test('two', () => { expect('a'.toUpperCase()).toBe('A'); });
+      3 | test('three', () => { expect([1][0]).toBe(1); });
+    > 4 | test('bad', () => { expect(1 + 1).toBe(3); });
+        |                                   ^
+      5 |
+
+      at Object.toBe (a.test.js:4:35)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        0.884 s
+Ran all test suites.

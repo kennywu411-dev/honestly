@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/pest",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "",
+ "where": "composer:2"
+}

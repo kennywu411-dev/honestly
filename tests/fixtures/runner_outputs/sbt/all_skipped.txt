@@ -1,0 +1,15 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/allskip/project
+[info] loading settings for project allskip from build.sbt...
+[info] set current project to allskip (in build file:/w/jvm/sbt/allskip/)
+[info] compiling 1 Scala source to /w/jvm/sbt/allskip/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] ATest:
+[info] - a !!! IGNORED !!!
+[info] - b !!! IGNORED !!!
+[info] Run completed in 335 milliseconds.
+[info] Total number of tests run: 0
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 0, canceled 0, ignored 2, pending 0
+[info] No tests were executed.
+[success] Total time: 6 s, completed Nov 8, 2026, 1:19:45 PM

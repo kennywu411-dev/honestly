@@ -1,0 +1,9 @@
+Running 2 tests in a single process (parallelization threshold is 50)
+Run options: --color --seed 55546
+
+# Running:
+
+..
+
+Finished in 0.035021s, 57.1079 runs/s, 57.1079 assertions/s.
+2 runs, 2 assertions, 0 failures, 0 errors, 0 skips

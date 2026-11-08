@@ -1,0 +1,45 @@
+Building for debugging...
+[0/13] Write sources
+[2/13] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Compiling M m.swift
+[5/15] Emitting module M
+[6/16] Wrapping AST for M for debugging
+[8/18] Emitting module MTests
+[9/18] Compiling MTests a.swift
+[10/19] /w/swift/x_skip/.build/aarch64-unknown-linux-gnu/debug/MPackageDiscoveredTests.derived/all-discovered-tests.swift
+[11/19] Write sources
+[12/19] Wrapping AST for MTests for debugging
+[14/22] Compiling MPackageDiscoveredTests all-discovered-tests.swift
+[15/22] Compiling MPackageDiscoveredTests MTests.swift
+[16/22] Emitting module MPackageDiscoveredTests
+[17/23] /w/swift/x_skip/.build/aarch64-unknown-linux-gnu/debug/MPackageTests.derived/runner.swift
+[18/23] Write sources
+[19/23] Wrapping AST for MPackageDiscoveredTests for debugging
+[21/25] Compiling MPackageTests runner.swift
+[22/25] Emitting module MPackageTests
+[23/26] Wrapping AST for MPackageTests for debugging
+[24/26] Write Objects.LinkFileList
+[25/26] Linking MPackageTests.xctest
+Build complete! (9.93s)
+Test Suite 'All tests' started at 2026-11-08 13:11:08.937
+Test Suite 'debug.xctest' started at 2026-11-08 13:11:08.938
+Test Suite 'ATests' started at 2026-11-08 13:11:08.938
+Test Case 'ATests.testLater' started at 2026-11-08 13:11:08.938
+/w/swift/x_skip/Tests/MTests/a.swift:8: ATests.testLater : Test skipped - not now
+Test Case 'ATests.testLater' skipped (0.001 seconds)
+Test Case 'ATests.testOne' started at 2026-11-08 13:11:08.939
+Test Case 'ATests.testOne' passed (0.001 seconds)
+Test Case 'ATests.testThree' started at 2026-11-08 13:11:08.940
+Test Case 'ATests.testThree' passed (0.0 seconds)
+Test Case 'ATests.testTwo' started at 2026-11-08 13:11:08.940
+Test Case 'ATests.testTwo' passed (0.0 seconds)
+Test Suite 'ATests' passed at 2026-11-08 13:11:08.940
+	 Executed 4 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'debug.xctest' passed at 2026-11-08 13:11:08.940
+	 Executed 4 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'All tests' passed at 2026-11-08 13:11:08.940
+	 Executed 4 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.002 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 6.1.3 (1d1f7e489c9c606)
+↳ Target Platform: aarch64-unknown-linux-gnu
+✔ Test run with 0 tests passed after 0.001 seconds.

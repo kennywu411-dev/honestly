@@ -1,0 +1,8 @@
+{
+ "command": "clojure -M:test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Clojure CLI version 1.12.6.1673",
+ "where": "clojure:temurin-21-tools-deps"
+}

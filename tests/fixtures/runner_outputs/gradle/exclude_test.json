@@ -1,0 +1,9 @@
+{
+ "command": "gradle build -x test --rerun-tasks",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "note": "-x test: tests explicitly excluded",
+ "version": "Gradle 8.14.6",
+ "where": "gradle:8-jdk21"
+}

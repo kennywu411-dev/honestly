@@ -1,0 +1,63 @@
+
+> a@1.0.0 test
+> jest
+
+FAIL ./a.test.js
+  ✓ one (2 ms)
+  ✓ two
+  ✕ bad (3 ms)
+
+  ● bad
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      1 | test('one', () => { expect(1).toBe(1); });
+      2 | test('two', () => { expect(2).toBe(2); });
+    > 3 | test('bad', () => { expect(1).toBe(2); });
+        |                               ^
+      4 |
+
+      at Object.toBe (a.test.js:3:31)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        0.349 s
+Ran all test suites.
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono2/jest_first/packages/a
+npm error workspace a@1.0.0
+npm error location /work/mono2/jest_first/packages/a
+npm error command failed
+npm error command sh -c jest
+
+
+> b@1.0.0 test
+> jest
+
+PASS ./b.test.js
+  ✓ one (11 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.397 s
+Ran all test suites.
+
+> c@1.0.0 test
+> jest
+
+PASS ./c.test.js
+  ✓ one (2 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.524 s
+Ran all test suites.

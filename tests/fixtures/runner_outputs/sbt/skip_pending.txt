@@ -1,0 +1,18 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/skip/project
+[info] loading settings for project skip from build.sbt...
+[info] set current project to skip (in build file:/w/jvm/sbt/skip/)
+[info] compiling 1 Scala source to /w/jvm/sbt/skip/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] ATest:
+[info] - one
+[info] - two
+[info] - three
+[info] - later !!! IGNORED !!!
+[info] - wip (pending)
+[info] Run completed in 444 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 0, canceled 0, ignored 1, pending 1
+[info] All tests passed.
+[success] Total time: 7 s, completed Nov 8, 2026, 1:19:31 PM

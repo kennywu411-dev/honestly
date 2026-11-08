@@ -1,0 +1,8 @@
+{
+ "command": "mix test --color",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Elixir 1.20.5 (compiled with Erlang/OTP 29)",
+ "where": "elixir:latest"
+}

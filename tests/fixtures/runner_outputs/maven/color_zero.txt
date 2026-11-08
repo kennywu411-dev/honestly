@@ -1,0 +1,29 @@
+[[34;1mINFO[0m] Scanning for projects...
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m------------------------------< [36;22mx:empty[39;1m >-------------------------------[0m
+[[34;1mINFO[0m] [1mBuilding empty 1.0[0m
+[[34;1mINFO[0m]   from pom.xml
+[[34;1mINFO[0m] [1m--------------------------------[ jar ]---------------------------------[0m
+[[34;1mINFO[0m] Loaded 24410 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[[34;1mINFO[0m] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mresources:3.5.0:resources[0m [1m(default-resources)[0m @ [36mempty[39;1m ---[0m
+[[34;1mINFO[0m] skip non existing resourceDirectory /w/jvm/maven/empty/src/main/resources
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mcompiler:3.16.0:compile[0m [1m(default-compile)[0m @ [36mempty[39;1m ---[0m
+[[34;1mINFO[0m] Nothing to compile - all classes are up to date.
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mresources:3.5.0:testResources[0m [1m(default-testResources)[0m @ [36mempty[39;1m ---[0m
+[[34;1mINFO[0m] skip non existing resourceDirectory /w/jvm/maven/empty/src/test/resources
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mcompiler:3.16.0:testCompile[0m [1m(default-testCompile)[0m @ [36mempty[39;1m ---[0m
+[[34;1mINFO[0m] No sources to compile
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22msurefire:3.5.2:test[0m [1m(default-test)[0m @ [36mempty[39;1m ---[0m
+[[34;1mINFO[0m] No tests to run.
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m
+[[34;1mINFO[0m] [32;1mBUILD SUCCESS[0m
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m
+[[34;1mINFO[0m] Total time:  2.486 s
+[[34;1mINFO[0m] Finished at: 2026-11-08T13:04:21Z
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m

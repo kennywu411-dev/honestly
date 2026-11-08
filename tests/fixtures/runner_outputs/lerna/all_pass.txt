@@ -1,0 +1,70 @@
+lerna notice cli v10.1.1
+
+ Lerna (powered by Nx)   Running target test for 3 projects:
+
+- a
+- b
+- c
+
+
+
+> a:test
+
+
+> a@1.0.0 test
+> node --test
+
+[32m✔ one [90m(2.918042ms)[39m[39m
+[32m✔ two [90m(0.170917ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 159.899792[39m
+
+> c:test
+
+
+> c@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.721042ms)[39m[39m
+[32m✔ two [90m(0.134292ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 151.941[39m
+
+> b:test
+
+
+> b@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.731375ms)[39m[39m
+[32m✔ two [90m(0.143042ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 156.694333[39m
+
+
+
+ Lerna (powered by Nx)   Successfully ran target test for 3 projects
+
+
+  Run duration:      1.2s
+  Cache:             0/3 hit (0%)
+  Critical path:     1.2s (1 task)
+  Recoverable time:  <1ms

@@ -1,0 +1,9 @@
+
+   PASS  Tests\ATest
+  ✓ it one                                                               0.01s  
+  ✓ it two
+  ✓ three
+
+  Tests:    3 passed (3 assertions)
+  Duration: 0.22s
+

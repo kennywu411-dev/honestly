@@ -1,0 +1,8 @@
+{
+ "command": "node --test --test-name-pattern=does_not_match_anything 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "node v26.11.1",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,5 @@
+[3/3] Compiling M m.swift
+/w/swift/x_mainerr/Sources/M/m.swift:1:46: error: cannot convert return expression of type 'String' to return type 'Int'
+1 | public func add(_ a: Int, _ b: Int) -> Int { "x" }
+  |                                              `- error: cannot convert return expression of type 'String' to return type 'Int'
+2 | 

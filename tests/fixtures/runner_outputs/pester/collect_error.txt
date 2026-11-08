@@ -1,0 +1,17 @@
+[95m
+[95mRunning tests from 2 files.[0m
+[32m[+] /w/pester/collect/a.Tests.ps1[0m[90m 597ms[0m[90m (3 tests)[0m
+[91m[-] Discovery in /w/pester/collect/b.Tests.ps1 failed with:[0m
+[91mSystem.IO.FileNotFoundException: The specified module 'DoesNotExistAnywhere' was not loaded because no valid module file was found in any module directory.
+[91mat <ScriptBlock>, /w/pester/collect/b.Tests.ps1: line 1
+[91mat <ScriptBlock>, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3412
+[91mat Invoke-File, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3421
+[91mat Invoke-BlockContainer, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3336
+[91mat Invoke-ContainerDiscovery, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 1544
+[91mat Invoke-Test, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 2745
+[91mat Invoke-Pester<End>, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 5632
+[91mat <ScriptBlock>, <No file>: line 1[0m
+[97mTests completed in 645ms[0m
+[32mTests Passed: 3, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m
+[91mContainer failed: 1[0m
+[91m  - /w/pester/collect/b.Tests.ps1[0m

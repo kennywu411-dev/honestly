@@ -1,0 +1,9 @@
+{
+ "command": "deno test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "note": "Deno exits 1 with test.only",
+ "version": "deno 2.9.6 (stable, release, aarch64-apple-darwin)",
+ "where": "macOS-arm64-local"
+}

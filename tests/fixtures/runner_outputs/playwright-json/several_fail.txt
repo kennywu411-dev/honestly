@@ -1,0 +1,397 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "/w/playwright/manybad/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json"
+    ],
+    "configFile": "/w/playwright/manybad/playwright.config.ts",
+    "rootDir": "/w/playwright/manybad/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/w/playwright/manybad/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/w/playwright/manybad/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/w/playwright/manybad/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/w/playwright/manybad/tests",
+        "snapshotDir": "/w/playwright/manybad/tests",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {
+          "browserName": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.65.0",
+    "workers": 3,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "a.spec.ts",
+      "file": "a.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "one",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:53.988Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-f142a2bbb9e17a728717",
+          "file": "a.spec.ts",
+          "line": 2,
+          "column": 1
+        },
+        {
+          "title": "two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:54.064Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-25583f184e5e8c60656e",
+          "file": "a.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "in browser",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 133,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:54.096Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-2b4f0a795534786da380",
+          "file": "a.spec.ts",
+          "line": 4,
+          "column": 1
+        },
+        {
+          "title": "bad a",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 8,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /w/playwright/manybad/tests/a.spec.ts:5:39",
+                    "location": {
+                      "file": "/w/playwright/manybad/tests/a.spec.ts",
+                      "column": 39,
+                      "line": 5
+                    },
+                    "snippet": "  3 | test('two', async () => { expect('a'.toUpperCase()).toBe('A'); });\n  4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });\n> 5 | test('bad a', async () => { expect(1).toBe(2); });\n    |                                       ^\n  6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n  7 | test('bad c', async () => { throw new Error('boom'); });\n  8 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/w/playwright/manybad/tests/a.spec.ts",
+                        "column": 39,
+                        "line": 5
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  3 | test('two', async () => { expect('a'.toUpperCase()).toBe('A'); });\n  4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });\n> 5 | test('bad a', async () => { expect(1).toBe(2); });\n    |                                       ^\n  6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n  7 | test('bad c', async () => { throw new Error('boom'); });\n  8 |\n    at /w/playwright/manybad/tests/a.spec.ts:5:39"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:54.323Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/w/playwright/manybad/test-results/a-bad-a/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/w/playwright/manybad/tests/a.spec.ts",
+                    "column": 39,
+                    "line": 5
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-ad0568e0db768119f160",
+          "file": "a.spec.ts",
+          "line": 5,
+          "column": 1
+        },
+        {
+          "title": "bad b",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 308,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('h1')\nExpected: \u001b[32m\"bye\"\u001b[39m\nReceived: \u001b[31m\"hi\"\u001b[39m\nTimeout:  200ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('h1') with timeout 200ms\u001b[22m\n\u001b[2m  - waiting for locator('h1')\u001b[22m\n\u001b[2m    7 × locator resolved to <h1>hi</h1>\u001b[22m\n\u001b[2m      - unexpected value \"hi\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('h1')\nExpected: \u001b[32m\"bye\"\u001b[39m\nReceived: \u001b[31m\"hi\"\u001b[39m\nTimeout:  200ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('h1') with timeout 200ms\u001b[22m\n\u001b[2m  - waiting for locator('h1')\u001b[22m\n\u001b[2m    7 × locator resolved to <h1>hi</h1>\u001b[22m\n\u001b[2m      - unexpected value \"hi\"\u001b[22m\n\n    at /w/playwright/manybad/tests/a.spec.ts:6:108",
+                    "location": {
+                      "file": "/w/playwright/manybad/tests/a.spec.ts",
+                      "column": 108,
+                      "line": 6
+                    },
+                    "snippet": "  4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });\n  5 | test('bad a', async () => { expect(1).toBe(2); });\n> 6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n    |                                                                                                            ^\n  7 | test('bad c', async () => { throw new Error('boom'); });\n  8 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/w/playwright/manybad/tests/a.spec.ts",
+                        "column": 108,
+                        "line": 6
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('h1')\nExpected: \u001b[32m\"bye\"\u001b[39m\nReceived: \u001b[31m\"hi\"\u001b[39m\nTimeout:  200ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('h1') with timeout 200ms\u001b[22m\n\u001b[2m  - waiting for locator('h1')\u001b[22m\n\u001b[2m    7 × locator resolved to <h1>hi</h1>\u001b[22m\n\u001b[2m      - unexpected value \"hi\"\u001b[22m\n\n\n  4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });\n  5 | test('bad a', async () => { expect(1).toBe(2); });\n> 6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n    |                                                                                                            ^\n  7 | test('bad c', async () => { throw new Error('boom'); });\n  8 |\n    at /w/playwright/manybad/tests/a.spec.ts:6:108"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:55.103Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/w/playwright/manybad/test-results/a-bad-b/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/w/playwright/manybad/tests/a.spec.ts",
+                    "column": 108,
+                    "line": 6
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-581d507e214920f9457e",
+          "file": "a.spec.ts",
+          "line": 6,
+          "column": 1
+        },
+        {
+          "title": "bad c",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 4,
+                  "error": {
+                    "message": "Error: boom",
+                    "stack": "Error: boom\n    at /w/playwright/manybad/tests/a.spec.ts:7:35",
+                    "location": {
+                      "file": "/w/playwright/manybad/tests/a.spec.ts",
+                      "column": 35,
+                      "line": 7
+                    },
+                    "snippet": "  5 | test('bad a', async () => { expect(1).toBe(2); });\n  6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n> 7 | test('bad c', async () => { throw new Error('boom'); });\n    |                                   ^\n  8 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/w/playwright/manybad/tests/a.spec.ts",
+                        "column": 35,
+                        "line": 7
+                      },
+                      "message": "Error: boom\n\n  5 | test('bad a', async () => { expect(1).toBe(2); });\n  6 | test('bad b', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('bye', { timeout: 200 }); });\n> 7 | test('bad c', async () => { throw new Error('boom'); });\n    |                                   ^\n  8 |\n    at /w/playwright/manybad/tests/a.spec.ts:7:35"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:56.181Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/w/playwright/manybad/test-results/a-bad-c/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/w/playwright/manybad/tests/a.spec.ts",
+                    "column": 35,
+                    "line": 7
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-7d280b3b9a589375eae9",
+          "file": "a.spec.ts",
+          "line": 7,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-08T13:08:53.285Z",
+    "duration": 2971.726,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 3,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,31 @@
+<testsuites id="" name="" tests="2" failures="1" skipped="0" errors="0" time="1.488259">
+<testsuite name="a.spec.ts" timestamp="2026-11-08T13:09:38.082Z" hostname="" tests="2" failures="1" skipped="0" time="0.024" errors="0">
+<testcase name="returns OK" classname="a.spec.ts" time="0.016">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/a-returns-OK/error-context.md]]
+]]>
+</system-out>
+<failure message="expect(received).toBe(expected) // Object.is equality" type="expect.toBe">
+<![CDATA[  a.spec.ts:2:1 › returns OK ───────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "OK"
+    Received: "ERROR"
+
+      1 | import { test, expect } from '@playwright/test';
+    > 2 | test('returns OK', async () => { expect('ERROR').toBe('OK'); });
+        |                                                  ^
+      3 | test('two', async () => { expect(1).toBe(1); });
+      4 |
+        at /w/playwright/failok/tests/a.spec.ts:2:50
+
+    Error Context: ../test-results/a-returns-OK/error-context.md
+]]>
+</failure>
+</testcase>
+<testcase name="two" classname="a.spec.ts" time="0.008">
+</testcase>
+</testsuite>
+</testsuites>

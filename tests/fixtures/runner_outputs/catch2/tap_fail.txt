@@ -1,0 +1,11 @@
+# rng-seed: 3484488581
+# one
+ok 1 - 1 + 1 == 2 for: 2 == 2
+# two
+ok 2 - true
+# three
+ok 3 - 3 == 3
+# bad
+not ok 4 - 1 == 2
+1..4
+

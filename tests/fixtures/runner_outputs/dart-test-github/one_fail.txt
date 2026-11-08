@@ -1,0 +1,15 @@
+
+::group::✅ Passing tests
+✅ test/a_test.dart: one
+✅ test/a_test.dart: two
+✅ test/a_test.dart: three
+::endgroup::
+::group::❌ test/a_test.dart: bad (failed)
+Expected: <2>
+  Actual: <1>
+
+package:matcher        expect
+test/a_test.dart 7:20  main.<fn>
+::endgroup::
+
+::error::3 tests passed, 1 failed.

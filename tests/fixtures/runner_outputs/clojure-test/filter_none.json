@@ -1,0 +1,10 @@
+{
+ "command": "clojure -M:test -v a-test/does-not-exist",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "Clojure CLI version 1.12.6.1673",
+ "where": "clojure:temurin-21-tools-deps",
+ "safe": "contradicted",
+ "note": "the runner errored on a filter that matched nothing: it holds, and calls it a failure as the runner does"
+}

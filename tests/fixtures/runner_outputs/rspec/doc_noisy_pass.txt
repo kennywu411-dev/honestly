@@ -1,0 +1,10 @@
+
+errors
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+  returns error when request failed
+  fail path raises
+
+Finished in 0.06034 seconds (files took 0.28332 seconds to load)
+2 examples, 0 failures
+

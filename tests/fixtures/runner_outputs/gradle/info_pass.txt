@@ -1,0 +1,85 @@
+Initialized native services in: /home/gradle/.gradle/native
+Initialized jansi services in: /home/gradle/.gradle/native
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Starting process 'Gradle build daemon'. Working directory: /home/gradle/.gradle/daemon/8.14.6 Command: /opt/java/openjdk/bin/java --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.xml/javax.xml.namespace=ALL-UNNAMED -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp /opt/gradle/lib/gradle-daemon-main-8.14.6.jar -javaagent:/opt/gradle/lib/agents/gradle-instrumentation-agent-8.14.6.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.14.6
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 1.073 secs.
+The client will now receive all logging from the daemon (pid: 4046). The daemon log file: /home/gradle/.gradle/daemon/8.14.6/daemon-4046.out.log
+Daemon will be stopped at the end of the build 
+Using 7 worker leases.
+Received JVM installation metadata from '/opt/java/openjdk': {JAVA_HOME=/opt/java/openjdk, JAVA_VERSION=21.0.13, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.13+9-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.13+9-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=aarch64}
+Watching the file system is configured to be enabled if available
+Not watching /w/jvm/gradle/green since the file system is not supported
+File system watching is active
+Starting Build
+Settings evaluated using settings file '/w/jvm/gradle/green/settings.gradle.kts'.
+Projects loaded. Root project using build file '/w/jvm/gradle/green/build.gradle.kts'.
+Included projects: [root project 'm']
+
+> Configure project :
+Evaluating root project 'm' using build file '/w/jvm/gradle/green/build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java']
+All projects evaluated.
+Task name matched 'test'
+Selected primary task 'test' from project :
+Tasks to be executed: [task ':compileJava', task ':processResources', task ':classes', task ':compileTestJava', task ':processTestResources', task ':testClasses', task ':test']
+Tasks that were excluded: []
+Resolve mutations for :compileJava (Thread[#52,Execution worker,5,main]) started.
+:compileJava (Thread[#52,Execution worker,5,main]) started.
+
+> Task :compileJava NO-SOURCE
+Skipping task ':compileJava' as it has no source files and no previous output files.
+Resolve mutations for :processResources (Thread[#52,Execution worker,5,main]) started.
+:processResources (Thread[#52,Execution worker,5,main]) started.
+
+> Task :processResources NO-SOURCE
+Skipping task ':processResources' as it has no source files and no previous output files.
+Resolve mutations for :classes (Thread[#52,Execution worker,5,main]) started.
+:classes (Thread[#52,Execution worker,5,main]) started.
+
+> Task :classes UP-TO-DATE
+Skipping task ':classes' as it has no actions.
+Resolve mutations for :compileTestJava (Thread[#52,Execution worker,5,main]) started.
+:compileTestJava (Thread[#52,Execution worker,5,main]) started.
+
+> Task :compileTestJava
+Caching disabled for task ':compileTestJava' because:
+  Build cache is disabled
+Task ':compileTestJava' is not up-to-date because:
+  Executed with '--rerun-tasks'.
+The input changes require a full rebuild for incremental task ':compileTestJava'.
+Compilation mode: in-process compilation
+Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+Compiling with toolchain '/opt/java/openjdk'.
+Compiling with JDK Java compiler API.
+Class dependency analysis for incremental compilation took 0.011 secs.
+Created classpath snapshot for incremental compilation in 0.019 secs.
+Resolve mutations for :processTestResources (Thread[#52,Execution worker,5,main]) started.
+:processTestResources (Thread[#52,Execution worker,5,main]) started.
+
+> Task :processTestResources NO-SOURCE
+Skipping task ':processTestResources' as it has no source files and no previous output files.
+Resolve mutations for :testClasses (Thread[#57,Execution worker Thread 6,5,main]) started.
+:testClasses (Thread[#57,Execution worker Thread 6,5,main]) started.
+
+> Task :testClasses
+Skipping task ':testClasses' as it has no actions.
+Resolve mutations for :test (Thread[#57,Execution worker Thread 6,5,main]) started.
+:test (Thread[#57,Execution worker Thread 6,5,main]) started.
+Gradle Test Executor 1 started executing tests.
+Gradle Test Executor 1 finished executing tests.
+
+> Task :test
+Caching disabled for task ':test' because:
+  Build cache is disabled
+Task ':test' is not up-to-date because:
+  Executed with '--rerun-tasks'.
+Starting process 'Gradle Test Executor 1'. Working directory: /w/jvm/gradle/green Command: /opt/java/openjdk/bin/java -Dorg.gradle.internal.worker.tmpdir=/w/jvm/gradle/green/build/tmp/test/work @/home/gradle/.gradle/.tmp/gradle-worker-classpath9179508846186547286txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 1'
+Successfully started process 'Gradle Test Executor 1'
+Finished generating test XML results (0.008 secs) into: /w/jvm/gradle/green/build/test-results/test
+Generating HTML test report...
+Finished generating test html results (0.029 secs) into: /w/jvm/gradle/green/build/reports/tests/test
+
+BUILD SUCCESSFUL in 7s
+2 actionable tasks: 2 executed
+Some of the file system contents retained in the virtual file system are on file systems that Gradle doesn't support watching. The relevant state was discarded to ensure changes to these locations are properly detected. You can override this by explicitly enabling file system watching.

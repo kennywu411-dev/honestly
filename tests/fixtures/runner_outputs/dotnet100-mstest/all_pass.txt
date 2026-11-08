@@ -1,0 +1,11 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+CSC : warning MSTEST0001: Explicitly enable or disable tests parallelization (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0001) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(9,40): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(7,38): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(8,38): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+  P -> /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 25 ms - P.dll (net10.0)

@@ -1,0 +1,22 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/onebad/phpunit.xml
+
+...F                                                                4 / 4 (100%)
+
+Time: 00:00.008, Memory: 20.00 MB
+
+A
+ ✔ One
+ ✔ Two
+ ✔ Three
+ ✘ Bad
+   │
+   │ Failed asserting that 2 is identical to 1.
+   │
+   │ /w/php/phpunit/onebad/tests/ATest.php:9
+   │
+
+FAILURES!
+Tests: 4, Assertions: 4, Failures: 1.

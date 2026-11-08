@@ -1,0 +1,5 @@
+</testcase>
+<testcase name="in browser" classname="a.spec.ts" time="0.112">
+</testcase>
+</testsuite>
+</testsuites>

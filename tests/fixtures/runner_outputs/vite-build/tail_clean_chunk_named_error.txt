@@ -1,0 +1,5 @@
+dist/index.html                0.09 kB │ gzip: 0.10 kB
+dist/assets/error-BLru-uax.js  0.05 kB │ gzip: 0.07 kB
+dist/assets/index-CAP1oO3J.js  2.33 kB │ gzip: 1.11 kB
+
+✓ built in 55ms

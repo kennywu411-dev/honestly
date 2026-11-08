@@ -1,0 +1,63 @@
+FAIL ./a.test.js
+  ✓ one (3 ms)
+  ✓ two (1 ms)
+  ✓ three
+  ✕ bad a (3 ms)
+  ✕ bad b (3 ms)
+  ✕ bad c (1 ms)
+
+  ● bad a
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      2 | test('two', () => { expect('a'.toUpperCase()).toBe('A'); });
+      3 | test('three', () => { expect([1][0]).toBe(1); });
+    > 4 | test('bad a', () => { expect(1).toBe(2); });
+        |                                 ^
+      5 | test('bad b', () => { expect({a: 1}).toEqual({a: 2}); });
+      6 | test('bad c', () => { throw new Error('boom'); });
+      7 |
+
+      at Object.toBe (a.test.js:4:33)
+
+  ● bad b
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "a": 2,
+    +   "a": 1,
+      }
+
+      3 | test('three', () => { expect([1][0]).toBe(1); });
+      4 | test('bad a', () => { expect(1).toBe(2); });
+    > 5 | test('bad b', () => { expect({a: 1}).toEqual({a: 2}); });
+        |                                      ^
+      6 | test('bad c', () => { throw new Error('boom'); });
+      7 |
+
+      at Object.toEqual (a.test.js:5:38)
+
+  ● bad c
+
+    boom
+
+      4 | test('bad a', () => { expect(1).toBe(2); });
+      5 | test('bad b', () => { expect({a: 1}).toEqual({a: 2}); });
+    > 6 | test('bad c', () => { throw new Error('boom'); });
+        |                             ^
+      7 |
+
+      at Object.<anonymous> (a.test.js:6:29)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 3 passed, 6 total
+Snapshots:   0 total
+Time:        0.883 s
+Ran all test suites.

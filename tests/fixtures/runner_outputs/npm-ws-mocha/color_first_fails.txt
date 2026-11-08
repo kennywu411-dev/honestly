@@ -1,0 +1,56 @@
+
+> a@1.0.0 test
+> mocha
+
+
+[0m[0m
+[32m  [32m✔[39m[0m[90m one[0m
+[32m  [32m✔[39m[0m[90m two[0m
+[31m  1) bad[0m
+
+[92m [0m[32m 2 passing[0m[90m (6ms)[0m
+[31m  1 failing[0m
+
+[0m  1) bad:
+
+      [31mAssertionError [ERR_ASSERTION]: 1 == 2[0m
+      [32m+ expected[0m [31m- actual[0m
+
+      [31m-1[0m
+      [32m+2[0m
+      [0m[90m
+      at Context.<anonymous> (test/a.spec.js:4:26)
+      at process.processImmediate (node:internal/timers:574:21)
+[0m
+
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono2/mocha_first/packages/a
+npm error workspace a@1.0.0
+npm error location /work/mono2/mocha_first/packages/a
+npm error command failed
+npm error command sh -c mocha
+
+
+> b@1.0.0 test
+> mocha
+
+
+[0m[0m
+[32m  [32m✔[39m[0m[90m one[0m
+[32m  [32m✔[39m[0m[90m two[0m
+
+[92m [0m[32m 2 passing[0m[90m (4ms)[0m
+
+
+> c@1.0.0 test
+> mocha
+
+
+[0m[0m
+[32m  [32m✔[39m[0m[90m one[0m
+[32m  [32m✔[39m[0m[90m two[0m
+
+[92m [0m[32m 2 passing[0m[90m (4ms)[0m
+

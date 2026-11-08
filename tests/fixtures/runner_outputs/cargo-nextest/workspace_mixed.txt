@@ -1,0 +1,39 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+────────────
+ Nextest run ID 48b816d3-2260-4ce1-8f75-60e4a11c83bd with nextest profile: default
+    Starting 10 tests across 3 binaries
+        PASS [   0.016s] ( 1/10) crate_a tests::three
+        PASS [   0.018s] ( 2/10) crate_a tests::two
+        PASS [   0.019s] ( 3/10) crate_b tests::two
+        PASS [   0.020s] ( 4/10) crate_b tests::three
+        PASS [   0.019s] ( 5/10) crate_b tests::one
+        PASS [   0.020s] ( 6/10) crate_a tests::one
+        FAIL [   0.021s] ( 7/10) crate_b tests::bad
+  stdout ───
+
+    running 1 test
+    test tests::bad ... FAILED
+
+    failures:
+
+    failures:
+        tests::bad
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+  stderr ───
+
+    thread 'tests::bad' (3147) panicked at crate_b/src/lib.rs:17:16:
+    assertion `left == right` failed
+      left: 2
+     right: 3
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+  Cancelling due to test failure: 3 tests still running
+        PASS [   0.010s] ( 8/10) crate_c tests::one
+        PASS [   0.008s] ( 9/10) crate_c tests::three
+        PASS [   0.009s] (10/10) crate_c tests::two
+────────────
+     Summary [   0.029s] 10 tests run: 9 passed, 1 failed, 0 skipped
+        FAIL [   0.021s] ( 7/10) crate_b tests::bad
+error: test run failed

@@ -1,0 +1,5 @@
+00:00 +5 -1: /w/flutter/mixed/test/a_test.dart: three
+00:00 +6 -1: Some tests failed.
+
+Failing tests:
+  /w/flutter/mixed/test/b_test.dart: bad

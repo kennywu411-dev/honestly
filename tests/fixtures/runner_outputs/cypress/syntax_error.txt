@@ -1,0 +1,106 @@
+
+[90m====================================================================================================[39m
+
+[0m  ([4m[1mRun Starting[22m[24m)[0m
+
+[90m  ┌[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┐[39m
+[90m  │[39m [90mCypress:[39m        16.2.1                                                                         [90m│[39m
+[90m  │[39m [90mBrowser:[39m        Electron 146 [90m(headless)[39m [33m(deprecated)[39m                                           [90m│[39m
+[90m  │[39m [90mNode Version:[39m   [0mv26.13.0 [90m(/usr/local/bin/node)[39m[0m                                                 [90m│[39m
+[90m  │[39m [90mSpecs:[39m          [0m1 found (a.cy.js)[0m                                                              [90m│[39m
+[90m  │[39m [90mSearched:[39m       [0mcypress/e2e/**/*.cy.{js,jsx,ts,tsx}[0m                                            [90m│[39m
+[90m  └[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┘[39m
+
+[35m[95mWarning:[39m[35m The [33mElectron[39m[35m browser is deprecated as a test browser and will be removed in a future version of Cypress.[39m
+[35m[39m
+[35mSwitch to Chrome or another installed browser to avoid a breaking change when you upgrade.[39m
+[35m[39m
+[35mRead more about supported browsers: https://on.cypress.io/launching-browsers[39m
+[35m[39m
+
+[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m
+                                                                                                    
+  Running:  [90ma.cy.js[39m                                                                         [90m(1 of 1)[39m
+
+[31mOops...we found an error preparing this test file:[39m
+[31m[39m
+[31m[90m  > [39m[31m[94mcypress/e2e/a.cy.js[39m[31m[39m
+[31m[39m
+[31mThe error was:[39m
+[31m[39m
+[31m[33mError: Webpack Compilation Error[39m[31m[39m
+[31m[33mModule build failed (from ../../../root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/babel-loader/lib/index.js):[39m[31m[39m
+[31m[33mSyntaxError: /w/cypress/syntax/cypress/e2e/a.cy.js: Unexpected token, expected "," (1:36)[39m[31m[39m
+[31m[33m[39m[31m[39m
+[31m[33m[0m[31m[1m>[22m[39m[31m[33m[90m 1 |[39m[31m[33m it([32m'x'[39m[31m[33m[33m,[39m[31m[33m () [33m=>[39m[31m[33m { expect([35m1[39m[31m[33m)[33m.[39m[31m[33mto[33m.[39m[31m[33mequal([35m1[39m[31m[33m[33m;[39m[31m[33m[39m[31m[39m
+[31m[33m [90m   |[39m[31m[33m                                     [31m[1m^[22m[39m[31m[33m[39m[31m[39m
+[31m[33m [90m 2 |[39m[31m[33m })[33m;[39m[31m[33m[39m[31m[39m
+[31m[33m [90m 3 |[39m[31m[33m[0m[39m[31m[39m
+[31m[33m    at handle (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/@packages/server/node_modules/@cypress/webpack-preprocessor/dist/index.js:302:23)[39m[31m[39m
+[31m[33m    at finalCallback (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:500:32)[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:578:17[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/HookWebpackError.js:67:2[39m[31m[39m
+[31m[33m    at Hook.eval [as callAsync] (eval at create (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/HookCodeFactory.js:33:10), <anonymous>:6:1)[39m[31m[39m
+[31m[33m    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/Hook.js:18:14)[39m[31m[39m
+[31m[33m    at Cache.storeBuildDependencies (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Cache.js:126:37)[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:574:19[39m[31m[39m
+[31m[33m    at Hook.eval [as callAsync] (eval at create (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/HookCodeFactory.js:33:10), <anonymous>:6:1)[39m[31m[39m
+[31m[33m    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/Hook.js:18:14)[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:570:23[39m[31m[39m
+[31m[33m    at Compiler.emitRecords (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:1046:4)[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:560:11[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:1009:14[39m[31m[39m
+[31m[33m    at Hook.eval [as callAsync] (eval at create (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/HookCodeFactory.js:33:10), <anonymous>:6:1)[39m[31m[39m
+[31m[33m    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/Hook.js:18:14)[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:1006:27[39m[31m[39m
+[31m[33m    at /root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/neo-async/async.js:2818:7[39m[31m[39m
+[31m[33m    at done (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/neo-async/async.js:3522:9)[39m[31m[39m
+[31m[33m    at Hook.eval [as callAsync] (eval at create (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/HookCodeFactory.js:33:10), <anonymous>:6:1)[39m[31m[39m
+[31m[33m    at Hook.CALL_ASYNC_DELEGATE [as _callAsync] (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/tapable/lib/Hook.js:18:14)[39m[31m[39m
+[31m[33m    at WriteFileJob.<anonymous> (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/webpack/lib/Compiler.js:835:33)[39m[31m[39m
+[31m[33m    at WriteFileJob.<anonymous> (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/graceful-fs/graceful-fs.js:143:16)[39m[31m[39m
+[31m[33m    at WriteFileJob.ondone (/root/.cache/Cypress/16.2.1/Cypress/resources/app/node_modules/@packages/server/node_modules/graceful-fs/graceful-fs.js:143:16)[39m[31m[39m
+[31m[39m
+[31mThis occurred while Cypress was compiling and bundling your test code. This is usually caused by:[39m
+[31m[39m
+[31m- A missing file or dependency[39m
+[31m- A syntax error in the file or one of its dependencies[39m
+[31m[39m
+[31mFix the error in your code and re-run your tests.[39m
+
+[31m  ([4m[1mResults[22m[24m)[39m
+
+[90m  ┌[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┐[39m
+[90m  │[39m [90mTests:[39m        [31m0[39m                                                                                [90m│[39m
+[90m  │[39m [90mPassing:[39m      [31m0[39m                                                                                [90m│[39m
+[90m  │[39m [90mFailing:[39m      [31m1[39m                                                                                [90m│[39m
+[90m  │[39m [90mPending:[39m      [31m0[39m                                                                                [90m│[39m
+[90m  │[39m [90mSkipped:[39m      [31m0[39m                                                                                [90m│[39m
+[90m  │[39m [90mScreenshots:[39m  [31m0[39m                                                                                [90m│[39m
+[90m  │[39m [90mVideo:[39m        [31mfalse[39m                                                                            [90m│[39m
+[90m  │[39m [90mDuration:[39m     [31m0 seconds[39m                                                                        [90m│[39m
+[90m  │[39m [90mSpec Ran:[39m     [31m[31ma.cy.js[31m[39m                                                                          [90m│[39m
+[90m  └[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┘[39m
+
+
+[90m====================================================================================================[39m
+
+[0m  ([4m[1mRun Finished[22m[24m)[0m
+
+
+[90m   [39m    [90mSpec[39m                                              [90mTests[39m  [90mPassing[39m  [90mFailing[39m  [90mPending[39m  [90mSkipped[39m [90m [39m
+[90m  ┌[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┐[39m
+[90m  │[39m [31m✖[39m  [0ma.cy.js[0m                                    [90m0ms[39m        [90m-[39m        [90m-[39m        [31m1[39m        [90m-[39m        [90m-[39m [90m│[39m
+[90m  └[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m─[39m[90m┘[39m
+[90m   [39m [31m✖[39m  [31m1 of 1 failed (100%)[39m                       [90m0ms[39m        [90m-[39m        [90m-[39m        [31m1[39m        [90m-[39m        [90m-[39m [90m [39m
+
+[90m----------------------------------------------------------------------------------------------------[39m
+
+  Debug faster with full visibility.
+
+  Record to Cypress Cloud and get instant access to full test details and replays.
+  Inspect the DOM, network events, and console logs exactly as they ran in CI.
+
+  >> [36mhttps://on.cypress.io/cloud-get-started[39m
+
+[90m----------------------------------------------------------------------------------------------------[39m

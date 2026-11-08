@@ -1,0 +1,201 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "/w/playwright/failok/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json"
+    ],
+    "configFile": "/w/playwright/failok/playwright.config.ts",
+    "rootDir": "/w/playwright/failok/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/w/playwright/failok/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/w/playwright/failok/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/w/playwright/failok/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/w/playwright/failok/tests",
+        "snapshotDir": "/w/playwright/failok/tests",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {
+          "browserName": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.65.0",
+    "workers": 3,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "a.spec.ts",
+      "file": "a.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "returns OK",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 12,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"OK\"\u001b[39m\nReceived: \u001b[31m\"ERROR\"\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"OK\"\u001b[39m\nReceived: \u001b[31m\"ERROR\"\u001b[39m\n    at /w/playwright/failok/tests/a.spec.ts:2:50",
+                    "location": {
+                      "file": "/w/playwright/failok/tests/a.spec.ts",
+                      "column": 50,
+                      "line": 2
+                    },
+                    "snippet": "  1 | import { test, expect } from '@playwright/test';\n> 2 | test('returns OK', async () => { expect('ERROR').toBe('OK'); });\n    |                                                  ^\n  3 | test('two', async () => { expect(1).toBe(1); });\n  4 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/w/playwright/failok/tests/a.spec.ts",
+                        "column": 50,
+                        "line": 2
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"OK\"\u001b[39m\nReceived: \u001b[31m\"ERROR\"\u001b[39m\n\n  1 | import { test, expect } from '@playwright/test';\n> 2 | test('returns OK', async () => { expect('ERROR').toBe('OK'); });\n    |                                                  ^\n  3 | test('two', async () => { expect(1).toBe(1); });\n  4 |\n    at /w/playwright/failok/tests/a.spec.ts:2:50"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:58.241Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/w/playwright/failok/test-results/a-returns-OK/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/w/playwright/failok/tests/a.spec.ts",
+                    "column": 50,
+                    "line": 2
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-4c717f28d5e67423b5fa",
+          "file": "a.spec.ts",
+          "line": 2,
+          "column": 1
+        },
+        {
+          "title": "two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-08T13:08:58.851Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4bb17c2992a2b9ccc470-25583f184e5e8c60656e",
+          "file": "a.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-08T13:08:57.581Z",
+    "duration": 1346.545,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

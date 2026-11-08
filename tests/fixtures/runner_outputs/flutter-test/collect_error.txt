@@ -1,0 +1,67 @@
+Resolving dependencies...
+Downloading packages...
++ async 2.13.1
++ boolean_selector 2.1.2
++ characters 1.4.1
++ clock 1.1.2 (1.1.3 available)
++ collection 1.19.1
++ fake_async 1.3.3
++ flutter 0.0.0 from sdk flutter
++ flutter_test 0.0.0 from sdk flutter
++ leak_tracker 11.0.2
++ leak_tracker_flutter_testing 3.0.10
++ leak_tracker_testing 3.0.2
++ matcher 0.12.19 (0.12.20 available)
++ material_color_utilities 0.13.0 (0.13.1 available)
++ meta 1.18.0 (1.19.0 available)
++ path 1.9.1
++ sky_engine 0.0.0 from sdk flutter
++ source_span 1.10.2
++ stack_trace 1.12.1 (1.12.2 available)
++ stream_channel 2.1.4
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ test_api 0.7.11 (0.7.15 available)
++ vector_math 2.2.0 (2.4.4 available)
++ vm_service 15.4.0
+Changed 24 dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /w/flutter/collect/test/broken_test.dart
+Error: Couldn't resolve the package 'does_not_exist' in 'package:does_not_exist/x.dart'.
+test/broken_test.dart:1:8: Error: Not found: 'package:does_not_exist/x.dart'
+import 'package:does_not_exist/x.dart';
+       ^
+00:00 +0 -1: loading /w/flutter/collect/test/broken_test.dart [E]
+  Failed to load "/w/flutter/collect/test/broken_test.dart":
+  Compilation failed for testPath=/w/flutter/collect/test/broken_test.dart: Error: Couldn't resolve the package 'does_not_exist' in 'package:does_not_exist/x.dart'.
+  test/broken_test.dart:1:8: Error: Not found: 'package:does_not_exist/x.dart'
+  import 'package:does_not_exist/x.dart';
+         ^
+  .
+  Error: The Dart compiler exited unexpectedly.
+  package:flutter_tools/src/base/common.dart 34:3  throwToolExit
+  package:flutter_tools/src/compile.dart 1009:11   DefaultResidentCompiler._compile.<fn>
+  dart:async/zone_root.dart 48:47                  _rootRunUnary
+  dart:async/zone.dart 733:19                      _CustomZone.runUnary
+  dart:async/future_impl.dart 948:45               Future._propagateToListeners.handleValueCallback
+  dart:async/future_impl.dart 977:13               Future._propagateToListeners
+  dart:async/future_impl.dart 862:9                Future._propagateToListeners
+  dart:async/future_impl.dart 720:5                Future._completeWithValue
+  dart:async/future_impl.dart 804:7                Future._asyncCompleteWithValue.<fn>
+  dart:async/zone_root.dart 35:13                  _rootRun
+  dart:async/zone.dart 726:19                      _CustomZone.run
+  dart:async/zone.dart 625:7                       _CustomZone.runGuarded
+  dart:async/zone.dart 666:23                      _CustomZone.bindCallbackGuarded.<fn>
+  dart:async/schedule_microtask.dart 40:35         _microtaskLoop
+  dart:async/schedule_microtask.dart 49:5          _startMicrotaskLoop
+  dart:isolate-patch/isolate_patch.dart 127:13     _runPendingImmediateCallback
+  dart:isolate-patch/isolate_patch.dart 193:5      _RawReceivePort._handleMessage
+  
+00:00 +0 -1: /w/flutter/collect/test/a_test.dart: one
+00:00 +1 -1: /w/flutter/collect/test/a_test.dart: two
+00:00 +2 -1: /w/flutter/collect/test/a_test.dart: three
+00:00 +3 -1: Some tests failed.
+
+Failing tests:
+  /w/flutter/collect/test/broken_test.dart: loading /w/flutter/collect/test/broken_test.dart

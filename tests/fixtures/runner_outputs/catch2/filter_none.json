@@ -1,0 +1,8 @@
+{
+ "command": "./build/t does_not_match",
+ "exit_code": 2,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "catch2 3.7.1-0.5",
+ "where": "gcc:14"
+}

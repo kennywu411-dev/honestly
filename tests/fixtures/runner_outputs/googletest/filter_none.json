@@ -1,0 +1,8 @@
+{
+ "command": "./build/t --gtest_filter=DoesNotMatch",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "cmake version 3.31.6 ctest version 3.31.6 gtest",
+ "where": "gcc:14"
+}

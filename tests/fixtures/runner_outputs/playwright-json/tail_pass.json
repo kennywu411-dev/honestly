@@ -1,0 +1,10 @@
+{
+ "command": "npx playwright test --reporter=json 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest",
+ "safe": "unbacked",
+ "note": "tail -5 of a report: no count survives, so it holds"
+}

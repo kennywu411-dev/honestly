@@ -1,0 +1,5 @@
+  ✔ good › three
+  ─
+
+  3 tests passed
+  1 uncaught exception

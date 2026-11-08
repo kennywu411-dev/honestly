@@ -1,0 +1,10 @@
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2m./[22m[1ma.test.js[22m
+  [32m✓[39m [2mone (3 ms)[22m
+  [32m✓[39m [2mtwo (1 ms)[22m
+  [32m✓[39m [2mthree[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[32m3 passed[39m[22m, 3 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.47 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m

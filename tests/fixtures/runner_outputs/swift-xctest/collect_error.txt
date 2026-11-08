@@ -1,0 +1,20 @@
+Building for debugging...
+[0/13] Write sources
+[2/13] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Emitting module M
+[5/15] Compiling M m.swift
+[6/16] Wrapping AST for M for debugging
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[8/18] Emitting module MTests
+/w/swift/x_collect/Tests/MTests/a.swift:1:8: error: no such module 'DoesNotExistAnywhere'
+ 1 | import DoesNotExistAnywhere
+   |        `- error: no such module 'DoesNotExistAnywhere'
+ 2 | import XCTest
+ 3 | @testable import M
+[9/18] Compiling MTests a.swift
+/w/swift/x_collect/Tests/MTests/a.swift:1:8: error: no such module 'DoesNotExistAnywhere'
+ 1 | import DoesNotExistAnywhere
+   |        `- error: no such module 'DoesNotExistAnywhere'
+ 2 | import XCTest
+ 3 | @testable import M
+error: fatalError

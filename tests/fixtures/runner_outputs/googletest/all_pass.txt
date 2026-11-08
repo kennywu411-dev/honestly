@@ -1,0 +1,15 @@
+Running main() from ./googletest/src/gtest_main.cc
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from M
+[ RUN      ] M.One
+[       OK ] M.One (0 ms)
+[ RUN      ] M.Two
+[       OK ] M.Two (0 ms)
+[ RUN      ] M.Three
+[       OK ] M.Three (0 ms)
+[----------] 3 tests from M (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 3 tests.

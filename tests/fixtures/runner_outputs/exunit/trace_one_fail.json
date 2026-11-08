@@ -1,0 +1,8 @@
+{
+ "command": "mix test --trace",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "Elixir 1.20.5 (compiled with Erlang/OTP 29)",
+ "where": "elixir:latest"
+}

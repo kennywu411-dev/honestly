@@ -1,0 +1,8 @@
+{
+ "command": "pytest -q",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "pytest 9.2.0",
+ "where": "macOS-arm64-local"
+}

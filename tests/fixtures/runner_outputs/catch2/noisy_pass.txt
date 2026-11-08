@@ -1,0 +1,6 @@
+Randomness seeded to: 3777782507
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+

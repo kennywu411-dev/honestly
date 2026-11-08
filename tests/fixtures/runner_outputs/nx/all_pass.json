@@ -1,0 +1,8 @@
+{
+ "command": "npx nx run-many -t test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "nx - Global: Not found",
+ "where": "macOS-arm64-local"
+}

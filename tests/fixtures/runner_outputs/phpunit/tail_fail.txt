@@ -1,0 +1,5 @@
+
+/w/php/phpunit/onebad/tests/ATest.php:9
+
+FAILURES!
+Tests: 4, Assertions: 4, Failures: 1.

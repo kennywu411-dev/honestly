@@ -1,0 +1,53 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+(pass) one [0.05ms]
+(pass) two [0.03ms]
+(pass) three
+1 | import { test, expect } from "bun:test";
+2 | test("one", () => { expect(1 + 1).toBe(2); });
+3 | test("two", () => { expect("a".toUpperCase()).toBe("A"); });
+4 | test("three", () => { expect(3).toBe(3); });
+5 | test("bad a", () => { expect(1).toBe(2); });
+                                    ^
+error: expect(received).toBe(expected)
+
+Expected: 2
+Received: 1
+
+      at <anonymous> (/work/bun/manybad/a.test.ts:5:33)
+(fail) bad a [0.31ms]
+1 | import { test, expect } from "bun:test";
+2 | test("one", () => { expect(1 + 1).toBe(2); });
+3 | test("two", () => { expect("a".toUpperCase()).toBe("A"); });
+4 | test("three", () => { expect(3).toBe(3); });
+5 | test("bad a", () => { expect(1).toBe(2); });
+6 | test("bad b", () => { expect({a: 1}).toEqual({a: 2}); });
+                                         ^
+error: expect(received).toEqual(expected)
+
+  {
+-   "a": 2,
++   "a": 1,
+  }
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> (/work/bun/manybad/a.test.ts:6:38)
+(fail) bad b [0.54ms]
+2 | test("one", () => { expect(1 + 1).toBe(2); });
+3 | test("two", () => { expect("a".toUpperCase()).toBe("A"); });
+4 | test("three", () => { expect(3).toBe(3); });
+5 | test("bad a", () => { expect(1).toBe(2); });
+6 | test("bad b", () => { expect({a: 1}).toEqual({a: 2}); });
+7 | test("bad c", () => { throw new Error("boom"); });
+                                                ^
+error: boom
+      at <anonymous> (/work/bun/manybad/a.test.ts:7:45)
+(fail) bad c [0.11ms]
+
+ 3 pass
+ 3 fail
+ 5 expect() calls
+Ran 6 tests across 1 file. [7.00ms]

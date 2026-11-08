@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pytest/skip
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collected 4 items
+
+test_a.py .sxX                                                           [100%]
+
+============== 1 passed, 1 skipped, 1 xfailed, 1 xpassed in 0.20s ==============

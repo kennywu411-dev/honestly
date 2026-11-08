@@ -1,0 +1,15 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/noisy/phpunit.xml
+
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+.                                                                   1 / 1 (100%)
+
+Time: 00:00.003, Memory: 20.00 MB
+
+A
+ ✔ Error when failed
+
+OK (1 test, 1 assertion)

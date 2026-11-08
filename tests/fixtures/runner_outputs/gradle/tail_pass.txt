@@ -1,0 +1,5 @@
+> Task :testClasses
+> Task :test
+
+BUILD SUCCESSFUL in 7s
+2 actionable tasks: 2 executed

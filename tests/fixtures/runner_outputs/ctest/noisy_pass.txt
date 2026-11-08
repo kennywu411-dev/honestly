@@ -1,0 +1,35 @@
+Internal ctest changing into directory: /w/cpp/ct_noisy/build
+UpdateCTestConfiguration  from :/w/cpp/ct_noisy/build/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/w/cpp/ct_noisy/build/DartConfiguration.tcl
+Test project /w/cpp/ct_noisy/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: M.ErrorWhenFailed
+
+1: Test command: /w/cpp/ct_noisy/build/t "--gtest_filter=M.ErrorWhenFailed" "--gtest_also_run_disabled_tests"
+1: Working Directory: /w/cpp/ct_noisy/build
+1: Test timeout computed to be: 10000000
+1: Running main() from ./googletest/src/gtest_main.cc
+1: Note: Google Test filter = M.ErrorWhenFailed
+1: [==========] Running 1 test from 1 test suite.
+1: [----------] Global test environment set-up.
+1: [----------] 1 test from M
+1: [ RUN      ] M.ErrorWhenFailed
+1: ERROR: connection failed (expected)
+1: FAILED to reach upstream, 2 failed attempts
+1: [       OK ] M.ErrorWhenFailed (0 ms)
+1: [----------] 1 test from M (0 ms total)
+1: 
+1: [----------] Global test environment tear-down
+1: [==========] 1 test from 1 test suite ran. (0 ms total)
+1: [  PASSED  ] 1 test.
+1/1 Test #1: M.ErrorWhenFailed ................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.03 sec

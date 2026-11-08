@@ -1,0 +1,6 @@
+py: install_deps> python -I -m pip install pytest
+py: commands[0]> pytest -q
+ss                                                                       [100%]
+2 skipped in 0.01s
+  py: OK (7.94=setup[7.45]+cmd[0.49] seconds)
+  congratulations :) (8.06 seconds)

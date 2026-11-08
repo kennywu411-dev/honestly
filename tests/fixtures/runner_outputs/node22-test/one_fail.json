@@ -1,0 +1,8 @@
+{
+ "command": "node --test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "node v22.23.4",
+ "where": "node:22-slim"
+}

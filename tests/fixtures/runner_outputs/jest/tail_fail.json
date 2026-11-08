@@ -1,0 +1,11 @@
+{
+ "command": "npx jest 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "jest 30.5.2",
+ "where": "macOS-arm64-local"
+}

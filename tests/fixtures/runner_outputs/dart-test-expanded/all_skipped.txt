@@ -1,0 +1,5 @@
+00:00 +0: loading test/a_test.dart
+00:00 +0: test/a_test.dart: a
+  Skip: x
+00:00 +0 ~1: test/a_test.dart: b
+00:00 +0 ~2: All tests skipped.

@@ -1,0 +1,13 @@
+=== RUN   TestOne
+--- PASS: TestOne (0.00s)
+=== RUN   TestTwo
+--- PASS: TestTwo (0.00s)
+=== RUN   TestThree
+    a_test.go:20: fine
+--- PASS: TestThree (0.00s)
+=== RUN   TestBad
+    a_test.go:24: got 1 want 2
+--- FAIL: TestBad (0.00s)
+FAIL
+FAIL	example.com/m	0.003s
+FAIL

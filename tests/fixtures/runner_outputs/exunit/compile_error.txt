@@ -1,0 +1,13 @@
+Compiling 1 file (.ex)
+
+== Compilation error in file lib/m.ex ==
+** (MismatchedDelimiterError) mismatched delimiter found on lib/m.ex:3:1:
+    error: unexpected reserved word: end
+    │
+  2 │   def f(, do: 1
+    │        └ unclosed delimiter
+  3 │ end
+    │ └ mismatched closing delimiter (expected ")")
+    │
+    └─ lib/m.ex:3:1
+    (elixir 1.20.5) lib/kernel/parallel_compiler.ex:545: anonymous fn/5 in Kernel.ParallelCompiler.spawn_workers/8

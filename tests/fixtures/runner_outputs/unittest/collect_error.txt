@@ -1,0 +1,20 @@
+E..
+======================================================================
+ERROR: test_broken (unittest.loader._FailedTest.test_broken)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_broken
+Traceback (most recent call last):
+  File "/audit/cache/uv-python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/unittest/loader.py", line 403, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/audit/cache/uv-python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/unittest/loader.py", line 346, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/work/unittest/collect/test_broken.py", line 1, in <module>
+    import does_not_exist_anywhere
+ModuleNotFoundError: No module named 'does_not_exist_anywhere'
+
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+FAILED (errors=1)

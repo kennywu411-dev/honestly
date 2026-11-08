@@ -1,0 +1,5 @@
+...                                                                 3 / 3 (100%)
+
+Time: 00:00.003, Memory: 20.00 MB
+
+OK (3 tests, 3 assertions)

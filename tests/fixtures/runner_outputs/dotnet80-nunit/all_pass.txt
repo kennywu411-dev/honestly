@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet80/nunit/P/T.cs(7,44): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet80/nunit/P/P.csproj]
+/w/dotnet80/nunit/P/T.cs(9,46): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet80/nunit/P/P.csproj]
+/w/dotnet80/nunit/P/T.cs(8,44): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet80/nunit/P/P.csproj]
+  P -> /w/dotnet80/nunit/P/bin/Debug/net8.0/P.dll
+Test run for /w/dotnet80/nunit/P/bin/Debug/net8.0/P.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (arm64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 15 ms - P.dll (net8.0)

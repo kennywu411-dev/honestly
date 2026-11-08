@@ -1,0 +1,27 @@
+$ mocha
+
+
+  ✔ one
+  ✔ two
+  1) bad
+
+  2 passing (13ms)
+  1 failing
+
+  1) bad:
+
+      AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(false)
+
+      + expected - actual
+
+      -false
+      +true
+      
+      at Context.<anonymous> (test/a.spec.js:4:26)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+
+[ELIFECYCLE] Test failed. See above for more details.

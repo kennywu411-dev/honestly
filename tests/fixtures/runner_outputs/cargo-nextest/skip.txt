@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+────────────
+ Nextest run ID 33404dfc-dbe6-4800-9a59-8b30ce8f6eef with nextest profile: default
+    Starting 4 tests across 1 binary (1 test skipped)
+        PASS [   0.010s] (1/4) m tests::two
+        PASS [   0.011s] (2/4) m tests::expected_panic
+        PASS [   0.011s] (3/4) m tests::three
+        PASS [   0.012s] (4/4) m tests::one
+────────────
+     Summary [   0.012s] 4 tests run: 4 passed, 1 skipped

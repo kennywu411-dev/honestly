@@ -1,0 +1,34 @@
+Scope: 3 of 4 workspace projects
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/a[39m
+
+ [32m✓[39m a.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:08
+[2m   Duration [22m 218ms[2m (import 50%, transform 18%, worker 17%, tests 15%, environment 1%)[22m
+
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/b[39m
+
+ [32m✓[39m b.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:09
+[2m   Duration [22m 209ms[2m (import 48%, transform 20%, worker 16%, tests 16%)[22m
+
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_green/packages/c[39m
+
+ [32m✓[39m c.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:09
+[2m   Duration [22m 194ms[2m (import 43%, transform 21%, worker 20%, tests 15%, environment 1%)[22m
+

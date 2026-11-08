@@ -1,0 +1,5 @@
+  ✓ three
+
+  Tests:    3 passed (3 assertions)
+  Duration: 0.20s
+

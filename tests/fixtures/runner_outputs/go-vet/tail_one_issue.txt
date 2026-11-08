@@ -1,0 +1,1 @@
+a.go:5:24: fmt.Printf format %d has arg "str" of wrong type string

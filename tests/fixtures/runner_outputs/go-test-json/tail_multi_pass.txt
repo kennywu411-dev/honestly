@@ -1,0 +1,5 @@
+{"Time":"2026-11-08T12:50:44.732976826Z","Action":"output","Package":"example.com/m/good","Output":"ok  \texample.com/m/good\t(cached)\n"}
+{"Time":"2026-11-08T12:50:44.732979707Z","Action":"pass","Package":"example.com/m/good","Elapsed":0}
+{"Time":"2026-11-08T12:50:44.733076556Z","Action":"start","Package":"example.com/m/notests"}
+{"Time":"2026-11-08T12:50:44.733082444Z","Action":"output","Package":"example.com/m/notests","Output":"?   \texample.com/m/notests\t[no test files]\n"}
+{"Time":"2026-11-08T12:50:44.733085493Z","Action":"skip","Package":"example.com/m/notests","Elapsed":0}

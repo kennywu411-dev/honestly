@@ -22,6 +22,7 @@ If you have honestly's guard installed, it will refuse a test run whose result a
 | `src/honestly/rules.py` | how a shell command is split into segments, which segments are edits, which are test/build runs |
 | `src/honestly/hooks.py` | the two hooks: `pre` (before a shell command) and `stop` (before the reply is shown) |
 | `src/honestly/audit.py` | which sentences are claims, and whether a command's output backs, contradicts or does not back them |
+| `src/honestly/verdicts.py` | what each test runner, compiler and linter prints, one table per tool, and how a run is read from it |
 | `src/honestly/prnote.py` | `honestly pr-note` |
 | `src/honestly/claude_code.py`, `codex.py`, `agents.py` | transcript parsers for each assistant |
 
@@ -29,7 +30,7 @@ If you have honestly's guard installed, it will refuse a test run whose result a
 
 1. Write the case as a test first. Pre-hook cases call `hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}})`; output cases call `audit.judge_output`. The `tests/test_v06*.py` files are short examples.
 2. Add the opposite case too: a command or output that must stay allowed. Most regressions are false catches, not misses.
-3. Make the smallest change in the rule that fixes it, and keep the comment on the line saying which real command it is for.
+3. Make the smallest change in the rule that fixes it, and keep the comment on the line saying which real command it is for. A test runner read wrong: run it for real, add the output under `tests/fixtures/runner_outputs/<runner>/` as `<case>.txt` with a `<case>.json` (command, exit code, expected verdict), and fix its table in `verdicts.py`. `python tests/confusion.py tests/fixtures/runner_outputs` prints how each verdict compares.
 4. `pytest -q` must pass on your machine; CI runs Linux, macOS and Windows on Python 3.9 to 3.13.
 
 ## Reporting instead

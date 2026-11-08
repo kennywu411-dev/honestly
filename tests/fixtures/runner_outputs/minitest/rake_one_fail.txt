@@ -1,0 +1,19 @@
+Run options: --seed 40580
+
+# Running:
+
+F...
+
+Finished in 0.008848s, 452.1041 runs/s, 452.1041 assertions/s.
+
+  1) Failure:
+T#test_bad [test/a_test.rb:7]:
+Expected: 1
+  Actual: 2
+
+4 runs, 4 assertions, 1 failures, 0 errors, 0 skips
+rake aborted!
+Command failed with status (1)
+/usr/local/bundle/gems/rake-13.4.2/exe/rake:27:in '<top (required)>'
+Tasks: TOP => test
+(See full trace by running task with --trace)

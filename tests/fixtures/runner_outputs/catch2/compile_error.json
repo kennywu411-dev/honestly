@@ -1,0 +1,11 @@
+{
+ "command": "cmake --build build",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "catch2 3.7.1-0.5",
+ "where": "gcc:14"
+}

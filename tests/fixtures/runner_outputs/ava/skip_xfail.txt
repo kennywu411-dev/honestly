@@ -1,0 +1,11 @@
+
+  - [skip] later
+  - [todo] write this
+  ✔ one
+  ✔ [expected fail] known bug
+  ─
+
+  1 test passed
+  1 known failure
+  1 test skipped
+  1 test todo

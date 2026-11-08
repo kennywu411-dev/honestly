@@ -1,0 +1,3 @@
+t/a.t .. skipped: not on this platform
+Files=1, Tests=0,  0 wallclock secs ( 0.03 usr  0.01 sys +  0.03 cusr  0.01 csys =  0.08 CPU)
+Result: NOTESTS

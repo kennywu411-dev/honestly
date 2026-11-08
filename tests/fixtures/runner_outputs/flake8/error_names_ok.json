@@ -1,0 +1,14 @@
+{
+ "command": "flake8 .",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "flake8",
+ "where": "macOS-arm64-local"
+}

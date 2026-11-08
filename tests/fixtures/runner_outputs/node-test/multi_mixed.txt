@@ -1,0 +1,38 @@
+✔ one (0.729ms)
+✔ two (0.130541ms)
+✔ three (0.095583ms)
+✔ one (0.72575ms)
+✔ two (0.115291ms)
+✔ three (0.093709ms)
+✖ bad (0.702459ms)
+✔ one (0.932ms)
+✔ two (0.15425ms)
+✔ three (0.100042ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 334.9575
+
+✖ failing tests:
+
+test at b.test.js:6:1
+✖ bad (0.702459ms)
+  AssertionError [ERR_ASSERTION]: 1 == 2
+      at TestContext.<anonymous> (/work/node-test/mixed/b.test.js:6:28)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: '==',
+    diff: 'simple'
+  }

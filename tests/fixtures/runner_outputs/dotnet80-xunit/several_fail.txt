@@ -1,0 +1,38 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  P -> /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll
+Test run for /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (arm64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.39]     T.T1.Bad2 [FAIL]
+[xUnit.net 00:00:00.39]     T.T1.Bad [FAIL]
+[xUnit.net 00:00:00.39]     T.T1.Err [FAIL]
+  Failed T.T1.Bad2 [3 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 1
+Actual:   2
+  Stack Trace:
+     at T.T1.Bad2() in /w/dotnet80/xunit/P/T.cs:line 11
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed T.T1.Bad [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 1
+Actual:   2
+  Stack Trace:
+     at T.T1.Bad() in /w/dotnet80/xunit/P/T.cs:line 10
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed T.T1.Err [3 ms]
+  Error Message:
+   System.Exception : boom
+  Stack Trace:
+     at T.T1.Err() in /w/dotnet80/xunit/P/T.cs:line 12
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     3, Passed:     3, Skipped:     0, Total:     6, Duration: 35 ms - P.dll (net8.0)

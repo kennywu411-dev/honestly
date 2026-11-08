@@ -1,0 +1,10 @@
+[ 50%] Building CXX object CMakeFiles/t.dir/t.cpp.o
+/w/cpp/gt_compile/t.cpp: In member function 'virtual void M_X_Test::TestBody()':
+/w/cpp/gt_compile/t.cpp:3:22: error: invalid conversion from 'const char*' to 'int' [-fpermissive]
+    3 | TEST(M, X) { int i = "s"; EXPECT_EQ(i, 1); }
+      |                      ^~~
+      |                      |
+      |                      const char*
+gmake[2]: *** [CMakeFiles/t.dir/build.make:79: CMakeFiles/t.dir/t.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:87: CMakeFiles/t.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

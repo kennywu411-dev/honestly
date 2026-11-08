@@ -1,0 +1,37 @@
+Scope: 3 of 4 workspace projects
+packages/c test$ node --test
+packages/a test$ node --test
+packages/b test$ node --test
+packages/c test: ✔ one (0.914541ms)
+packages/c test: ✔ two (0.306208ms)
+packages/b test: ✔ one (0.782458ms)
+packages/b test: ✔ two (0.134458ms)
+packages/a test: ✔ one (0.841ms)
+packages/a test: ✔ two (0.227292ms)
+packages/c test: ℹ tests 2
+packages/b test: ℹ tests 2
+packages/c test: ℹ suites 0
+packages/c test: ℹ pass 2
+packages/c test: ℹ fail 0
+packages/c test: ℹ cancelled 0
+packages/c test: ℹ skipped 0
+packages/b test: ℹ suites 0
+packages/c test: ℹ todo 0
+packages/c test: ℹ duration_ms 170.956792
+packages/b test: ℹ pass 2
+packages/b test: ℹ fail 0
+packages/b test: ℹ cancelled 0
+packages/b test: ℹ skipped 0
+packages/b test: ℹ todo 0
+packages/b test: ℹ duration_ms 175.332542
+packages/a test: ℹ tests 2
+packages/a test: ℹ suites 0
+packages/a test: ℹ pass 2
+packages/a test: ℹ fail 0
+packages/a test: ℹ cancelled 0
+packages/a test: ℹ skipped 0
+packages/a test: ℹ todo 0
+packages/a test: ℹ duration_ms 175.848042
+packages/c test: Done
+packages/b test: Done
+packages/a test: Done

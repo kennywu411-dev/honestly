@@ -1,0 +1,5 @@
+    expected: 2,
+    operator: '==',
+    diff: 'simple'
+  }
+make: *** [test] Error 1

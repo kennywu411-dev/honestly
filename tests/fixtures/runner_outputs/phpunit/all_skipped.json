@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/phpunit",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "PHPUnit 13.4.5 by Sebastian Bergmann and contributors.",
+ "where": "composer:2"
+}

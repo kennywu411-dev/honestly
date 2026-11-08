@@ -1,0 +1,8 @@
+{
+ "command": "FORCE_COLOR=1 pytest",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "pytest 9.2.0",
+ "where": "macOS-arm64-local"
+}

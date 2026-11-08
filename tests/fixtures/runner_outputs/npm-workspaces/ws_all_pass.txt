@@ -1,0 +1,43 @@
+npm warn -ws is not a valid single-hyphen cli flag and will be removed in the future
+
+> a@1.0.0 test
+> node --test
+
+✔ one (0.768084ms)
+✔ two (0.244875ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 226.511958
+
+> b@1.0.0 test
+> node --test
+
+✔ one (0.769958ms)
+✔ two (0.361417ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 153.894958
+
+> c@1.0.0 test
+> node --test
+
+✔ one (0.925083ms)
+✔ two (0.191042ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.143875

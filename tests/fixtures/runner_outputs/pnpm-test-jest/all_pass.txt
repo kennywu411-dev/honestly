@@ -1,0 +1,10 @@
+$ jest
+PASS ./a.test.js
+  ✓ one (2 ms)
+  ✓ two
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.445 s
+Ran all test suites.

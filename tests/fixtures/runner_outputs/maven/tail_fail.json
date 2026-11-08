@@ -1,0 +1,11 @@
+{
+ "command": "mvn test 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "Apache Maven 3.10.0 (c43a36b8d67be7e0805a411bc0898af1a51f5472)",
+ "where": "maven:3-eclipse-temurin-21"
+}

@@ -1,0 +1,9 @@
+{
+ "command": "make test",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "checks_pass",
+ "note": "same run judged as a 'checks pass' claim",
+ "version": "GNU Make 3.81",
+ "where": "macOS-arm64-local"
+}

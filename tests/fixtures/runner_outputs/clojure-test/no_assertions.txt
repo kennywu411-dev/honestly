@@ -1,0 +1,7 @@
+
+Running tests in #{"test"}
+
+Testing a-test
+
+Ran 1 tests containing 0 assertions.
+0 failures, 0 errors.

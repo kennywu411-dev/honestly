@@ -1,0 +1,8 @@
+{
+ "command": "bun test -t does_not_match_anything",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "bun 1.4.4",
+ "where": "macOS-arm64-local"
+}

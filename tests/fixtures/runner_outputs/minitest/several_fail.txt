@@ -1,0 +1,23 @@
+Run options: --seed 773
+
+# Running:
+
+..EF.F
+
+Finished in 0.010776s, 556.8031 runs/s, 464.0025 assertions/s.
+
+  1) Error:
+T#test_err:
+RuntimeError: boom
+    test/a_test.rb:9:in 'T#test_err'
+
+  2) Failure:
+T#test_bad [test/a_test.rb:7]:
+Expected: 1
+  Actual: 2
+
+  3) Failure:
+T#test_bad2 [test/a_test.rb:8]:
+Expected false to be truthy.
+
+6 runs, 5 assertions, 2 failures, 1 errors, 0 skips

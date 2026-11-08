@@ -1,0 +1,25 @@
+00:00 +0: loading test/c_test.dart
+00:00 +0: test/c_test.dart: one
+00:00 +1: test/c_test.dart: one
+00:00 +2: test/b_test.dart: two
+00:00 +3: test/c_test.dart: two
+00:00 +4: test/b_test.dart: three
+00:00 +5: test/c_test.dart: three
+00:00 +6: test/b_test.dart: bad
+00:00 +6 -1: test/a_test.dart: one
+00:00 +7 -1: test/a_test.dart: two
+00:00 +8 -1: test/a_test.dart: three
+00:00 +9 -1: test/b_test.dart: bad [E]
+  Expected: <2>
+    Actual: <1>
+  
+  package:matcher        expect
+  test/b_test.dart 7:20  main.<fn>
+  
+00:00 +9 -1: Some tests failed.
+
+Failing tests:
+  test/b_test.dart: bad
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

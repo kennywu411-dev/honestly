@@ -1,0 +1,24 @@
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\ATest[39m
+  [32;1m✓[39;22m[90m [39m[90mit one[39m[90m                                                              [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit two[39m
+  [32;1m✓[39;22m[90m [39m[90mthree[39m
+  [31;1m⨯[39;22m[90m [39m[90mit bad[39m[90m                                                              [39m [90m0.02s[39m  
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\ATest[22m [90m>[39m it bad                                                 
+[39;1m  Failed asserting that 1 is identical to 2.[39;22m
+
+  at [32mtests/ATest.php[39m:[32m5[39m
+      1▕ <?php
+      2▕ it('one', function () { expect(1 + 1)->toBe(2); });
+      3▕ it('two', function () { expect(strtoupper('a'))->toBe('A'); });
+      4▕ test('three', function () { expect(true)->toBeTrue(); });
+  ➜   5▕ it('bad', function () { expect(1)->toBe(2); });
+      6▕
+
+  [33m1   [39m[39;1mtests/ATest.php[39;22m:[39;1m5[39;22m
+
+
+  [90mTests:[39m    [31;1m1 failed[39;22m[90m,[39m[39m [39m[32;1m3 passed[39;22m[90m (4 assertions)[39m
+  [90mDuration:[39m [39m0.41s[39m
+

@@ -1,0 +1,10 @@
+{
+ "command": "node --test --test-reporter=dot",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "node v26.11.1",
+ "where": "macOS-arm64-local",
+ "safe": "unverifiable",
+ "note": "nothing printed and exit 0: not held, and not counted as evidence"
+}

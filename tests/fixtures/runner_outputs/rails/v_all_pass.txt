@@ -1,0 +1,10 @@
+Running 2 tests in a single process (parallelization threshold is 50)
+Run options: -v --seed 31863
+
+# Running:
+
+WidgetTest#test_two = 0.04 s = .
+WidgetTest#test_one = 0.00 s = .
+
+Finished in 0.042920s, 46.5984 runs/s, 46.5984 assertions/s.
+2 runs, 2 assertions, 0 failures, 0 errors, 0 skips

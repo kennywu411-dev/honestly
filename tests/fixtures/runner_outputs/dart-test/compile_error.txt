@@ -1,0 +1,10 @@
+00:00 +0: loading test/a_test.dart
+00:00 +0 -1: loading test/a_test.dart [E]
+  Failed to load "test/a_test.dart":
+  test/a_test.dart:4:26: Error: A value of type 'String' can't be assigned to a variable of type 'int'.
+    test('x', () { int i = 'str'; expect(i, 1); });
+                           ^
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/a_test.dart: loading test/a_test.dart

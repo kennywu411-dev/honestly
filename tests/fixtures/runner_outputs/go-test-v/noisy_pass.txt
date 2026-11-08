@@ -1,0 +1,10 @@
+=== RUN   TestErrorPathFailed
+ERROR: connection failed (expected)
+FAIL: simulated upstream
+    a_test.go:11: 2 failed attempts
+--- PASS: TestErrorPathFailed (0.00s)
+=== RUN   TestFailPath
+--- retrying after panic: simulated
+--- PASS: TestFailPath (0.00s)
+PASS
+ok  	example.com/m	0.002s

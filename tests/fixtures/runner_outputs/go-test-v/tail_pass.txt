@@ -1,0 +1,5 @@
+=== RUN   TestThree
+    a_test.go:20: fine
+--- PASS: TestThree (0.00s)
+PASS
+ok  	example.com/m	(cached)

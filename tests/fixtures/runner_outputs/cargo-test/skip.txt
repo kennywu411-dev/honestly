@@ -1,0 +1,19 @@
+   Compiling m v0.1.0 (/w/rust/skip)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.78s
+     Running unittests src/lib.rs (target/debug/deps/m-caf2b80818c458fd)
+
+running 5 tests
+test tests::later ... ignored, slow
+test tests::one ... ok
+test tests::two ... ok
+test tests::three ... ok
+test tests::expected_panic - should panic ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests m
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

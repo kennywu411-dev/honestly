@@ -1,0 +1,44 @@
+yarn workspaces v1.22.22
+
+> a
+yarn run v1.22.22
+$ jest
+PASS ./a.test.js
+  ✓ one (2 ms)
+  ✓ two (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.291 s, estimated 1 s
+Ran all test suites.
+Done in 0.88s.
+
+> b
+yarn run v1.22.22
+$ jest
+PASS ./b.test.js
+  ✓ one (3 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.269 s, estimated 1 s
+Ran all test suites.
+Done in 0.95s.
+
+> c
+yarn run v1.22.22
+$ jest
+PASS ./c.test.js
+  ✓ one (2 ms)
+  ✓ two
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.297 s, estimated 1 s
+Ran all test suites.
+Done in 0.97s.
+Done in 3.84s.

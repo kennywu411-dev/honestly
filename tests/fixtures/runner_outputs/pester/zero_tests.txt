@@ -1,0 +1,3 @@
+[91mSystem.Management.Automation.RuntimeException: No test files were found and no scriptblocks were provided. Please ensure that you provided at least one path to a *.Tests.ps1 file, or a directory that contains such file. Or that you provided a ScriptBlock test container.
+[91mat Invoke-Pester<End>, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 5346
+[91mat <ScriptBlock>, <No file>: line 1[0m

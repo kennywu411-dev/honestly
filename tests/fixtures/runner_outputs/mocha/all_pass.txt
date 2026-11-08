@@ -1,0 +1,10 @@
+
+
+  math
+    ✔ one
+    ✔ two
+    ✔ three
+
+
+  3 passing (5ms)
+

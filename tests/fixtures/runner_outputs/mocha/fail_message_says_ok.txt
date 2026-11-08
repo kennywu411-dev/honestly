@@ -1,0 +1,21 @@
+
+
+  1) returns OK for valid input
+  ✔ two
+
+  1 passing (40ms)
+  1 failing
+
+  1) returns OK for valid input:
+
+      AssertionError [ERR_ASSERTION]: 'ERROR' == 'OK'
+      + expected - actual
+
+      -ERROR
+      +OK
+      
+      at Context.<anonymous> (test/a.spec.js:2:49)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+

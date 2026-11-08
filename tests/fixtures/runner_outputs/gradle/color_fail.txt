@@ -1,0 +1,29 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+
+
+[2A[1B[1m> Starting Daemon[m[17D[1B[1A> IDLE[0K[6D[1B[2ADaemon will be stopped at the end of the build 
+[1B[0K
+[2A[0K[1B> IDLE[6D[1B[2A[1m<[0;1m-------------> 0% INITIALIZING [88ms][m[38D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [188ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [288ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [388ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [488ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [589ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [688ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [788ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [890ms][m[39D[1B[1m> Evaluating settings[m[21D[1B[2A[1m<[0;1m-------------> 0% INITIALIZING [988ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [1s][m[0K[36D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [2s][m[36D[1B> IDLE[0K[6D[1B[2A[1m<[0;1m-------------> 0% CONFIGURING [2s][m[0K[35D[1B[1m> Loading projects[m[18D[1B[1A[1m> root project[m[0K[14D[1B[2A[1m<[0;1m-------------> 0% CONFIGURING [3s][m[35D[2B[2A[1m<[0;32;1m=============[0;39;1m> 100% CONFIGURING [3s][m[37D[1B> IDLE[0K[6D[1B[2A[1m<[0;1m-------------> 0% EXECUTING [3s][m[0K[33D[2B[2A[1m<[0;32;1m=====[0;39;1m--------> 42% EXECUTING [3s][m[34D[1B[1m> :compileTestJava > Resolve dependencies of :testCompileClasspath[m[66D[1B[2A[1m<[0;32;1m=====[0;39;1m--------> 42% EXECUTING [4s][m[34D[1B[1m> :compileTestJava[m[0K[18D[1B[2A[1m<[0;32;1m===========[0;39;1m--> 85% EXECUTING [4s][m[34D[1B[1m> :test[m[0K[7D[1B[1A[1m> :test > 0 tests completed[m[27D[1B[2A[1m<[0;32;1m===========[0;39;1m--> 85% EXECUTING [5s][m[34D[2B
+[1A[1m> :test > Executing test ATest[m[30D[1B[2A[1m> :test[m[0K[7D[1B> IDLE[0K[6D[1B[3A[0K
+[31;1m> Task :test[0;39m[31m FAILED[39m[0K
+[0K
+ATest > bad() [31mFAILED[39m
+    org.opentest4j.AssertionFailedError at ATest.java:9
+2 actionable tasks: 2 executed
+[0K
+[0K
+[0K
+[3A[1m<[0;31;1m=============[0;39;1m> 100% EXECUTING [5s][m[35D[1B> IDLE[6D[1B> IDLE[6D[1B[3A[1m<[0;1m-------------> 0% WAITING[m[0K[26D[3B
+4 tests completed, 1 failed
+
+[31mFAILURE: [39m[31mBuild failed with an exception.[39m
+
+* What went wrong:
+Execution failed for task ':test'.
+[33m> [39mThere were failing tests. See the report at: file:///w/jvm/gradle/onebad/build/reports/tests/test/index.html
+
+* Try:
+[33m> [39mRun with [1m--scan[m to get full insights.
+
+[31;1mBUILD FAILED[0;39m in 8s
+[3A[2K[1B[2K[1B[2K[2A

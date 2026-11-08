@@ -1,0 +1,39 @@
+
+
+  ✔ one
+  1) two
+  2) three
+
+  1 passing (18ms)
+  2 failing
+
+  1) two:
+
+      AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(1 === 2)
+
+      + expected - actual
+
+      -false
+      +true
+      
+      at Context.<anonymous> (test/a.spec.js:3:26)
+      at process.processImmediate (node:internal/timers:574:21)
+
+  2) three:
+
+      AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(2 === 3)
+
+      + expected - actual
+
+      -false
+      +true
+      
+      at Context.<anonymous> (test/a.spec.js:4:28)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+

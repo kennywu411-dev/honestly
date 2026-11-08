@@ -1,0 +1,7 @@
+nox > Running session tests
+nox > Creating virtual environment (uv) using python in .nox/tests
+nox > uv pip install pytest
+nox > pytest -q
+.sxX                                                                     [100%]
+1 passed, 1 skipped, 1 xfailed, 1 xpassed in 0.16s
+nox > Session tests was successful in 2 seconds.

@@ -1,0 +1,28 @@
+✖ returns OK for valid input (1.513042ms)
+✔ two (0.31375ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 277.957791
+
+✖ failing tests:
+
+test at a.test.js:3:1
+✖ returns OK for valid input (1.513042ms)
+  AssertionError [ERR_ASSERTION]: 'ERROR' == 'OK'
+      at TestContext.<anonymous> (/work/okword/node-test/fail_message_says_ok/a.test.js:3:51)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ERROR',
+    expected: 'OK',
+    operator: '==',
+    diff: 'simple'
+  }

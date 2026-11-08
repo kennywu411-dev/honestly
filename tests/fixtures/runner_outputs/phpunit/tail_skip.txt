@@ -1,0 +1,5 @@
+
+Time: 00:00.008, Memory: 20.00 MB
+
+OK, but there were issues!
+Tests: 5, Assertions: 3, Skipped: 1, Incomplete: 1.

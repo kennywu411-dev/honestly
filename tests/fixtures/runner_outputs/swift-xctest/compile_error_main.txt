@@ -1,0 +1,10 @@
+Building for debugging...
+[0/13] Write sources
+[2/13] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Emitting module M
+[5/15] Compiling M m.swift
+/w/swift/x_mainerr/Sources/M/m.swift:1:46: error: cannot convert return expression of type 'String' to return type 'Int'
+1 | public func add(_ a: Int, _ b: Int) -> Int { "x" }
+  |                                              `- error: cannot convert return expression of type 'String' to return type 'Int'
+2 | 
+error: fatalError

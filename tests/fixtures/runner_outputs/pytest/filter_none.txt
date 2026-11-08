@@ -1,0 +1,7 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pytest/green
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collected 3 items / 3 deselected / 0 selected
+
+============================ 3 deselected in 0.04s =============================

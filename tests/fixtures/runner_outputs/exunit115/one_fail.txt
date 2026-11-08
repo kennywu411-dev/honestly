@@ -1,0 +1,17 @@
+Generated m app
+.
+
+  1) test bad (ATest)
+     test/a_test.exs:9
+     Assertion with == failed
+     code:  assert 1 == 2
+     left:  1
+     right: 2
+     stacktrace:
+       test/a_test.exs:10: (test)
+
+.
+Finished in 0.05 seconds (0.00s async, 0.05s sync)
+3 tests, 1 failure
+
+Randomized with seed 347891

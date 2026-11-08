@@ -1,0 +1,7 @@
+
+  ✔ one
+  ✔ two
+  ✔ three
+  ─
+
+  3 tests passed

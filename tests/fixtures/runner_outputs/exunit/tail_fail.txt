@@ -1,0 +1,5 @@
+...
+Finished in 0.05 seconds (0.00s async, 0.05s sync)
+
+Result: 3/4 passed
+Failed: 1 test

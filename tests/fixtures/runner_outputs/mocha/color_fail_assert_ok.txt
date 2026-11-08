@@ -1,0 +1,24 @@
+
+[0m[0m
+[32m  [32m✔[39m[0m[90m one[0m
+[31m  1) two[0m
+
+[92m [0m[32m 1 passing[0m[90m (11ms)[0m
+[31m  1 failing[0m
+
+[0m  1) two:
+
+      [31mAssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(false)
+[0m
+      [32m+ expected[0m [31m- actual[0m
+
+      [31m-false[0m
+      [32m+true[0m
+      [0m[90m
+      at Context.<anonymous> (test/a.spec.js:3:26)
+      at process.processImmediate (node:internal/timers:574:21)
+[0m
+
+

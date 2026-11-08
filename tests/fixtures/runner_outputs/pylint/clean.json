@@ -1,0 +1,11 @@
+{
+ "command": "pylint a.py",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "pylint",
+ "where": "macOS-arm64-local"
+}

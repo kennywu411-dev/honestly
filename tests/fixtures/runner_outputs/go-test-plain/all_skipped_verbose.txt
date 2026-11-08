@@ -1,0 +1,8 @@
+=== RUN   TestA
+    a_test.go:8: not now
+--- SKIP: TestA (0.00s)
+=== RUN   TestB
+    a_test.go:12: not now
+--- SKIP: TestB (0.00s)
+PASS
+ok  	example.com/m	0.002s

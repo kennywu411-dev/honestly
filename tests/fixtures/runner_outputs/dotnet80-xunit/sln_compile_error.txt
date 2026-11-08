@@ -1,0 +1,19 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet80/xunit/Q/T.cs(7,29): error CS0029: Cannot implicitly convert type 'string' to 'int' [/w/dotnet80/xunit/Q/Q.csproj]
+  P -> /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll
+  R -> /w/dotnet80/xunit/R/bin/Debug/net8.0/R.dll
+Test run for /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll (.NETCoreApp,Version=v8.0)
+Test run for /w/dotnet80/xunit/R/bin/Debug/net8.0/R.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (arm64)
+
+VSTest version 17.11.1 (arm64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+No test is available in /w/dotnet80/xunit/R/bin/Debug/net8.0/R.dll. Make sure that test discoverer & executors are registered and platform & framework version settings are appropriate and try again.
+
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 3 ms - P.dll (net8.0)

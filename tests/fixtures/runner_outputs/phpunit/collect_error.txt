@@ -1,0 +1,19 @@
+
+
+An error occurred inside PHPUnit.
+
+Message:  Failed opening required 'does_not_exist_anywhere.php' (include_path='.:/usr/local/lib/php')
+Location: /w/php/phpunit/collect/tests/BrokenTest.php:2
+
+#0 /w/php/_deps/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(134): require_once()
+#1 /w/php/_deps/vendor/phpunit/phpunit/src/Runner/TestSuiteLoader.php(56): PHPUnit\Runner\TestSuiteLoader->loadSuiteClassFile('/w/php/phpunit/...')
+#2 /w/php/_deps/vendor/phpunit/phpunit/src/Framework/TestSuite.php(276): PHPUnit\Runner\TestSuiteLoader->load('/w/php/phpunit/...')
+#3 /w/php/_deps/vendor/phpunit/phpunit/src/TextUI/Configuration/Xml/TestSuiteMapper.php(129): PHPUnit\Framework\TestSuite->addTestFile('/w/php/phpunit/...', Array, 1, 1)
+#4 /w/php/_deps/vendor/phpunit/phpunit/src/Runner/TestIndex/NullTestFileSkipper.php(43): PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper::{closure:PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper::map():127}()
+#5 /w/php/_deps/vendor/phpunit/phpunit/src/TextUI/Configuration/Xml/TestSuiteMapper.php(125): PHPUnit\Runner\TestIndex\NullTestFileSkipper->record('/w/php/phpunit/...', Object(Closure))
+#6 /w/php/_deps/vendor/phpunit/phpunit/src/TextUI/Configuration/TestSuiteBuilder.php(139): PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper->map('/w/php/phpunit/...', Object(PHPUnit\TextUI\Configuration\TestSuiteCollection), Array, Array, 1, 1)
+#7 /w/php/_deps/vendor/phpunit/phpunit/src/TextUI/Application.php(472): PHPUnit\TextUI\Configuration\TestSuiteBuilder->build(Object(PHPUnit\TextUI\Configuration\Configuration))
+#8 /w/php/_deps/vendor/phpunit/phpunit/src/TextUI/Application.php(235): PHPUnit\TextUI\Application->buildTestSuite(Object(PHPUnit\TextUI\Configuration\Configuration), Object(PHPUnit\TextUI\CliArguments\Configuration))
+#9 /w/php/_deps/vendor/phpunit/phpunit/phpunit(104): PHPUnit\TextUI\Application->run(Array)
+#10 /w/php/_deps/vendor/bin/phpunit(122): include('/w/php/_deps/ve...')
+#11 {main}

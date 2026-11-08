@@ -1,0 +1,8 @@
+{
+ "command": "cargo test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "cargo 1.99.1 (5f94df478 2026-08-27)",
+ "where": "rust:1"
+}

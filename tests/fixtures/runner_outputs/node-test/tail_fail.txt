@@ -1,0 +1,5 @@
+    actual: 1,
+    expected: 2,
+    operator: '==',
+    diff: 'simple'
+  }

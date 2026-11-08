@@ -1,0 +1,12 @@
+
+   WARN  Tests\ATest - 1 todo
+  ✓ it one                                                               0.02s  
+  ✓ it two
+  ✓ three
+  - it later → not now                                                   0.02s  
+  ↓ it wip
+  ✓ it throws
+
+  Tests:    1 todo, 1 skipped, 4 passed (4 assertions)
+  Duration: 0.51s
+

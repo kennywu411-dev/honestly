@@ -1,0 +1,8 @@
+{
+ "command": "mvn test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Apache Maven 3.10.0 (c43a36b8d67be7e0805a411bc0898af1a51f5472) junit 4.13.2",
+ "where": "maven:3-eclipse-temurin-21"
+}

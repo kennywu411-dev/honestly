@@ -1,0 +1,11 @@
+{
+ "command": "npx cypress run --spec 'cypress/e2e/does_not_exist.cy.js'",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "version": "Cypress package version: 16.2.1",
+ "where": "cypress/included:latest"
+}

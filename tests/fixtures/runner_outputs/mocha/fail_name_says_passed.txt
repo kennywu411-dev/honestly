@@ -1,0 +1,21 @@
+
+
+  1) marks the order as passed
+  ✔ two
+
+  1 passing (15ms)
+  1 failing
+
+  1) marks the order as passed:
+
+      AssertionError [ERR_ASSERTION]: 1 == 2
+      + expected - actual
+
+      -1
+      +2
+      
+      at Context.<anonymous> (test/a.spec.js:2:48)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+

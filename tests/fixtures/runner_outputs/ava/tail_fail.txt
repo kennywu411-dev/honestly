@@ -1,0 +1,5 @@
+  › file://test.js:5:22
+
+  ─
+
+  1 test failed

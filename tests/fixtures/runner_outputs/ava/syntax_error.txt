@@ -1,0 +1,9 @@
+
+  Uncaught exception in test.js
+
+  SyntaxError: missing ) after argument list
+
+  ✘ test.js exited with a non-zero exit code: 1
+  ─
+
+  1 uncaught exception

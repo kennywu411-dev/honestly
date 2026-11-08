@@ -1,0 +1,11 @@
+{
+ "command": "python manage.py test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "django 6.1.3",
+ "where": "macOS-arm64-local"
+}

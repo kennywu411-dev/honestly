@@ -1,0 +1,8 @@
+{
+ "command": "mix test",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "Elixir 1.18.6 (compiled with Erlang/OTP 28)",
+ "where": "elixir:1.18-slim"
+}

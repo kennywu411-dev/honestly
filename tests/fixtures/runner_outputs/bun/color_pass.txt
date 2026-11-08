@@ -1,0 +1,11 @@
+[0m[1mbun test [0m[2mv1.4.4 (38afee6c8)[0m
+[0m
+a.test.ts:
+[0m[32m✓[0m[0m[1m one[0m [0m[2m[0.06ms[0m[2m][0m
+[0m[32m✓[0m[0m[1m two[0m [0m[2m[0.03ms[0m[2m][0m
+[0m[32m✓[0m[0m[1m three[0m [0m[2m[0.01ms[0m[2m][0m
+
+[0m[32m 3 pass[0m
+[0m[2m 0 fail[0m
+ 3 expect() calls
+Ran 3 tests across 1 file. [0m[2m[[1m6.00ms[0m[2m][0m

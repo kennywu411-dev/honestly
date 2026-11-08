@@ -1,0 +1,11 @@
+{"protocolVersion":"0.1.1","runnerVersion":"1.33.0","pid":2549,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"test/a_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading test/a_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":2}
+{"count":1,"time":10,"type":"allSuites"}
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":427}
+{"group":{"id":2,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":1,"line":null,"column":null,"url":null},"type":"group","time":430}
+{"test":{"id":3,"name":"returns error when request failed","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":4,"column":3,"url":"file:///w/dart/noisy/test/a_test.dart"},"type":"testStart","time":431}
+{"testID":3,"messageType":"print","message":"ERROR: connection failed (expected)","type":"print","time":441}
+{"testID":3,"messageType":"print","message":"FAILED to reach upstream, 2 failed attempts","type":"print","time":442}
+{"testID":3,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":444}
+{"success":true,"type":"done","time":451}

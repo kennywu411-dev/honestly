@@ -1,0 +1,13 @@
+[95m
+[95mRunning tests from 1 files.[0m
+[91m[-] bad.wrong[0m[90m 59ms[0m
+[91m Expected 2, but got 1.
+[91m at It 'wrong' { 1 | Should -Be 2 }, /w/pester/manybad/a.Tests.ps1:7[0m
+[91m[-] bad.wrong2[0m[90m 17ms[0m
+[91m Expected $true, but got $false.
+[91m at It 'wrong2' { $false | Should -BeTrue }, /w/pester/manybad/a.Tests.ps1:8[0m
+[91m[-] bad.err[0m[90m 3ms[0m
+[91m RuntimeException: boom
+[91m at <ScriptBlock>, /w/pester/manybad/a.Tests.ps1:9[0m
+[97mTests completed in 634ms[0m
+[97mTests Passed: 3, [0m[91mFailed: 3, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m

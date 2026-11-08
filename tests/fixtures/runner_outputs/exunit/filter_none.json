@@ -1,0 +1,8 @@
+{
+ "command": "mix test --only does_not_exist",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "Elixir 1.20.5 (compiled with Erlang/OTP 29)",
+ "where": "elixir:latest"
+}

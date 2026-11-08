@@ -1,0 +1,5 @@
+  Inspect the DOM, network events, and console logs exactly as they ran in CI.
+
+  >> [36mhttps://on.cypress.io/cloud-get-started[39m
+
+[90m----------------------------------------------------------------------------------------------------[39m

@@ -1,0 +1,14 @@
+TAP version 13
+1..4
+ok 1 - a.test.ts > one # time=1.78ms
+ok 2 - a.test.ts > two # time=0.19ms
+ok 3 - a.test.ts > three # time=0.12ms
+not ok 4 - a.test.ts > bad # time=5.19ms
+    ---
+    error:
+        name: "AssertionError"
+        message: "expected 2 to be 3 // Object.is equality"
+    at: "/work/vitest/onebad/a.test.ts:5:35"
+    actual: "2"
+    expected: "3"
+    ...

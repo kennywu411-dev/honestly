@@ -1,0 +1,5 @@
+    a_test.go:24: got 1 want 2
+--- FAIL: TestBad (0.00s)
+FAIL
+FAIL	example.com/m	0.003s
+FAIL

@@ -1,0 +1,56 @@
+
+> a@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (3ms)
+
+
+> b@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+  1) bad
+
+  2 passing (5ms)
+  1 failing
+
+  1) bad:
+
+      AssertionError [ERR_ASSERTION]: 1 == 2
+      + expected - actual
+
+      -1
+      +2
+      
+      at Context.<anonymous> (test/b.spec.js:4:26)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono2/mocha_mid/packages/b
+npm error workspace b@1.0.0
+npm error location /work/mono2/mocha_mid/packages/b
+npm error command failed
+npm error command sh -c mocha
+
+
+> c@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (4ms)
+

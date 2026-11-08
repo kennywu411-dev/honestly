@@ -1,0 +1,31 @@
+    Checking m v0.1.0 (/w/rust/clip_warn)
+warning: unneeded `return` statement
+ --> src/lib.rs:1:35
+  |
+1 | pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+  |                                   ^^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#needless_return
+  = note: `#[warn(clippy::needless_return)]` on by default
+help: remove `return`
+  |
+1 - pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+1 + pub fn f(v: &Vec<i32>) -> usize { v.len()}
+  |
+
+warning: writing `&Vec` instead of `&[_]` involves a new object where a slice will do
+ --> src/lib.rs:1:13
+  |
+1 | pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+  |             ^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#ptr_arg
+  = note: `#[warn(clippy::ptr_arg)]` on by default
+help: change this to
+  |
+1 - pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+1 + pub fn f(v: &[i32]) -> usize { return v.len(); }
+  |
+
+warning: `m` (lib) generated 2 warnings (run `cargo clippy --fix --lib -p m -- ` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s

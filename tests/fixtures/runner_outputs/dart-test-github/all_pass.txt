@@ -1,0 +1,8 @@
+
+::group::✅ Passing tests
+✅ test/a_test.dart: one
+✅ test/a_test.dart: two
+✅ test/a_test.dart: three
+::endgroup::
+
+🎉 3 tests passed.

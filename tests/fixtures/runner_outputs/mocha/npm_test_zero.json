@@ -1,0 +1,8 @@
+{
+ "command": "npm test",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "mocha 12.0.3",
+ "where": "macOS-arm64-local"
+}

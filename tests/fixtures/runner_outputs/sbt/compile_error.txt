@@ -1,0 +1,15 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/compile/project
+[info] loading settings for project compile from build.sbt...
+[info] set current project to compile (in build file:/w/jvm/sbt/compile/)
+[info] compiling 1 Scala source to /w/jvm/sbt/compile/target/scala-3.3.4/test-classes ...
+[error] -- [E007] Type Mismatch Error: /w/jvm/sbt/compile/src/test/scala/ATest.scala:4:27 
+[error] 4 |  test("x") { val i: Int = "s"; assert(i == 1) }
+[error]   |                           ^^^
+[error]   |                           Found:    ("s" : String)
+[error]   |                           Required: Int
+[error]   |
+[error]   | longer explanation available when compiling with `-explain`
+[error] one error found
+[error] (Test / compileIncremental) Compilation failed
+[error] Total time: 5 s, completed Nov 8, 2026, 1:18:56 PM

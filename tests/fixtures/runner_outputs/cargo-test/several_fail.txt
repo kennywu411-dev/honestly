@@ -1,0 +1,41 @@
+   Compiling m v0.1.0 (/w/rust/manybad)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.68s
+     Running unittests src/lib.rs (target/debug/deps/m-caf2b80818c458fd)
+
+running 6 tests
+test tests::three ... ok
+test tests::bad_b ... FAILED
+test tests::two ... ok
+test tests::bad_c ... FAILED
+test tests::one ... ok
+test tests::bad ... FAILED
+
+failures:
+
+---- tests::bad_b stdout ----
+
+thread 'tests::bad_b' (211) panicked at src/lib.rs:20:18:
+boom
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::bad_c stdout ----
+
+thread 'tests::bad_c' (212) panicked at src/lib.rs:23:18:
+nope
+
+---- tests::bad stdout ----
+
+thread 'tests::bad' (210) panicked at src/lib.rs:17:16:
+assertion `left == right` failed
+  left: 2
+ right: 3
+
+
+failures:
+    tests::bad
+    tests::bad_b
+    tests::bad_c
+
+test result: FAILED. 3 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,14 @@
+{
+ "command": "eslint . --max-warnings 0",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "v10.14.0",
+ "where": "macOS-arm64-local"
+}

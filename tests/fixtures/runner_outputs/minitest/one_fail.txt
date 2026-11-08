@@ -1,0 +1,14 @@
+Run options: --seed 44930
+
+# Running:
+
+.F..
+
+Finished in 0.001985s, 2015.4900 runs/s, 2015.4900 assertions/s.
+
+  1) Failure:
+T#test_bad [test/a_test.rb:7]:
+Expected: 1
+  Actual: 2
+
+4 runs, 4 assertions, 1 failures, 0 errors, 0 skips

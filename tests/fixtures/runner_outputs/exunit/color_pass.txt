@@ -1,0 +1,6 @@
+Running ExUnit with seed: 903764, max_cases: 14
+
+[32m.[0m[32m.[0m[32m.[0m
+Finished in 0.05 seconds (0.00s async, 0.05s sync)
+[32m
+Result: 3 passed[0m

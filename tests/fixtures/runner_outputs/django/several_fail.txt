@@ -1,0 +1,26 @@
+Creating test database for alias 'default'...
+FE..
+======================================================================
+ERROR: test_err (shop.tests.A.test_err)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/django/site/shop/tests.py", line 14, in test_err
+    raise ValueError('boom')
+ValueError: boom
+
+======================================================================
+FAIL: test_bad (shop.tests.A.test_bad)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/django/site/shop/tests.py", line 11, in test_bad
+    self.assertEqual(1, 2)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+FAILED (failures=1, errors=1)
+Destroying test database for alias 'default'...
+Found 4 test(s).
+System check identified no issues (0 silenced).

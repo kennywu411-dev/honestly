@@ -1,0 +1,14 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="0.669687">
+<testsuite name="a.spec.ts" timestamp="2026-11-08T13:09:52.465Z" hostname="" tests="1" failures="0" skipped="0" time="0.013" errors="0">
+<testcase name="returns error when request failed" classname="a.spec.ts" time="0.013">
+<system-out>
+<![CDATA[FAILED to reach upstream, 2 failed attempts
+]]>
+</system-out>
+<system-err>
+<![CDATA[ERROR: connection failed (expected)
+]]>
+</system-err>
+</testcase>
+</testsuite>
+</testsuites>

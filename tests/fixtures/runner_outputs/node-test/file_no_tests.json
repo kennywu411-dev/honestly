@@ -1,0 +1,9 @@
+{
+ "command": "node --test",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "note": "file has no test() calls: node counts the file itself as one passing test",
+ "version": "node v26.11.1",
+ "where": "macOS-arm64-local"
+}

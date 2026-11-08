@@ -1,0 +1,10 @@
+yarn run v1.22.22
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (5ms)
+
+Done in 0.46s.

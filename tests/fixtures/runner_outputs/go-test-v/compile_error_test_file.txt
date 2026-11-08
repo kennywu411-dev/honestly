@@ -1,0 +1,4 @@
+FAIL	example.com/m [build failed]
+FAIL
+# example.com/m [example.com/m.test]
+./a_test.go:8:14: cannot use "str" (untyped string constant) as int value in variable declaration

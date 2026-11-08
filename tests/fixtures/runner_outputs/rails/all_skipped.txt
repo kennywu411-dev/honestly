@@ -1,0 +1,11 @@
+Running 2 tests in a single process (parallelization threshold is 50)
+Run options: --seed 57019
+
+# Running:
+
+SS
+
+Finished in 0.037172s, 53.8038 runs/s, 0.0000 assertions/s.
+2 runs, 0 assertions, 0 failures, 0 errors, 2 skips
+
+You have skipped tests. Run with --verbose for details.

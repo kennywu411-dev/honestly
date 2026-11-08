@@ -1,0 +1,12 @@
+{"protocolVersion":"0.1.1","runnerVersion":"1.33.0","pid":2274,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"test/a_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading test/a_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":1}
+{"count":1,"time":8,"type":"allSuites"}
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":331}
+{"group":{"id":2,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":null,"column":null,"url":null},"type":"group","time":333}
+{"test":{"id":3,"name":"returns OK","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":4,"column":3,"url":"file:///w/dart/failok/test/a_test.dart"},"type":"testStart","time":333}
+{"testID":3,"error":"Expected: 'OK'\n  Actual: 'ERROR'\n   Which: is different.\n          Expected: OK\n            Actual: ERROR\n                    ^\n           Differ at offset 0\n","stackTrace":"package:matcher        expect\ntest/a_test.dart 4:27  main.<fn>\n","isFailure":true,"type":"error","time":352}
+{"testID":3,"result":"failure","skipped":false,"hidden":false,"type":"testDone","time":353}
+{"test":{"id":4,"name":"two","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":5,"column":3,"url":"file:///w/dart/failok/test/a_test.dart"},"type":"testStart","time":353}
+{"testID":4,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":355}
+{"success":false,"type":"done","time":362}

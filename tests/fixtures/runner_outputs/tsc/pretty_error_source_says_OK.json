@@ -1,0 +1,14 @@
+{
+ "command": "tsc --noEmit --pretty",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "Version 7.0.2",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,29 @@
+.****
+
+Pending: (Failures listed here are expected and do not affect your suite's status)
+
+  1) s later
+     # not now
+     # ./spec/a_spec.rb:3
+
+  2) s disabled
+     # Temporarily skipped with xit
+     # ./spec/a_spec.rb:4
+
+  3) s known bug
+     # known
+     Failure/Error: it("known bug") { pending("known"); expect(1).to eq(2) }
+
+       expected: 2
+            got: 1
+
+       (compared using ==)
+     # ./spec/a_spec.rb:5:in 'block (2 levels) in <top (required)>'
+
+  4) s no body yet
+     # Not yet implemented
+     # ./spec/a_spec.rb:6
+
+Finished in 0.0105 seconds (files took 0.08863 seconds to load)
+5 examples, 0 failures, 4 pending
+

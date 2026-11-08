@@ -1,0 +1,10 @@
+
+ RUN  v1.6.1 /work/older/vitest1/allskip
+
+ ↓ a.test.ts  (2 tests | 2 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  2 skipped (2)
+   Start at  00:17:20
+   Duration  316ms (transform 45ms, setup 0ms, collect 43ms, tests 0ms, environment 0ms, prepare 65ms)
+

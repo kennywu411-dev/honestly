@@ -1,0 +1,5 @@
+
+> mocha-empty@1.0.0 test
+> mocha
+
+Error: No test files found: "test"

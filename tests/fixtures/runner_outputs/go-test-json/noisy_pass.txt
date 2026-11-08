@@ -1,0 +1,16 @@
+{"Time":"2026-11-08T12:50:39.283842815Z","Action":"start","Package":"example.com/m"}
+{"Time":"2026-11-08T12:50:39.290836971Z","Action":"run","Package":"example.com/m","Test":"TestErrorPathFailed"}
+{"Time":"2026-11-08T12:50:39.290911226Z","Action":"output","Package":"example.com/m","Test":"TestErrorPathFailed","Output":"=== RUN   TestErrorPathFailed\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:39.29094187Z","Action":"output","Package":"example.com/m","Test":"TestErrorPathFailed","Output":"ERROR: connection failed (expected)\n"}
+{"Time":"2026-11-08T12:50:39.290946456Z","Action":"output","Package":"example.com/m","Test":"TestErrorPathFailed","Output":"FAIL: simulated upstream\n"}
+{"Time":"2026-11-08T12:50:39.291771763Z","Action":"output","Package":"example.com/m","Test":"TestErrorPathFailed","Output":"    a_test.go:11: 2 failed attempts\n"}
+{"Time":"2026-11-08T12:50:39.291800948Z","Action":"output","Package":"example.com/m","Test":"TestErrorPathFailed","Output":"--- PASS: TestErrorPathFailed (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:39.291805701Z","Action":"pass","Package":"example.com/m","Test":"TestErrorPathFailed","Elapsed":0}
+{"Time":"2026-11-08T12:50:39.292167635Z","Action":"run","Package":"example.com/m","Test":"TestFailPath"}
+{"Time":"2026-11-08T12:50:39.292188606Z","Action":"output","Package":"example.com/m","Test":"TestFailPath","Output":"=== RUN   TestFailPath\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:39.292214956Z","Action":"output","Package":"example.com/m","Test":"TestFailPath","Output":"--- retrying after panic: simulated\n"}
+{"Time":"2026-11-08T12:50:39.292220668Z","Action":"output","Package":"example.com/m","Test":"TestFailPath","Output":"--- PASS: TestFailPath (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:39.292223253Z","Action":"pass","Package":"example.com/m","Test":"TestFailPath","Elapsed":0}
+{"Time":"2026-11-08T12:50:39.292227339Z","Action":"output","Package":"example.com/m","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:39.293092212Z","Action":"output","Package":"example.com/m","Output":"ok  \texample.com/m\t0.009s\n"}
+{"Time":"2026-11-08T12:50:39.294005032Z","Action":"pass","Package":"example.com/m","Elapsed":0.01}

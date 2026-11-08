@@ -1,0 +1,3 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet80/xunit/P/T.cs(7,29): error CS0029: Cannot implicitly convert type 'string' to 'int' [/w/dotnet80/xunit/P/P.csproj]

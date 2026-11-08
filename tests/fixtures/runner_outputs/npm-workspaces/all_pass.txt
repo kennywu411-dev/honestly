@@ -1,0 +1,42 @@
+
+> a@1.0.0 test
+> node --test
+
+✔ one (1.425667ms)
+✔ two (0.200459ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 169.719125
+
+> b@1.0.0 test
+> node --test
+
+✔ one (0.64075ms)
+✔ two (0.17375ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 137.985458
+
+> c@1.0.0 test
+> node --test
+
+✔ one (0.622583ms)
+✔ two (0.117667ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 134.92225

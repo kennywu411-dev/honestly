@@ -1,0 +1,5 @@
+3/3 Test #3: M.Three ..........................   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.10 sec

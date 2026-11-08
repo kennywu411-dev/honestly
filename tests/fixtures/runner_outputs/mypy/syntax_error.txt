@@ -1,0 +1,3 @@
+a.py:1: error: Expected a parameter or the end of the parameter list  [syntax]
+a.py:1: error: Expected `)`, found newline  [syntax]
+Found 2 errors in 1 file (errors prevented further checking)

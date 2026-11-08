@@ -1,0 +1,72 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 3,
+    "passes": 3,
+    "pending": 0,
+    "failures": 0,
+    "start": "2026-11-08T12:51:28.831Z",
+    "end": "2026-11-08T12:51:28.834Z",
+    "duration": 3
+  },
+  "tests": [
+    {
+      "title": "one",
+      "fullTitle": "math one",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    },
+    {
+      "title": "two",
+      "fullTitle": "math two",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    },
+    {
+      "title": "three",
+      "fullTitle": "math three",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    }
+  ],
+  "pending": [],
+  "failures": [],
+  "passes": [
+    {
+      "title": "one",
+      "fullTitle": "math one",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    },
+    {
+      "title": "two",
+      "fullTitle": "math two",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    },
+    {
+      "title": "three",
+      "fullTitle": "math three",
+      "file": "/work/mocha/green/test/a.spec.js",
+      "duration": 0,
+      "currentRetry": 0,
+      "speed": "fast",
+      "err": {}
+    }
+  ]
+}

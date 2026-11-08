@@ -1,0 +1,10 @@
+{
+ "command": "rake test TESTOPTS='-n /does_not_match/'",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "ruby 3.4.12 minitest 6.1.0",
+ "where": "ruby:3",
+ "safe": "contradicted",
+ "note": "the runner errored on a filter that matched nothing: it holds, and calls it a failure as the runner does"
+}

@@ -1,0 +1,5 @@
+packages/c test: ℹ cancelled 0
+packages/c test: ℹ skipped 0
+packages/c test: ℹ todo 0
+packages/c test: ℹ duration_ms 164.773208
+packages/c test: Done

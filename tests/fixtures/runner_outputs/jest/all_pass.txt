@@ -1,0 +1,10 @@
+PASS ./a.test.js
+  ✓ one (1 ms)
+  ✓ two (1 ms)
+  ✓ three
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        0.72 s
+Ran all test suites.

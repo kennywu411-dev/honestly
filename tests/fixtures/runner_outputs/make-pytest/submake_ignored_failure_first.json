@@ -1,0 +1,9 @@
+{
+ "command": "make test",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "note": "`-` prefix ignores the failing suite; later suite passes; make exits 0",
+ "version": "GNU Make 3.81",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,14 @@
+00:00 +0: loading test/a_test.dart
+00:00 +0 -1: loading test/a_test.dart [E]
+  Failed to load "test/a_test.dart":
+  test/a_test.dart:4:24: Error: Can't find ')' to match '('.
+    test('x', () { expect(1, ; });
+                         ^
+  test/a_test.dart:4:28: Error: Expected an identifier, but got ';'.
+  Try inserting an identifier before ';'.
+    test('x', () { expect(1, ; });
+                             ^
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/a_test.dart: loading test/a_test.dart

@@ -1,0 +1,25 @@
+Scope: 3 of 4 workspace projects
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (8ms)
+
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (3ms)
+
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (4ms)
+

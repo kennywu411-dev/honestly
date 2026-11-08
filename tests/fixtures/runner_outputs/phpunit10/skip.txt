@@ -1,0 +1,11 @@
+PHPUnit 10.5.66 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.36
+Configuration: /w/older/phpunit10/skip/phpunit.xml
+
+..S                                                                 3 / 3 (100%)
+
+Time: 00:00.025, Memory: 8.00 MB
+
+OK, but some tests were skipped!
+Tests: 3, Assertions: 2, Skipped: 1.

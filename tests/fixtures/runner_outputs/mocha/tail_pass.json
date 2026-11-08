@@ -1,0 +1,8 @@
+{
+ "command": "npx mocha 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "mocha 12.0.3",
+ "where": "macOS-arm64-local"
+}

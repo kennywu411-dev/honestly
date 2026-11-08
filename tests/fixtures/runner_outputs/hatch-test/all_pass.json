@@ -1,0 +1,8 @@
+{
+ "command": "hatch test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "Hatch, version 1.18.2",
+ "where": "macOS-arm64-local"
+}

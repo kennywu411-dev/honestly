@@ -1,0 +1,14 @@
+Creating environment: hatch-test.py3.13
+Installing project in development mode
+Checking dependencies
+Syncing dependencies
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/hatchp/green
+configfile: pyproject.toml
+plugins: xdist-3.8.0, rerunfailures-14.0, mock-3.17.0
+collected 1 item
+
+tests/test_a.py .                                                        [100%]
+
+============================== 1 passed in 0.02s ===============================

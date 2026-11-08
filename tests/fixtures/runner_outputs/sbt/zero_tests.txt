@@ -1,0 +1,7 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/empty/project
+[info] loading settings for project empty from build.sbt...
+[info] set current project to empty (in build file:/w/jvm/sbt/empty/)
+[info] compiling 1 Scala source to /w/jvm/sbt/empty/target/scala-3.3.4/classes ...
+[info] done compiling
+[success] Total time: 4 s, completed Nov 8, 2026, 1:19:08 PM

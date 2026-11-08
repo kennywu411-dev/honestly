@@ -1,0 +1,12 @@
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+✔ returns error when request failed (1.211917ms)
+✔ fail path throws TypeError (0.238708ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 208.209208

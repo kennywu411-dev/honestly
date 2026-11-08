@@ -1,0 +1,14 @@
+00:00 +0: loading test/broken_test.dart
+00:00 +0 -1: loading test/broken_test.dart [E]
+  Failed to load "test/broken_test.dart":
+  Couldn't resolve the package 'does_not_exist' in 'package:does_not_exist/x.dart'.
+  test/broken_test.dart:1:8: Error: Not found: 'package:does_not_exist/x.dart'
+  import 'package:does_not_exist/x.dart';
+         ^
+00:00 +0 -1: test/a_test.dart: one
+00:00 +1 -1: test/a_test.dart: two
+00:00 +2 -1: test/a_test.dart: three
+00:00 +3 -1: Some tests failed.
+
+Failing tests:
+  test/broken_test.dart: loading test/broken_test.dart

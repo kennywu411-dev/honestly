@@ -1,0 +1,8 @@
+{
+ "command": "pnpm test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "pnpm 12.18.0",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,12 @@
+{
+ "command": "tox -- -k does_not_match",
+ "exit_code": 5,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "note": "tox reports evaluation failed because pytest exits 5",
+ "version": "4.67.13 from /home/user/honest",
+ "where": "macOS-arm64-local"
+}

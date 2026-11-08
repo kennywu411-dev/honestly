@@ -1,0 +1,10 @@
+{
+ "command": "cargo test 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "cargo 1.99.1 (5f94df478 2026-08-27)",
+ "where": "rust:1",
+ "safe": "unbacked",
+ "note": "tail -5 lands on the Doc-tests section: `0 passed` here is also what a crate with no tests prints, so it holds and says the count was cut off"
+}

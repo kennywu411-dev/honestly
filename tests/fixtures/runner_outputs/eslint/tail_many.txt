@@ -1,0 +1,5 @@
+/work/lint/es_many/b.js
+  1:1  error  'bar' is not defined  no-undef
+
+✖ 3 problems (3 errors, 0 warnings)
+

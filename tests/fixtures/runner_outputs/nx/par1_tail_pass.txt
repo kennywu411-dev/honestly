@@ -1,0 +1,5 @@
+
+  Run duration:      2.6s
+  Cache:             0/3 hit (0%)
+  Critical path:     907ms (1 task)
+  Recoverable time:  1.7s (65% of the run)

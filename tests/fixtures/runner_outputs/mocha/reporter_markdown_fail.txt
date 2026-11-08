@@ -1,0 +1,27 @@
+# TOC
+   - [math](#math)
+   - [bad](#bad)
+<a name=""></a>
+ 
+<a name="math"></a>
+# math
+one.
+
+```js
+assert.equal(1 + 1, 2);
+```
+
+two.
+
+```js
+assert.equal(2, 2);
+```
+
+three.
+
+```js
+assert.equal(3, 3);
+```
+
+<a name="bad"></a>
+# bad

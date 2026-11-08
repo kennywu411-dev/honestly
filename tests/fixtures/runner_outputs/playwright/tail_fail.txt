@@ -1,0 +1,5 @@
+    Error Context: test-results/a-bad/error-context.md
+
+  1 failed
+    tests/a.spec.ts:5:1 › bad ──────────────────────────────────────────────────────────────────────
+  3 passed (1.6s)

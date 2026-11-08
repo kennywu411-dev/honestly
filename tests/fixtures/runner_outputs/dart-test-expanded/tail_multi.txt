@@ -1,0 +1,5 @@
+Failing tests:
+  test/b_test.dart: bad
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

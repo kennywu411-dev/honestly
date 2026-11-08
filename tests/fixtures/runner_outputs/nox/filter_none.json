@@ -1,0 +1,12 @@
+{
+ "command": "nox -- -k does_not_match",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "note": "nox reports the session failed because pytest exits 5",
+ "version": "nox 2026.10.20",
+ "where": "macOS-arm64-local"
+}

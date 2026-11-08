@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /w/cpp/ct_allskip/build
+Test project /w/cpp/ct_allskip/build
+    Start 1: M.A
+1/2 Test #1: M.A ..............................***Skipped   0.01 sec
+    Start 2: M.B
+2/2 Test #2: M.B ..............................***Skipped   0.01 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.04 sec
+
+The following tests did not run:
+	  1 - M.A (Skipped)
+	  2 - M.B (Skipped)

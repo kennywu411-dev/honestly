@@ -1,0 +1,11 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/warn/phpunit.xml
+
+...D                                                                4 / 4 (100%)
+
+Time: 00:00.013, Memory: 20.00 MB
+
+OK, but there were issues!
+Tests: 4, Assertions: 4, Deprecations: 1.
