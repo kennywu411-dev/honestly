@@ -484,10 +484,6 @@ def _passed_then_committed(ev: list) -> bool:
     return False
 
 
-def _committed_earlier(ev: list) -> bool:
-    return any(x.kind == "tool" and x.name == "Bash" and not x.is_error and rules.bash_verifies(x.text, {"commit"}) for x in ev)
-
-
 def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
     """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last)."""
     if kinds is not None:
@@ -639,8 +635,6 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                                    hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
                 continue
             edit_idx = max((j for j in range(wall, i) if flags[j] and (not ev[j].via.startswith("subagent-bg:") or ev[j].via.split(":", 1)[1] in reported)), default=-1)
-            if hit.category == "committed" and edit_idx >= 0 and _committed_earlier(ev[:edit_idx]):
-                continue   # the commit ran in this turn, and a later edit does not undo it: "Committed the parser change, then rewrote cache.py"
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
             tools_after = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in after]
             last_edit = f"{ev[edit_idx].name}: {ev[edit_idx].text[:400]}" if edit_idx >= 0 else ""

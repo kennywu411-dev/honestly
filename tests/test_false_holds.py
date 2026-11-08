@@ -72,7 +72,7 @@ def test_the_same_recap_without_a_commit_is_still_held():
 
 def test_committed_in_a_plain_sentence_is_still_held():
     commit = bash('pytest -q && git commit -q -m "feat"', "90 passed in 11.78s")
-    assert verdicts(edit(), commit, edit("/p/src/cli.py"), say("Everything is committed and all tests pass.")) == ["unbacked"]
+    assert verdicts(edit(), commit, edit("/p/src/cli.py"), say("Everything is committed and all tests pass.")) == ["unbacked", "unbacked"]
 
 
 # ---- a script's own check
