@@ -68,3 +68,26 @@ def test_redaction_is_the_shared_one():
     from honestly.redact import redact
     assert support._redact is redact
     assert os.path.basename(prnote.__file__) == "prnote.py"
+
+
+def _private_rows():
+    return [{"kind": "stop", "agent": "claude-code", "project": "/work/acme-merger", "topic": "the layoff plan", "claim": f"Pushed {TOKEN}.",
+             "message": f'⚠️ honestly blocked this reply: Claude Code in project acme-merger, answering "the layoff plan", said "{TOKEN}".'}]
+
+
+def test_a_card_says_how_many_and_nothing_about_what():
+    from honestly import report
+    svg = report.catches_card(_private_rows(), 7)
+    for private in ("acme", "layoff", TOKEN, "Pushed", "blocked this reply"):
+        assert private not in svg
+    assert ">1<" in svg and "Claude Code 1" in svg
+
+
+def test_a_card_stays_valid_whatever_the_log_holds():
+    import xml.etree.ElementTree as ET
+    from honestly import report
+    bad = '<script>alert(1)</script>"\'&\x07\x1b<svg onload=alert(1)>'
+    root = ET.fromstring(report.catches_card([{"kind": "stop", "agent": bad, "message": bad, "project": bad}], 7))
+    assert not [e for e in root.iter() if e.tag.endswith("script")]
+    assert not [e for e in root.iter() if "onload" in e.attrib]
+    assert ET.fromstring(report.catches_card([{"kind": None, "agent": None, "message": None}, {"kind": 1, "agent": 5, "message": 5}], 7)) is not None

@@ -81,7 +81,7 @@ honestly catches --card       # 同样的内容做成一张 1200×630 的图，�
 honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linux、Windows；最多每 5 分钟一次）
 ```
 
-每次拦截都追加到 `~/.honestly/catches.jsonl`，不看终端也能回顾那些原本会被当作"已完成"报告给你的结论。
+每次拦截都追加到 `~/.honestly/catches.jsonl`，不看终端也能回顾那些原本会被当作"已完成"报告给你的结论。这个文件夹只有你自己能读（0700，文件 0600），写入前会去掉令牌和 home 路径，日志到 4 MB 就轮换，`honestly purge` 可以删除记录（`--all` 连设置一起删，`--dry-run` 先列出）。
 
 ## 它拦什么
 
