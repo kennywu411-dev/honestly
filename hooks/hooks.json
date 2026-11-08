@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook stop 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook stop 2>/dev/null || true",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook stop 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook stop 2>/dev/null || echo '{\"systemMessage\": \"⚠️ honestly is not checking this session: it needs Python 3.9 or newer on the PATH as python3 or python, and could not run.\"}'",
             "timeout": 30
           }
         ]
