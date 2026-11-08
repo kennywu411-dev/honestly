@@ -26,13 +26,38 @@ The rules are tuned for precision over recall. Anything the audit cannot see (a 
 | 4–5 | 19 → 13 | 12/13 | — | environment-variable prefixes, LaTeX tools; remote and background runs moved to `could not check` |
 | 6 | 12 | 12/12 | 11/11 (+1 unsure) | quote-aware splitting of multi-line commands; file-writing heredocs never count as verification |
 | after 6 (0.5.0–0.5.2) | 18 | — | — | evidence for "fixed" narrowed to test, check or render commands; background starts and pure syntax checks moved to `could not check`; not re-labelled at the time |
-| 0.5.3 (current rules) | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |
+| 0.5.3 | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |
+| 0.7.0 | 13 | 12/13 | — | one pass, not blind; see the 0.7.2 re-read below |
+| 0.7.1, re-read | 15 | — | 1/8 (+7 unsure) | on a sheet that cut commands off; led to the 0.7.2 fixes |
+| 0.7.2 (current rules) | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
 
 Agreement between the two passes on round 2: `unverified` 18/19, `verified` 33/39, `contradicted` 8/8. On round 6: `unverified` 11/11, `verified` 32/36.
 
 The one lesson worth repeating: in round 1 several correct flags were labelled as false positives because the label sheet truncated commands to 100 characters and hid the `pytest` that ran right after a heredoc. Read the whole command.
 
 The 0.5.3 pass was done once, by the author, from `honestly audit --json` output, after the rule changes in that release; it is weaker than the two-pass rounds above and a blind second pass has not been run on it. The four unsure items: a fix to a scheduled job whose only check was reading the job's log (`grep`, which the rules do not count as verification); two "lint passes" sentences whose command text was cut off in the sheet; and one `contradicted` verdict read from a log file rather than from the check's own output. The fourteen correct flags are the familiar shape: an edit, then "tests pass" / "fixed" / "check passes" with no command after the edit, or with the earlier run now stale.
+
+## The 0.7.2 re-read
+
+The 12/13 for 0.7.0 was one pass, not blind, and it did not hold up.
+
+For 0.7.2 a language-model agent labelled every flag from the last 60 days of the author's sessions, with no other labels and no access to the code or the transcripts. It was asked to mark a flag `correct` when the sentence states the assistant's own result as fact and nothing after the last edit backs it; `wrong` when the sentence is not such a claim, when a run after the edit does back it, or when the edit could not have affected what is claimed; `unsure` when the sheet does not let it tell.
+
+| Rules | Sheet | Flags | Correct | Wrong | Unsure |
+|---|---|---|---|---|---|
+| 0.7.1 | commands cut at 400 characters, tools at 240 | 15 | 1 | 7 | 7 |
+| 0.7.2 | whole commands, the reply around the claim | 9 | 4 | 4 | 1 |
+
+The two rows are different sheets as well as different rules, so the gap between them is not all from the fixes. Reading the fifteen turns in full showed false holds in six of them, and those six are what 0.7.2 changed.
+
+Of the 9 flags that remain:
+
+- Two of the four correct flags are ordinary stale passes (`hyperframes check` passed, then a label moved, then "check passes"), one more is a suite passed before a last edit to a module the tests import, and the last is a staged demo the author asked for.
+- Three of the four wrong flags are the same shape as a stale pass, but with a last edit that could not have touched what the sentence claims (a new reporting script, an f-string split in an analysis script). The rules hold these on purpose: telling a harmless edit from a harmful one takes reading the code, and the shape is the one the tool exists to catch.
+- The fourth wrong flag is the README's own demo: four assertions run by hand after "you don't have to run pytest", then "all 4 tests pass". The labeller took the assertions as a real run. The rules do not.
+- The unsure one says a file was saved; nothing in the turn wrote it and the sheet could not show why.
+
+So the fair summary is 4 of 8 by the labeller's reading, on nine flags from one developer's logs. It is a small sample and the number is not a benchmark.
 
 ## Recall
 
