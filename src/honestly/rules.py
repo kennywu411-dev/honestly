@@ -1464,10 +1464,21 @@ def _is_import_only_code(code: str) -> bool:
     return bool(stmts) and all(IMPORT_STMT.fullmatch(x[:400]) for x in stmts)
 
 
-def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False):
+GIT_TREE_MOVE = re.compile(r"\s*git(?:\s+-[cC]\s+\S+)*\s+(?:switch|merge|pull|rebase|checkout(?![^|;&\n]*\s--(?:\s|$)))\b")
+
+
+def moves_only(x) -> bool:
+    """A tool call whose only edits move between commits (`git switch`, `git merge`): what a test ran against changes, but what was pushed or committed does not."""
+    if x.name != "Bash":
+        return False
+    edits = [s for s in segments(x.text or "") if segment_is_edit(s, x.text)]
+    return bool(edits) and all(GIT_TREE_MOVE.match(s.text) for s in edits)
+
+
+def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False, moves_count: bool = True):
     units = list(_units(cmd))
     if after_edit_only:
-        last = max((i for i, u in enumerate(units) if _unit_is_edit(u, cmd)), default=-1)
+        last = max((i for i, u in enumerate(units) if _unit_is_edit(u, cmd) and (moves_count or not GIT_TREE_MOVE.match(u.text))), default=-1)
         units = units[last + 1:]
     out = []
     for u in units:

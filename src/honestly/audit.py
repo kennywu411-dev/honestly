@@ -112,7 +112,8 @@ TASK_OUTPUT_READ = re.compile(r"tasks/[\w-]+\.output\b")   # a background comman
 REDIRECT_OUT = re.compile(r"(?:&>>?|(?<![0-9&>])>>?)\s*(\"[^\"]+\"|'[^']+'|[^\s;&|<>]+)")
 
 
-PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
+PUSH_FAIL = re.compile(r"\brejected\b|^\s*fatal:|^\s*(?:remote: )?error: (?!\S+ \()|\bfailed to push\b|\b(?:permission|access) denied\b", re.I | re.M)   # `ERROR: test_x (a.T)` is another step's test
+PUSH_WENT = re.compile(r"\S -> \S|\[new (?:branch|tag)\]|up-to-date|set up to track", re.I)
 
 
 # "the new tests fail on main / failed before the fix": a failing run on the old code proves the test, it does not contradict the claim
@@ -329,7 +330,9 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     if category == "pushed":
         if PUSH_FAIL.search(text):
             return "contradicted", "push output shows an error"
-        return ("unbacked", "push command errored") if ev.is_error else ("backed", f"push confirmed: {seg[:80]}")
+        if ev.is_error and not (PUSH_WENT.search(text) and _a_step_follows(seg, ev)):   # `git push && gh pr create`: the command exits with its last step
+            return "unbacked", "push command errored"
+        return "backed", f"push confirmed: {seg[:80]}"
     if ev.is_error:
         return "unbacked", f"verification command errored: {seg[:60]}"
     if category == "rendered" and re.search(r"(Traceback|\berror\b|fatal)", text, re.I) and not re.search(r"0 errors?|no errors?", text, re.I):
@@ -484,10 +487,21 @@ def _passed_then_committed(ev: list) -> bool:
     return False
 
 
+def _a_step_follows(seg: str, ev: Event) -> bool:
+    texts = [s.text for s in rules.segments(ev.text or "")]
+    return seg in texts and texts.index(seg) < len(texts) - 1
+
+
 def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
     """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last)."""
     if kinds is not None:
         hit = dataclasses.replace(hit, evidence_kinds=kinds)
+    moves_count = hit.category not in ("pushed", "committed")   # `git switch` after a push changes what a test would run against, not what was pushed
+    if not moves_count:
+        while edit_idx >= 0 and (not flags[edit_idx] or rules.moves_only(ev[edit_idx])):
+            edit_idx -= 1
+        if edit_idx < 0:
+            edit_idx = 0
     after = [x for x in ev[edit_idx + 1:end] if x.kind == "tool"]
     seg, last = "", None
     if any(x.name in rules.OPAQUE_TOOLS and not x.running for x in after):   # a subagent known to be still running has reported nothing yet: it is judged on what has finished
@@ -500,7 +514,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     verifying = [(x, segs) for x, segs in verifying if segs]
     edit_ev = ev[edit_idx]
     if not verifying and edit_ev.name == "Bash":
-        segs = rules.verifying_segments(edit_ev.text, hit.evidence_kinds, after_edit_only=True)
+        segs = rules.verifying_segments(edit_ev.text, hit.evidence_kinds, after_edit_only=True, moves_count=moves_count)
         if segs:
             verifying = [(edit_ev, segs)]
     if not verifying and hit.category in ("tests_pass", "checks_pass", "fixed"):
