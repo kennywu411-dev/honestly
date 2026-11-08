@@ -878,3 +878,200 @@ def test_doctor_stream_encoding_is_read_before_it_is_changed():
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env)
     r.stdout.decode("ascii")   # the user asked for ascii and got it
     assert b"terminal encoding ascii" in r.stdout
+
+
+# ---------------------------------------------------------------- the CLI: no traceback, honest exit codes
+def _honestly(args, home, inp=b"", env=None, cwd=None):
+    home.mkdir(parents=True, exist_ok=True)
+    e = dict(os.environ, HOME=str(home), USERPROFILE=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
+    e.update(env or {})
+    return subprocess.run([sys.executable, "-m", "honestly", *args], input=inp, capture_output=True, env=e, cwd=cwd or str(home))
+
+
+def _seed_session(home, n=3):
+    p = home / ".claude" / "projects" / "-w" / "s.jsonl"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for i in range(n):
+        t = f"2026-11-0{1 + i % 7}T00:00:00Z"
+        rows += [{"type": "user", "message": {"role": "user", "content": f"fix {i}"}, "origin": {"kind": "human"}, "cwd": "/w", "timestamp": t},
+                 {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": f"e{i}", "name": "Edit", "input": {"file_path": f"/w/src/a{i}.py", "old_string": "a", "new_string": "b"}}]}, "cwd": "/w", "timestamp": t},
+                 {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"e{i}", "content": "ok"}]}, "cwd": "/w", "timestamp": t},
+                 {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": f"Fixed bug {i}. All {i + 5} tests pass."}]}, "cwd": "/w", "timestamp": t}]
+    p.write_text("\n".join(map(json.dumps, rows)) + "\n", encoding="utf-8")
+    return p
+
+
+CATCH = json.dumps({"ts": "2026-11-08T00:00:00+00:00", "kind": "stop", "agent": "claude-code", "model": "m", "project": "/p", "message": "m", "claim": "c", "reason": "r"})
+
+
+@pytest.mark.parametrize("args,code", [
+    (["audit", "--json", "/nonexistent/dir/x.jsonl"], 1), (["share", "--out", "/dev/null/x"], 1), (["catches", "--card", "--out", "/dev/null/x"], 1),
+    (["sample", "/nonexistent.jsonl"], 1), (["sample", "/etc/hosts"], 1), (["sample", "/"], 1),
+    (["audit", "--since", "9999999d"], 0), (["audit", "--since", "99999999999d"], 0),
+    (["config", "strictness", "bogus"], 2), (["config", "strictness"], 2), (["config", "language", "xx"], 2), (["config", "off", "nonexistentcat"], 2),
+    (["explain", "999"], 1), (["explain", "0"], 1), (["explain", "-1"], 1), (["feedback", "999"], 1), (["feedback", "-1"], 1), (["feedback", "0"], 1),
+    (["catches", "--days", "0"], 2), (["catches", "--days", "-5"], 2), (["guard", "install", "on"], 2), (["guard", "status", "off"], 2),
+])
+def test_bad_input_gets_one_line_and_the_right_exit_code(tmp_path, args, code):
+    home = tmp_path / "home"
+    _seed_session(home)
+    _write(home / ".honestly" / "catches.jsonl", CATCH + "\n")
+    r = _honestly(args, home)
+    assert r.returncode == code, r.stderr
+    assert b"Traceback" not in r.stdout + r.stderr
+    if code:
+        assert r.stderr.strip()
+
+
+def test_pr_note_with_a_path_or_a_number_it_cannot_use_gets_one_line(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    for args in (["pr-note", "--out", "/nonexistent/x/y.md"], ["pr-note", "--since", "99999999999d"]):
+        r = _honestly(args, home, cwd=str(repo))
+        assert r.returncode == 1 and b"Traceback" not in r.stderr and r.stderr.strip()
+
+
+@posix_only
+@pytest.mark.parametrize("args", [["doctor"], ["audit"], ["config"], ["ignore", "--list"], ["catches"], ["guard", "status"], []])
+def test_a_deleted_current_folder_still_works_where_it_can(tmp_path, args):
+    home = tmp_path / "home"
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    env = dict(os.environ, HOME=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
+    home.mkdir()
+    r = subprocess.run(["/bin/sh", "-c", f"cd '{gone}' && rmdir '{gone}' && exec '{sys.executable}' -m honestly {' '.join(args)}"], capture_output=True, env=env)
+    assert b"Traceback" not in r.stderr
+
+
+@posix_only
+@pytest.mark.parametrize("args", [["rule", "status"], ["pr-note"]])
+def test_a_deleted_current_folder_is_explained_where_it_is_needed(tmp_path, args):
+    home = tmp_path / "home"
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    env = dict(os.environ, HOME=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
+    home.mkdir()
+    r = subprocess.run(["/bin/sh", "-c", f"cd '{gone}' && rmdir '{gone}' && exec '{sys.executable}' -m honestly {' '.join(args)}"], capture_output=True, env=env)
+    assert r.returncode == 1 and b"Traceback" not in r.stderr and b"folder" in r.stderr
+
+
+@pytest.mark.parametrize("args", [["ignore", "x"], ["config", "strictness", "strict"], ["guard", "notify", "on"]])
+@pytest.mark.parametrize("kind", ["file", pytest.param("read-only", marks=posix_only)])
+def test_a_honestly_folder_it_cannot_use_gets_one_line(tmp_path, args, kind):
+    home = tmp_path / "home"
+    home.mkdir()
+    d = home / ".honestly"
+    if kind == "file":
+        d.write_text("x")
+    else:
+        d.mkdir()
+        d.chmod(0o555)
+    r = _honestly(args, home)
+    if kind != "file":
+        d.chmod(0o755)
+    assert r.returncode == 1 and b"Traceback" not in r.stderr and b"honestly" in r.stderr
+
+
+def test_an_unexpected_error_is_one_line_and_the_traceback_is_on_request(tmp_path, monkeypatch, capsys):
+    from honestly import cli
+    monkeypatch.setattr(cli, "_dispatch", lambda args: 1 / 0)
+    assert cli.main(["config"]) == 1
+    err = capsys.readouterr().err
+    assert "ZeroDivisionError" in err and "Traceback" not in err and "HONESTLY_DEBUG" in err
+    monkeypatch.setenv("HONESTLY_DEBUG", "1")
+    assert cli.main(["config"]) == 1
+    assert "Traceback" in capsys.readouterr().err
+
+
+def _closed_stdout(args, home, inp=b""):
+    home.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
+    r, w = os.pipe()
+    os.close(r)
+    try:
+        return subprocess.run([sys.executable, "-m", "honestly", *args], input=inp, stdout=w, stderr=subprocess.PIPE, env=env, cwd=str(home))
+    finally:
+        os.close(w)
+
+
+@posix_only
+@pytest.mark.parametrize("args", [["--help"], ["doctor", "--help"], ["guard", "status"], ["catches"], ["config"], []])
+def test_a_reader_that_went_away_is_not_an_error_message(tmp_path, args):
+    r = _closed_stdout(args, tmp_path / "home")
+    assert r.stderr == b"" and r.returncode == 141
+
+
+@posix_only
+def test_writing_many_lines_into_head_prints_no_traceback(tmp_path):
+    home = tmp_path / "home"
+    _seed_session(home, 400)
+    env = dict(os.environ, HOME=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
+    r = subprocess.run(["/bin/bash", "-c", f"'{sys.executable}' -m honestly audit --json /dev/stdout | head -1 >/dev/null; echo rc=${{PIPESTATUS[0]}}"], capture_output=True, env=env)
+    assert b"Traceback" not in r.stderr and b"BrokenPipe" not in r.stderr
+
+
+@posix_only
+@pytest.mark.parametrize("which", ["pre", "stop"])
+def test_a_hook_whose_stdout_is_gone_still_exits_zero_and_says_nothing(tmp_path, which):
+    event = PIPED if which == "pre" else _stop_event(tmp_path)
+    r = _closed_stdout(["hook", which], tmp_path / "home", event.encode())
+    assert r.returncode == 0 and r.stderr == b""
+
+
+@pytest.mark.skipif(not os.path.exists("/dev/full"), reason="no /dev/full here")
+def test_a_full_disk_on_stdout_is_exit_zero_for_a_hook(tmp_path):
+    env = dict(os.environ, HOME=str(tmp_path), PYTHONPATH=os.path.join(ROOT, "src"))
+    with open("/dev/full", "w") as full:
+        r = subprocess.run([sys.executable, "-m", "honestly", "hook", "pre"], input=PIPED.encode(), stdout=full, stderr=subprocess.PIPE, env=env)
+    assert r.returncode == 0 and r.stderr == b""
+
+
+@pytest.mark.parametrize("args", [["hook"], ["hook", "x"], ["hook", "pre", "--new-flag"], ["hook", "pre", "--agent", "nope"], ["hook", "stop", "extra"], ["hook", "--agent"]])
+def test_a_hook_line_with_arguments_it_does_not_know_never_blocks(tmp_path, args):
+    # exit 2 from a hook means "block": a downgrade or a hand edit must not stop every command
+    r = _honestly(args, tmp_path / "home", b"{}")
+    assert r.returncode == 0 and r.stdout == b""
+
+
+def test_the_marker_comment_as_plain_words_still_runs_the_hook(tmp_path):
+    # cmd.exe has no `#` comments, so a hook line reaches the program with the marker as arguments
+    r = _honestly(["hook", "pre", "--agent", "codex", "#", "honestly", "hook"], tmp_path / "home", PIPED.encode())
+    assert r.returncode == 0 and b"deny" in r.stdout
+    r = _honestly(["hook", "--help"], tmp_path / "home")
+    assert r.returncode == 0 and b"usage" in r.stdout
+
+
+def test_help_documents_the_exit_codes(tmp_path):
+    out = _honestly(["--help"], tmp_path / "home").stdout.decode()
+    assert "exit codes" in out.lower() and "141" in out
+
+
+def test_categories_are_listed_and_match_the_rules(tmp_path):
+    from honestly import config, rules
+    assert set(config.CATEGORIES) == {name for name, _, _ in rules.CLAIM_PATTERNS}
+    home = tmp_path / "home"
+    assert b"tests_pass" in _honestly(["config"], home).stdout
+    r = _honestly(["config", "off", "nope"], home)
+    assert b"tests_pass" in r.stderr and not (home / ".honestly" / "config.json").exists()
+    assert _honestly(["config", "off", "sent,checked"], home).returncode == 0
+
+
+def test_guard_notify_respects_dry_run_and_shows_its_state(tmp_path):
+    home = tmp_path / "home"
+    r = _honestly(["guard", "notify", "on", "--dry-run"], home)
+    assert r.returncode == 0 and not (home / ".honestly" / "notify").exists()
+    assert b"off" in _honestly(["guard", "notify"], home).stdout and not (home / ".honestly" / "notify").exists()
+    _honestly(["guard", "notify", "on"], home)
+    assert (home / ".honestly" / "notify").exists() and b"on" in _honestly(["guard", "notify"], home).stdout
+
+
+def test_nothing_to_show_writes_no_card(tmp_path):
+    home = tmp_path / "home"
+    r = _honestly(["share"], home)
+    assert r.returncode == 0 and b"nothing to" in r.stderr.lower() and not list((home / ".honestly").glob("*.svg"))
+    r = _honestly(["catches", "--card"], home)
+    assert r.returncode == 0 and not list((home / ".honestly").glob("*.svg"))

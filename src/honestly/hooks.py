@@ -299,8 +299,11 @@ def set_notify(on: bool) -> str:
     """`honestly guard notify on|off`: a marker file, so it works on every platform without touching the environment."""
     path = notify_flag_path()
     if on:
-        with store.open_private(path):
-            pass
+        try:
+            with store.open_private(path):
+                pass
+        except OSError as e:
+            raise SystemExit(f"honestly guard: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
         return "honestly guard: desktop notifications on (each catch also pops up as a system notification)"
     if os.path.exists(path):
         os.remove(path)

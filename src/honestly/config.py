@@ -29,6 +29,7 @@ STRICTNESS = {
     "lenient": ("contradicted",),                      # only when the check actually failed; the pipe check is off
 }
 LIST_KEYS = ("ignore", "verify_commands", "off")
+CATEGORIES = ("tests_pass", "checks_pass", "build_ok", "rendered", "pushed", "committed", "fixed", "sent", "deployed", "downloaded", "saved", "checked", "scheduled", "verified")   # what `off` can name
 DEFAULTS = {"strictness": "normal", "ignore": [], "verify_commands": [], "off": [], "language": "auto"}
 PROJECT_FILE = ".honestly.json"
 MAX_CONFIG_BYTES = 64 * 1024
@@ -437,6 +438,7 @@ def show(cwd: str | None = None) -> str:
              f"ignore           {', '.join(repr(x) for x in cfg['ignore']) or '(none)'}",
              f"verify_commands  {', '.join(repr(x) for x in cfg['verify_commands']) or '(none)'}",
              f"off              {', '.join(cfg['off']) or '(none)'}",
+             f"                 (categories: {', '.join(CATEGORIES)})",
              "", f"files: {user_path()}" + (" (exists)" if os.path.exists(user_path()) else " (not created yet)"),
              f"       {project_path(cwd)}" + (" (exists)" if os.path.exists(project_path(cwd)) else " (none)")]
     ignored = ignored_settings(cwd)
