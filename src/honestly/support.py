@@ -194,7 +194,14 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         problems.append(L("run: honestly guard install", "运行：honestly guard install"))
     _check_hook_entries(_our_entries(settings), lines, problems, L, "", (ok, bad))
     for agent in other_agents:
-        lines.append(f"{ok}" + L(f"{_ag.NAMES[agent]} guard installed ({', '.join(_ag.installed(agent))}) — experimental", f"{_ag.NAMES[agent]} 的 guard 已装（{', '.join(_ag.installed(agent))}）— 实验性"))
+        trust = _ag.codex_trust()[0] if agent == "codex" else ""
+        if trust in ("untrusted", "changed"):
+            why = L("they have changed since you trusted them" if trust == "changed" else "you have not trusted them yet", "它们在你信任之后改过" if trust == "changed" else "你还没有信任它们")
+            lines.append(f"{bad}" + L(f"Codex hooks are installed but NOT trusted ({why}): Codex does not run them, and `codex exec` gives no warning", f"Codex 的 hook 装了但没有被信任（{why}）：Codex 不会运行它们，codex exec 也不会提示"))
+            problems.append(L(f"to have Codex run the hooks, {_ag.CODEX_REVIEW}", "要让 Codex 运行这些 hook：打开一次 codex，选 “Trust all and continue”（或者在里面运行 /hooks）"))
+        else:
+            on = ", ".join(_ag.installed(agent))
+            lines.append(f"{ok}" + L(f"{_ag.NAMES[agent]} guard installed ({on})" + (" and trusted" if trust == "trusted" else "") + " — experimental", f"{_ag.NAMES[agent]} 的 guard 已装（{on}）" + ("，已信任" if trust == "trusted" else "") + "— 实验性"))
         _, _, _, agent_settings = guardfile.read(_ag.config_path(agent))
         _check_hook_entries(_our_entries(agent_settings, agent == "cursor"), lines, problems, L, agent, (ok, bad))
     paths = list(iter_sessions())

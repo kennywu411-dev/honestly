@@ -379,7 +379,57 @@ def config_path(agent: str) -> str:
     if agent == "claude-code":
         from .hooks import settings_path
         return settings_path()
-    return os.path.join(os.path.expanduser("~"), *{"codex": (".codex", "hooks.json"), "cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
+    if agent == "codex":
+        return os.path.join(_codex_home(), "hooks.json")
+    return os.path.join(os.path.expanduser("~"), *{"cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
+
+
+def _codex_home() -> str:
+    return os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
+
+
+def codex_hook_hash(group: dict, event: str) -> str:
+    """The hash Codex (0.167) stores for a hook someone trusted, in `[hooks.state."<hooks.json>:<event>:<group>:<hook>"]` of its config.toml.
+    A hook whose line changed, say after installing honestly somewhere else, no longer matches, and Codex stops running it until it is reviewed again."""
+    import hashlib
+    hook = next(h for h in group.get("hooks") or [] if _is_ours(h))
+    identity = {"event_name": event, "hooks": [{"async": False, "command": hook.get("command"), "timeout": hook.get("timeout"), "type": "command"}]}
+    if event != "stop":   # Codex does not match on Stop
+        identity["matcher"] = group.get("matcher", "")
+    return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def codex_trust() -> tuple:
+    """(state, detail) of honestly's hooks in Codex: "trusted"; "untrusted", never reviewed; "changed", reviewed but the hook line is different now; "unknown", could not read.
+    Codex silently skips a hook in the last two states, and `codex exec` never asks."""
+    try:
+        with open(config_path("codex"), encoding="utf-8") as fh:
+            hooks = (json.load(fh).get("hooks") or {})
+    except (OSError, ValueError, AttributeError):
+        return "unknown", ""
+    try:
+        with open(os.path.join(_codex_home(), "config.toml"), encoding="utf-8", errors="replace") as fh:
+            config = fh.read()
+    except FileNotFoundError:
+        config = ""
+    except OSError:
+        return "unknown", ""
+    state = "trusted"
+    for event, key in (("Stop", "stop"), ("PreToolUse", "pre_tool_use")):
+        groups = hooks.get(event) if isinstance(hooks.get(event), list) else []
+        at = next((i for i, g in enumerate(groups) if isinstance(g, dict) and any(_is_ours(h) for h in g.get("hooks") or [])), None)
+        if at is None:
+            continue
+        hook_at = next(i for i, h in enumerate(groups[at]["hooks"]) if _is_ours(h))
+        m = re.search(r'\[hooks\.state\."[^"\n]*hooks\.json:' + key + f":{at}:{hook_at}" + r'"\]\s*\n\s*trusted_hash\s*=\s*"sha256:([0-9a-f]+)"', config)
+        if not m:
+            return "untrusted", key
+        if m.group(1) != codex_hook_hash(groups[at], key):
+            state = "changed"
+    return state, ""
+
+
+CODEX_REVIEW = "open `codex` once and choose \"Trust all and continue\" (or run /hooks inside it)"
 
 
 def _is_ours(h) -> bool:
@@ -417,7 +467,10 @@ def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     name = NAMES[agent]
     flat = agent == "cursor"
     if action == "status":
-        return _hooks._status_line(name, path, flat)
+        line = _hooks._status_line(name, path, flat)
+        if agent == "codex" and installed(agent) and codex_trust()[0] in ("untrusted", "changed"):
+            line += f"; Codex will not run them until you {CODEX_REVIEW}"
+        return line
     top = {"version": 1} if flat else None
     result, after = _hooks._guard_edit(name, path, action, entries(agent, exe) if action == "install" else {}, dry_run, flat, top)
     if dry_run:
@@ -425,7 +478,7 @@ def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     if result == "unchanged":
         return (f"honestly guard ({name}): already installed, nothing changed ({path})" if action == "install"
                 else f"honestly guard ({name}): not installed, nothing to remove ({path})")
-    note = {"codex": "  Codex asks you to review new hooks once: run /hooks inside Codex.",
+    note = {"codex": f"  Codex does not run a new or changed hook until you trust it, and `codex exec` skips it without a word: {CODEX_REVIEW}.",
             "cursor": "  Cursor shows hook-visible transcripts only when they are enabled; the stop hook needs them to see what was said.",
             "gemini": ""}[agent]
     return f"honestly guard ({name}): {action}ed → {path}" + ("\n" + note if note and action == "install" else "")
