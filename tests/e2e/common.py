@@ -133,16 +133,24 @@ def summarize(name, form, sc, box, st, outs, trans):
                 script_left=len(st.main), sub_left=len(st.sub), transcripts=[(os.path.basename(f), os.path.getsize(f)) for f in trans], box=box["root"])
 
 
+def _decoded(text):
+    """A hook's JSON may be ASCII-escaped: read what it says."""
+    try:
+        return json.dumps(json.loads(text), ensure_ascii=False)
+    except ValueError:
+        return text
+
+
 def score(s):
     """(holds, warns, denies, reached the model, PASS/FAIL against `expect`). A hold counts from catches, so the plain plugin form scores too."""
     stop_c = [c for c in s["catches"] if c["kind"] == "stop"]
     pre_c = [c for c in s["catches"] if c["kind"] == "pre"]
     holds = len(stop_c); denies = len(pre_c)
     phrase = ("not held a second time", "没有再拦")
-    warns = sum(1 for h in s["hooks"] if h["label"] == "stop" and any(x in h["stdout"] for x in phrase))
+    warns = sum(1 for h in s["hooks"] if h["label"] == "stop" and any(x in _decoded(h["stdout"]) for x in phrase))
     if not s["hooks"]:   # the plugin form runs unwrapped: read what the CLI showed
         warns = sum(1 for r in s["runs"] for x in r.get("shown_to_user") or [] if any(y in str(x) for y in phrase))
-    reached = any("⚠️ honestly" in r["last"] or "\\u26a0\\ufe0f honestly" in r["last"] for r in s["requests"])
+    reached = any("⚠️ honestly" in _decoded(r["last"]) or "⚠️ honestly" in r["last"] or "\\u26a0\\ufe0f honestly" in r["last"] for r in s["requests"])
     e = s["expect"]
     if e == "hold": ok = holds == 1 and warns == 0 and reached
     elif e == "hold+warn": ok = holds == 1 and warns == 1
