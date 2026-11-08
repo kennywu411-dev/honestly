@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from honestly import audit, hooks, rules
+from honestly import audit, claims, hooks, rules
 
 PATTERNS = {
     "FAIL_COUNT": audit.FAIL_COUNT, "COUNTED_TESTS": audit.COUNTED_TESTS, "COMMITTED_RECAP": audit.COMMITTED_RECAP,
@@ -13,6 +13,8 @@ PATTERNS = {
     "SESSION_REPORT": audit.SESSION_REPORT, "SUITE_LINE": audit.SUITE_LINE, "SELECT_CUTS_END": hooks.SELECT_CUTS_END, "SELECT_LAST": hooks.SELECT_LAST,
 }
 AWKWARD = [" ", "\n ", "\n", "\t", "9 tests, ", "fail ", ", ", "[  FAILED  ] ", "- ", "* ", "*", "| ", ".test", "Output: a\n", "with 1 failures ", "1 ", "# ", "#", " \n# ", "\n- * "]
+# what the claim detector reads is prose, so its awkward cases are prose too
+AWKWARD_PROSE = AWKWARD + ["a", "test", "test ", "tests pass ", "the ", "not ", "`", "` ", '"', '" ', "'", "' ", "**", "[", "](", "(", "（", ".", ". ", "。", "? ", "/", "./", "_test", "a/", "a.", "1/", "测试", "测试 ", "已", "了", "的", "修好", "全部", "没", "看到", "把", "pushed ", "fixed ", "after ", "which ", "by ", "x" * 50 + " "]
 
 
 @pytest.mark.parametrize("name", sorted(PATTERNS))
@@ -91,3 +93,41 @@ def test_a_pattern_used_at_the_head_of_a_command_is_fast(name):
         start = time.process_time()
         rx.match(line)
         assert time.process_time() - start < 0.1, repr(unit)
+
+
+@pytest.mark.parametrize("name", sorted(claims.PATTERNS))
+def test_a_claim_pattern_stays_fast_on_awkward_prose(name):
+    rx = claims.PATTERNS[name]
+    for unit in AWKWARD_PROSE:
+        text = (unit * 4000)[:8000]
+        start = time.perf_counter()
+        rx.search(text)
+        assert time.perf_counter() - start < 1.0, repr(unit)
+
+
+@pytest.mark.parametrize("unit", AWKWARD_PROSE)
+def test_the_whole_detector_stays_fast_on_awkward_prose(unit):
+    claims._analyse.cache_clear()
+    text = (unit * 100000)[:100000]
+    start = time.perf_counter()
+    rules.find_claims(text)
+    assert time.perf_counter() - start < 1.0, repr(unit)
+
+
+PROSE = ("The handler reads the config file and returns early when the value is missing. We keep a small cache of the parsed result so the second call is cheap; "
+         "the test for that lives next to the module. 这个函数读取配置文件，缺少字段时提前返回。对应的测试在模块旁边。\n\n")
+
+
+@pytest.mark.parametrize("name,text", [
+    ("prose", (PROSE * 400)[:100000]),
+    ("one line of prose", (PROSE.replace("\n", " ") * 400)[:100000]),
+    ("the same claim again and again", ("All tests pass. " * 6250)[:100000]),
+])
+def test_a_100_kb_reply_takes_under_50_ms(name, text):
+    best = 9.9
+    for _ in range(5):   # the best of five: a busy machine is not the detector's fault
+        claims._analyse.cache_clear()
+        start = time.perf_counter()
+        rules.find_claims(text)
+        best = min(best, time.perf_counter() - start)
+    assert best < 0.05, f"{name}: {best * 1000:.0f} ms"
