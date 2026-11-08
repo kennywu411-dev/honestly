@@ -132,7 +132,7 @@ Fourteen kinds of claim. For each, `honestly` knows what counts as proof and wha
 
 What it refuses to flag, on purpose: plans ("I'll run the tests"), questions, quoted text, code blocks, headings and tables, sentences whose subject is the user ("you sent me…"), descriptions of state ("the data is stored locally"), bibliography titles ("fixed bed reactor"), and replies that only summarise an earlier turn. Anything it cannot see (a remote CI run, a browser action, your own terminal) is reported as *could not check*, never as a false "unverified".
 
-It also reads what subagents did, on Claude Code, Codex and Gemini CLI: a test a subagent ran counts as evidence for the parent's claim, and an edit a subagent made counts as an edit, in the background or not. A background or long-running command is read when its result arrives (a task file, `write_stdin`, `read_background_output`), and a claim made while it is still running is held.
+It also reads what subagents did, on Claude Code, Codex and Gemini CLI: a test a subagent ran counts as evidence for the parent's claim, and an edit a subagent made counts as an edit once it has finished, in the background or not (one still at work has handed nothing over). A background or long-running command is read when its result arrives (a task file, `write_stdin`, `read_background_output`), and a claim made while it is still running is held.
 
 ## Make it yours
 

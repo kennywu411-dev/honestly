@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from . import rules, noncode, verdicts
-from .claude_code import NOT_ALL_HERE, Turn, Event, background_notice
+from .claude_code import NOT_ALL_HERE, TASK_ID, Turn, Event, background_notice
 
 
 @dataclass
@@ -601,8 +601,12 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
     prompted_by_harness = automated
     own_notice = False
+    reported = set()   # background subagents that have said they are done. One still at work has handed over nothing, and its edits do not make a finished check stale.
     for i, e in enumerate(ev):
         if e.kind == "mark":
+            task = TASK_ID.search(e.text)
+            if task:
+                reported.add(task.group(1))
             automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
             own_notice = not prompted_by_harness and not wall and (own_notice or e.name == "notice") and e.name != "report"
             if e.name == "report":
@@ -628,7 +632,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                 out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
                                    hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
                 continue
-            edit_idx = max((j for j in range(wall, i) if flags[j]), default=-1)
+            edit_idx = max((j for j in range(wall, i) if flags[j] and (not ev[j].via.startswith("subagent-bg:") or ev[j].via.split(":", 1)[1] in reported)), default=-1)
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
             tools_after = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in after]
             last_edit = f"{ev[edit_idx].name}: {ev[edit_idx].text[:400]}" if edit_idx >= 0 else ""

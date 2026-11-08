@@ -486,13 +486,18 @@ def _turn_to_judge(turns: list) -> tuple:
 
 
 def _note_running(turn, tasks) -> None:
-    """Claude Code lists what is still running when it stops. A command or subagent on that list has no result yet, whatever its record says so far."""
-    ids = {str(t.get("id")) for t in tasks if isinstance(t, dict) and t.get("status") == "running"} if isinstance(tasks, list) else set()
-    for e in turn.events if ids else ():
+    """Claude Code lists what is still running when it stops. A command or subagent on that list has no result yet, whatever its record says so far,
+    and a background subagent not on it is done, so its work counts in full."""
+    if not isinstance(tasks, list):
+        return   # an older host: nothing is known
+    ids = {str(t.get("id")) for t in tasks if isinstance(t, dict) and t.get("status") == "running"}
+    for e in turn.events:
         if e.kind != "tool":
             continue
-        unfinished_call = e.via.startswith("subagent:") and e.via.split(":", 1)[1] in ids and not e.result
-        e.running = e.running or e.task in ids or unfinished_call
+        agent = e.via.split(":", 1)[1] if ":" in e.via else ""
+        e.running = e.running or (e.task != "" and e.task in ids) or (agent in ids and not e.result)
+        if e.via.startswith("subagent-bg:") and agent not in ids:
+            e.via = f"subagent:{agent}"
 
 
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:

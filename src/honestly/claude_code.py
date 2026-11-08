@@ -203,6 +203,7 @@ NOT_TYPED = re.compile(r"\s*(?:<task-notification>|<local-command-|<command-(?:n
 # Someone else's report: a reply to it is about their work, and is not judged on what this session edited.
 OUTSIDE_REPORT = re.compile(r"^\s*(?:<side-sessions-event>|<ci-monitor-event>|<agent-message|Another Claude session sent a message)|\bThe session\b.{0,200}\byou started\b|\bfinished a turn\b", re.S)
 OWN_TASK = re.compile(r"<tool-use-id>([\w-]+)</tool-use-id>")
+TASK_ID = re.compile(r"<task-id>([\w-]+)</task-id>")
 
 
 def _is_prompt(r: dict, content, origin: dict) -> bool:
@@ -361,8 +362,9 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
         if not events:
             continue
         by_tool_use[str(meta.get("toolUseId") or "")] = len(events)
+        bg = str(meta.get("requestShape") or "") == "background"
         for e in events:
-            e.via = f"subagent:{agent_id}"
+            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent's edits count once it is known to be done: see audit_turn
         all_events.extend(events)
     merged = merge_into_turns(turns, all_events)
     if by_tool_use:
