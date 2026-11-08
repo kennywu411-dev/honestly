@@ -8,6 +8,7 @@ import sys
 from dataclasses import asdict
 from . import claude_code, codex
 from .audit import audit_turns
+from .redact import strip_controls
 from .report import text_report, write_card, colorize, want_color
 
 
@@ -90,7 +91,7 @@ def cmd_audit(a):
         s = summarize(findings); s["sessions"] = sessions; s["duplicates_removed_forks"] = dups
         print(json.dumps(s, ensure_ascii=False, indent=2))
         return
-    report = text_report(findings, sessions, dups)
+    report = strip_controls(text_report(findings, sessions, dups))   # it quotes replies: nothing in them may drive the terminal
     print(colorize(report) if want_color() else report)
 
 
@@ -113,22 +114,23 @@ def cmd_explain(a):
     if a.n < 1 or a.n > len(flagged):
         print(f"pick 1..{len(flagged)}"); return
     f = flagged[a.n - 1]
-    print(f"[{a.n}/{len(flagged)}] {f.label}  ·  {f.category}  ·  {f.agent} {f.model or f.version}  ·  session {f.session[:8]} turn {f.turn}  ·  {f.ts[:19]}")
-    print(f"project: {f.project or '-'}")
-    print(f"claim:   {f.claim}")
-    print(f"context: …{f.context}…")
-    print(f"last code edit: {f.last_edit or '-'}")
-    print("tools after it:" if f.tools_after_edit else "tools after it: (none)")
+    show = lambda text: print(strip_controls(text))
+    show(f"[{a.n}/{len(flagged)}] {f.label}  ·  {f.category}  ·  {f.agent} {f.model or f.version}  ·  session {f.session[:8]} turn {f.turn}  ·  {f.ts[:19]}")
+    show(f"project: {f.project or '-'}")
+    show(f"claim:   {f.claim}")
+    show(f"context: …{f.context}…")
+    show(f"last code edit: {f.last_edit or '-'}")
+    show("tools after it:" if f.tools_after_edit else "tools after it: (none)")
     for t in f.tools_after_edit:
-        print(f"  - {t}")
-    print(f"why: {f.reason}")
+        show(f"  - {t}")
+    show(f"why: {f.reason}")
 
 
 def cmd_catches(a):
     from .hooks import catches_report, _is_zh
     from .update import update_note
     from . import __version__
-    print(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh"))
+    print(strip_controls(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh")))
     if a.card:
         from .hooks import load_catches
         from .report import write_catches_card
@@ -239,7 +241,7 @@ def cmd_purge(a):
 
 def cmd_feedback(a):
     from .support import feedback
-    print(feedback(a.n, issue_url=a.issue))
+    print(strip_controls(feedback(a.n, issue_url=a.issue)))
 
 
 def cmd_rule(a):
@@ -270,7 +272,7 @@ def cmd_pr_note(a):
 def cmd_doctor(a):
     from .support import doctor
     text, problems = doctor(zh=None if a.lang == "auto" else a.lang == "zh", with_problems=True)
-    print(text)
+    print(strip_controls(text))
     if problems:
         sys.exit(1)
 
