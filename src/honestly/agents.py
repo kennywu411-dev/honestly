@@ -45,6 +45,9 @@ def _tool_event(name: str, inp, ts: str = ""):
     return Event("tool", name=name or "tool", text=str(path or inp.get("query") or inp.get("prompt") or ""), ts=ts)
 
 
+# `user` records of Gemini CLI that no person wrote: its preamble, a compression summary, its loop warning, a hook's feedback
+GEMINI_INJECTED = ("<session_context>", "<state_snapshot>", "System: Potential loop detected")
+NOT_GEMINI_PROMPT = tuple(m.encode() for m in GEMINI_INJECTED) + ("⚠️ honestly".encode("utf-8"), b"\\u26a0\\ufe0f honestly")
 CURSOR_USER = re.compile(rb'"role":\s*"user"')
 GEMINI_USER = re.compile(rb'"type":\s*"user"')
 
@@ -54,7 +57,7 @@ def _cursor_prompt_row(line: bytes) -> bool:
 
 
 def _gemini_prompt_row(line: bytes) -> bool:
-    return GEMINI_USER.search(line) is not None and b"functionResponse" not in line and b"<session_context>" not in line
+    return GEMINI_USER.search(line) is not None and b"functionResponse" not in line and not any(mark in line for mark in NOT_GEMINI_PROMPT)
 
 
 def cursor_parse(path: str, start: int = 0):
@@ -197,6 +200,7 @@ def gemini_parse(path: str, start: int = 0):
     cur: Turn | None = None
     model = ""
     project = _gemini_project(path)
+    compressed = False
     records = list(_gemini_records(path, start))
     latest = {r["id"]: i for i, r in enumerate(records) if isinstance(r.get("id"), str)}   # a record is updated by appending it again under the same id
     for i, r in enumerate(records):
@@ -212,11 +216,21 @@ def gemini_parse(path: str, start: int = 0):
             content = r.get("content")
             if isinstance(content, list) and any(isinstance(p, dict) and "functionResponse" in p for p in content):
                 continue   # a tool's result is sent back as a `user` record: the same turn goes on
-            if _parts_text(content).lstrip().startswith("<session_context>"):
+            text = _parts_text(content).lstrip()
+            if text.startswith("<session_context>"):
                 continue   # the CLI's own preamble, not a prompt
+            if text.startswith(GEMINI_INJECTED):   # a compression or a loop warning happens inside the turn
+                compressed = compressed or text.startswith("<state_snapshot>")
+                if cur is not None:
+                    cur.events.append(Event("mark", name="notice" if text.startswith("<state_snapshot>") else "meta", text=text[:1500], ts=ts))
+                continue
+            if compressed and cur is not None and _parts_text(content)[:200] == cur.prompt:
+                compressed = False   # compression records the prompt it is answering again
+                continue
             if cur is not None:
                 turns.append(cur)
-            cur = Turn(session=session, index=len(turns), version=model, prompt=_parts_text(r.get("content"))[:200], ts=ts, agent="gemini", model=model, project=project)
+            compressed = False
+            cur = Turn(session=session, index=len(turns), version=model, prompt=_parts_text(content)[:200], ts=ts, agent="gemini", model=model, project=project)
         elif t == "gemini":
             if cur is None:
                 cur = Turn(session=session, index=0, version=model, prompt="", ts=ts, agent="gemini", project=project)

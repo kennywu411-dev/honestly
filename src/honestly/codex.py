@@ -15,6 +15,7 @@ CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
 USER_MESSAGE = re.compile(rb'"type":\s*"UserMessage"')
 HEADER_LINES = 32
+HOOK_PROMPT = re.compile(r"</?hook_prompt\b[^>]*>")
 
 
 def is_prompt_row(line: bytes) -> bool:
@@ -133,6 +134,13 @@ def parse_session(path: str, start: int = 0):
             kind = p.get("type")
             if cur is None:
                 cur = Turn(session=session, index=0, version=model, prompt="", ts=ts, agent="codex", model=model)
+            if kind == "message" and p.get("role") == "user":
+                said = " ".join(str(c.get("text") or "") for c in (p.get("content") or []) if isinstance(c, dict))
+                if said.startswith("<hook_prompt"):   # a Stop hook sent the agent back: judged with the turn it answers, by hooks.stop_hook
+                    if cur is not None:
+                        turns.append(cur)
+                    cur = Turn(session=session, index=len(turns), version=model, prompt=HOOK_PROMPT.sub("", said)[:2000], ts=ts, agent="codex", model=model, project=project)
+                continue
             if kind == "message" and p.get("role") == "assistant":
                 text = " ".join(str(c.get("text") or "") for c in (p.get("content") or []) if isinstance(c, dict))
                 if text.strip():
