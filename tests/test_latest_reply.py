@@ -18,7 +18,7 @@ def _say(text):
 
 
 NOTICE = {"type": "user", "message": {"role": "user", "content": "<task-notification>\n<task-id>x</task-id>\n<status>completed</status>\n</task-notification>"}, "origin": {"kind": "task-notification"}}
-ASIDE = {"type": "user", "message": {"role": "user", "content": "<system-reminder>\nA background step finished.\n</system-reminder>"}}
+ASIDE = {"type": "user", "message": {"role": "user", "content": "<system-reminder>\nA background step finished.\n</system-reminder>"}, "isMeta": True}
 STOPPED = {"type": "system", "subtype": "stop_hook_summary", "hookCount": 1}
 
 
