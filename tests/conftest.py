@@ -26,3 +26,14 @@ def _english_system(monkeypatch):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("LANG", "en_US.UTF-8")
     monkeypatch.setattr(hooks, "_SYSTEM_ZH", None)
+
+
+MAX_TEST_ID = 4000
+
+
+def pytest_collection_modifyitems(items):
+    """pytest puts each test's id in an environment variable, and Windows refuses a value over 32767 characters: the test then errors, on every system
+    but Windows it passes, and the report of it can cut the run's output short. So a parameter that big needs a name of its own, here too."""
+    long = [item.nodeid[:80] for item in items if len(item.nodeid) > MAX_TEST_ID]
+    if long:
+        raise pytest.UsageError(f"test ids over {MAX_TEST_ID} characters break on Windows, give these a short id: {long}")

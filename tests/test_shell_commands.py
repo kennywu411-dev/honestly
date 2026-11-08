@@ -88,7 +88,7 @@ def test_a_run_piped_into_tee_is_a_run_not_an_edit(cmd, held):
 # Each of these came from replaying real sessions: they were held by mistake on the first try at this parser.
 @pytest.mark.parametrize("cmd", ["mv .github \"$S/workflows\"", "cp a.m4a research/ref-audio/", "cp $d/*.jpg renders/", "mv renders/a.png renders/old/", "printf '#!/bin/sh\\n' > .git/hooks/commit-msg", "echo x > .claude/hooks/run.py", "S=/tmp/x; cp $d/*.jpg $d/episode.json $S/$d",
                                  "T=$(mktemp -d); cd \"$T\" && echo x > a.py", "T=$(ls -d /tmp/e2e.* | head -1); cd \"$T\" && printf 'x' > src/app.py", "T=$(mktemp -d); echo x > $T/a.py",
-                                 "python3 - <<'EOF'\nimport pathlib\ndef edit(path, a, b):\n    p = pathlib.Path(path); s = p.read_text()\n    p.write_text(s.replace(a, b))\nedit('docs/x.md', 'a', 'b')\nedit('notes/y.txt', 'a', 'b')\nEOF"])
+                                 "python3 - <<'EOF'\nimport pathlib\ndef edit(path, a, b):\n    p = pathlib.Path(path); s = p.read_text()\n    p.write_text(s.replace(a, b))\nedit('docs/x.md', 'a', 'b')\nedit('notes/y.txt', 'a', 'b')\nEOF"], ids=lambda v: repr(v)[:70])
 def test_no_code_was_changed_here(cmd):
     assert not rules.bash_is_edit(cmd)
 

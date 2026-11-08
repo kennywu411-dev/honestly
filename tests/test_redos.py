@@ -49,7 +49,7 @@ def test_a_100_kb_command_of_any_shape_cannot_outrun_a_hook(name):
         assert spent < 2.5, (name, unit, spent)   # the limits in shell.py hold whatever the shape; the pre-command hook has 10 s
 
 
-@pytest.mark.parametrize("cmd", ["cat > src/big.py <<'EOF'\n" + "x = open('a').read().replace('b', 'c')  # it's\n" * 2000 + "EOF", "python3 - <<'EOF'\n" + "print('a')\n" * 8000 + "EOF", "git commit -m \"" + "line of text. " * 7000 + "\"", "pytest -q " + "tests/test_module.py " * 4800, "bash <<'EOF'\n" + "echo line\n" * 9000 + "EOF"])
+@pytest.mark.parametrize("cmd", ["cat > src/big.py <<'EOF'\n" + "x = open('a').read().replace('b', 'c')  # it's\n" * 2000 + "EOF", "python3 - <<'EOF'\n" + "print('a')\n" * 8000 + "EOF", "git commit -m \"" + "line of text. " * 7000 + "\"", "pytest -q " + "tests/test_module.py " * 4800, "bash <<'EOF'\n" + "echo line\n" * 9000 + "EOF"], ids=["source file in a heredoc", "python script in a heredoc", "long commit message", "many file arguments", "shell heredoc"])
 def test_a_large_real_command_stays_quick(cmd):
     from honestly import shell
     for fn in (rules.bash_is_edit, lambda c: rules.verifying_segments(c, {"test", "build", "exercise"}), hooks.find_hidden_status):
