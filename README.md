@@ -82,7 +82,7 @@ honestly catches --card       # the same as a 1200×630 image you can post
 honestly guard notify on      # desktop notification when a reply is held (macOS, Linux, Windows; at most one every 5 minutes)
 ```
 
-Every catch is appended to `~/.honestly/catches.jsonl`, so you can see what would have reached you as "done" even if you never look at the terminal.
+Every catch is appended to `~/.honestly/catches.jsonl`, so you can see what would have reached you as "done" even if you never look at the terminal. The folder is private to you (0700, files 0600), tokens and home paths are scrubbed before anything is written, logs rotate at 4 MB, and `honestly purge` deletes what was recorded (`--all` also removes your settings, `--dry-run` lists first).
 
 ## What it catches
 

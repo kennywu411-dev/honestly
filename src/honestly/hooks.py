@@ -13,10 +13,10 @@ import os
 import re
 import sys
 import unicodedata
-from . import rules, config, agents, claude_code
+from . import rules, config, agents, claude_code, store
 from .audit import audit_turn
 from .claude_code import Event, Turn
-from .redact import strip_controls
+from .redact import redact, strip_controls
 
 MARK = "honestly hook"
 LEGACY_MARKS = ("sober hook",)   # entries written by the package's previous name
@@ -262,8 +262,7 @@ def _notify_due() -> bool:
     except OSError:
         pass
     try:
-        os.makedirs(os.path.dirname(stamp), exist_ok=True)
-        with open(stamp, "w", encoding="utf-8"):
+        with store.open_private(stamp):
             pass
     except OSError:
         pass
@@ -278,8 +277,8 @@ def set_notify(on: bool) -> str:
     """`honestly guard notify on|off`: a marker file, so it works on every platform without touching the environment."""
     path = notify_flag_path()
     if on:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        with store.open_private(path):
+            pass
         return "honestly guard: desktop notifications on (each catch also pops up as a system notification)"
     if os.path.exists(path):
         os.remove(path)
@@ -306,9 +305,7 @@ def _note(which: str, msg: str) -> None:
     """One line in hook-errors.log for input the hook let through without looking at (so `doctor` can show why nothing was caught)."""
     import datetime
     try:
-        os.makedirs(os.path.dirname(errors_path()), exist_ok=True)
-        with open(errors_path(), "a", encoding="utf-8") as fh:
-            fh.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} {which}: {msg}\n")
+        store.append_line(errors_path(), f"{datetime.datetime.now().isoformat(timespec='seconds')} {which}: {strip_controls(redact(msg))}")
     except Exception:
         pass
 
@@ -316,16 +313,15 @@ def _note(which: str, msg: str) -> None:
 def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: str = "", command: str = "", tools=None) -> None:
     """Append one line per catch so `honestly catches` can show what guard did this week. Local file, never sent anywhere."""
     import datetime
+    scrub = lambda text, limit=None: redact(text)[:limit]
     row = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "kind": kind,
-           "agent": getattr(turn, "agent", "") or "claude-code", "model": getattr(turn, "model", "") or "",
-           "project": (data.get("cwd") or getattr(turn, "project", "") or ""), "topic": _topic(getattr(turn, "prompt", "") or "", 80),
-           "claim": claim[:200], "reason": reason[:200], "command": command[:200], "message": plain,
-           "tools": [str(t)[:160] for t in (tools or [])][-8:], "version": __import__("honestly").__version__,
+           "agent": getattr(turn, "agent", "") or "claude-code", "model": scrub(getattr(turn, "model", "") or "", 80),
+           "project": scrub(data.get("cwd") or getattr(turn, "project", "") or ""), "topic": scrub(_topic(getattr(turn, "prompt", "") or "", 80)),
+           "claim": scrub(claim, 200), "reason": scrub(reason, 200), "command": scrub(command, 200), "message": scrub(plain),
+           "tools": [scrub(str(t), 160) for t in (tools or [])][-8:], "version": __import__("honestly").__version__,
            "session": getattr(turn, "session", "") or "", "turn": getattr(turn, "index", 0)}
     try:
-        os.makedirs(os.path.dirname(catches_path()), exist_ok=True)
-        with open(catches_path(), "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        store.append_line(catches_path(), json.dumps(row, ensure_ascii=False))
     except Exception:
         pass
 
@@ -333,19 +329,22 @@ def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: st
 def load_catches(since_days: int | None = None) -> list[dict]:
     import datetime
     rows = []
-    if not os.path.exists(catches_path()):
-        return rows
     cutoff = None
     if since_days:
         cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=since_days)).isoformat(timespec="seconds")
-    with open(catches_path(), encoding="utf-8") as fh:
-        for line in fh:
-            try:
-                r = json.loads(line)
-            except Exception:
-                continue
-            if isinstance(r, dict) and (not cutoff or str(r.get("ts", "")) >= cutoff):
-                rows.append(r)
+    for path in (catches_path() + ".1", catches_path()):   # the rotated log first: oldest rows first
+        try:
+            fh = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(r, dict) and (not cutoff or str(r.get("ts", "")) >= cutoff):
+                    rows.append(r)
     return rows
 
 
@@ -925,15 +924,14 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
     """Entry point for the installed hooks. A bug in honestly must never block or slow the assistant: any exception is
     written to ~/.honestly/hook-errors.log (shown by `honestly doctor`) and the hook exits 0 with no output."""
     try:
+        store.tighten()
         data = _read_stdin()
         out = stop_hook(data, agent=agent) if which == "stop" else pre_hook(data, agent=agent)
         out = _with_repo_note(out, data, which, agent)
     except Exception:
         import traceback, datetime
         try:
-            os.makedirs(os.path.dirname(errors_path()), exist_ok=True)
-            with open(errors_path(), "a", encoding="utf-8") as fh:
-                fh.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} {which} {agent}\n{traceback.format_exc()}\n")
+            store.append_line(errors_path(), f"{datetime.datetime.now().isoformat(timespec='seconds')} {which} {agent}\n{strip_controls(redact(traceback.format_exc()))}\n")
         except Exception:
             pass
         return 0

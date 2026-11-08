@@ -216,6 +216,27 @@ def cmd_trust(a):
     print(strip_controls(config.trust(os.getcwd())))
 
 
+def cmd_purge(a):
+    from . import store
+    from .redact import strip_controls
+    planned = store.purge(everything=a.all, dry_run=True)
+    for path in planned:
+        print(strip_controls(path))
+    if not planned:
+        print("nothing to remove")
+        return
+    if a.dry_run:
+        return
+    if not (hasattr(sys.stdin, "isatty") and sys.stdin.isatty()):
+        raise SystemExit("honestly purge needs your own terminal: the record of what the guard caught is not an agent's to erase.")
+    what = "everything above, settings and trust included" if a.all else "the files above; your settings stay"
+    if input(f"Delete {what}? Type yes: ").strip().lower() != "yes":
+        print("nothing removed")
+        return
+    store.purge(everything=a.all)
+    print(f"removed {len(planned)} item{'s' if len(planned) != 1 else ''}")
+
+
 def cmd_feedback(a):
     from .support import feedback
     print(feedback(a.n, issue_url=a.issue))
@@ -304,6 +325,7 @@ OVERVIEW = """honestly {v}: did your coding agent actually do what it said?
   honestly trust             let this project's .honestly.json relax the rules (needs your own terminal)
   honestly feedback          turn a wrong catch into an issue-ready text
   honestly pr-note --gh      put the branch's test evidence into its pull request
+  honestly purge             delete what honestly recorded (catches, logs, cache)
 
 guard: {status}\nhonestly --help for everything.
 """
@@ -360,6 +382,9 @@ def main(argv=None):
     pt = sub.add_parser("trust", help="let this project's .honestly.json relax the rules; recorded for this exact file (needs your own terminal)")
     pt.add_argument("--remove", action="store_true", help="stop trusting this project's file"); pt.add_argument("--list", action="store_true", help="show every trusted file")
     pt.set_defaults(fn=cmd_trust)
+    pu = sub.add_parser("purge", help="delete what honestly recorded under ~/.honestly (catches, logs, cache, cards); needs your own terminal")
+    pu.add_argument("--all", action="store_true", help="also delete your settings and trusted files"); pu.add_argument("--dry-run", action="store_true", help="only list what would go")
+    pu.set_defaults(fn=cmd_purge)
     pf = sub.add_parser("feedback", help="turn a catch that looks wrong into an issue-ready text (latest by default)")
     pf.add_argument("n", type=int, nargs="?", default=1, help="1 = latest catch, 2 = the one before, ..."); pf.add_argument("--issue", action="store_true", help="also print a pre-filled GitHub issue link")
     pf.set_defaults(fn=cmd_feedback)
@@ -392,7 +417,12 @@ def main(argv=None):
         from .hooks import guard
         status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l) or "not installed (honestly guard install)"
         print(OVERVIEW.format(v=__version__, status=status)); return
-    a.fn(a)
+    from . import store
+    store.tighten()
+    try:
+        a.fn(a)
+    finally:
+        store.tighten()
 
 
 if __name__ == "__main__":

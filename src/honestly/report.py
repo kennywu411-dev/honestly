@@ -8,6 +8,8 @@ import subprocess
 import tempfile
 from collections import Counter, defaultdict
 
+from . import store
+
 GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}
 HEADLINE = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could not check", "contradicted": "contradicted"}
 
@@ -275,9 +277,8 @@ def catches_card(rows, days: int) -> str:
 
 
 def write_catches_card(rows, days: int, out_dir: str) -> list[str]:
-    os.makedirs(out_dir, exist_ok=True)
     svg_path = os.path.join(out_dir, "honestly-catches.svg")
-    with open(svg_path, "w", encoding="utf-8") as fh:
+    with store.open_private(svg_path) as fh:
         fh.write(catches_card(rows, days))
     written = [svg_path]
     png_path = os.path.join(out_dir, "honestly-catches.png")
@@ -287,9 +288,8 @@ def write_catches_card(rows, days: int, out_dir: str) -> list[str]:
 
 
 def write_card(findings, sessions: int, out_dir: str) -> list[str]:
-    os.makedirs(out_dir, exist_ok=True)
     svg_path = os.path.join(out_dir, "honestly-card.svg")
-    with open(svg_path, "w", encoding="utf-8") as fh:
+    with store.open_private(svg_path) as fh:
         fh.write(svg_card(findings, sessions))
     written = [svg_path]
     png_path = os.path.join(out_dir, "honestly-card.png")

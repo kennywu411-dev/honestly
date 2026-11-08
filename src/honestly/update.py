@@ -10,6 +10,8 @@ import os
 import re
 import time
 
+from . import store
+
 PYPI_URL = "https://pypi.org/pypi/honestly/json"
 CACHE_TTL = 24 * 3600
 
@@ -45,8 +47,7 @@ def latest_version(now: float | None = None) -> str:
     except Exception:
         return ""
     try:
-        os.makedirs(os.path.dirname(cache_path()), exist_ok=True)
-        with open(cache_path(), "w", encoding="utf-8") as fh:
+        with store.open_private(cache_path()) as fh:
             json.dump({"ts": now, "latest": latest}, fh)
     except Exception:
         pass
