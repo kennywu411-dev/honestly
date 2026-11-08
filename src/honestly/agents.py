@@ -125,15 +125,48 @@ def _gemini_records(path: str):
                 yield r
 
 
+SHELL_OUTPUT = re.compile(r"(?:^|\n)Output: (.*?)(?=\n(?:Error|Exit Code|Signal|Background PIDs|Process Group PGID): |\n</untrusted_context>|\Z)", re.S)
+EXIT_CODE = re.compile(r"^Exit Code: (\d+)", re.M)
+
+
+def _gemini_result(res) -> tuple:
+    """(what the tool printed, its exit code or None). 0.67 keeps a call's result as functionResponse parts and wraps a shell command's
+    output as `<untrusted_context>\\nOutput: ...\\nExit Code: 1\\n...`; a line-anchored rule must see the output itself."""
+    if isinstance(res, list):
+        res = "\n".join(_function_response(p) if isinstance(p, dict) and isinstance(p.get("functionResponse"), dict) else _parts_text([p]) for p in res)
+    elif isinstance(res, dict):
+        res = res.get("llmContent") or res.get("output") or res.get("content") or json.dumps(res, ensure_ascii=False)
+    text = res if isinstance(res, str) else _parts_text(res)
+    code = EXIT_CODE.search(text)
+    out = SHELL_OUTPUT.search(text)
+    return (out.group(1).strip("\n") if out else text), (int(code.group(1)) if code else None)
+
+
+def _function_response(part: dict) -> str:
+    r = part["functionResponse"].get("response")
+    return str(r.get("output") or r.get("error") or "") if isinstance(r, dict) else str(r or "")
+
+
+def _gemini_project(path: str) -> str:
+    """The folder the session ran in: the recording's header no longer names it, a `.project_root` file next to `chats/` does."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.dirname(path)), ".project_root"), encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
 def gemini_parse(path: str):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
     model = ""
-    project = ""
-    for r in _gemini_records(path):
-        if "$patch" in r or "$set" in r or "$rewindTo" in r:
+    project = _gemini_project(path)
+    records = list(_gemini_records(path))
+    latest = {r["id"]: i for i, r in enumerate(records) if r.get("id")}   # a record is updated by appending it again under the same id
+    for i, r in enumerate(records):
+        if "$patch" in r or "$set" in r or "$rewindTo" in r or (r.get("id") and latest[r["id"]] != i):
             continue
         if isinstance(r.get("projectHash"), str) and not r.get("type"):
             dirs = r.get("directories")
@@ -142,6 +175,11 @@ def gemini_parse(path: str):
         t = r.get("type")
         ts = str(r.get("timestamp") or "")
         if t == "user":
+            content = r.get("content")
+            if isinstance(content, list) and any(isinstance(p, dict) and "functionResponse" in p for p in content):
+                continue   # a tool's result is sent back as a `user` record: the same turn goes on
+            if _parts_text(content).lstrip().startswith("<session_context>"):
+                continue   # the CLI's own preamble, not a prompt
             if cur is not None:
                 turns.append(cur)
             cur = Turn(session=session, index=len(turns), version=model, prompt=_parts_text(r.get("content"))[:200], ts=ts, agent="gemini", model=model, project=project)
@@ -154,12 +192,12 @@ def gemini_parse(path: str):
                 if not isinstance(call, dict):
                     continue
                 ev = _tool_event(str(call.get("name") or ""), call.get("args"), ts)
-                res = call.get("result")
-                if isinstance(res, dict):
-                    res = res.get("llmContent") or res.get("output") or res.get("content") or json.dumps(res, ensure_ascii=False)
-                ev.result = clip_output(_parts_text(res) if not isinstance(res, str) else res)
+                res, code = _gemini_result(call.get("result"))
+                ev.result = clip_output(res)
                 st = str(call.get("status") or "").lower()
                 ev.is_error = True if st in ("error", "failed", "cancelled") else (False if st in ("success", "ok", "done") else None)
+                if code is not None:
+                    ev.is_error = code != 0   # the call itself is "success" when the command ran and failed
                 cur.events.append(ev)
             text = _parts_text(r.get("content"))
             if text.strip():
