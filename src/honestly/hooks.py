@@ -356,7 +356,10 @@ def load_catches(since_days: int | None = None) -> list[dict]:
     rows = []
     cutoff = None
     if since_days:
-        cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=since_days)).isoformat(timespec="seconds")
+        try:
+            cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=since_days)).isoformat(timespec="seconds")
+        except OverflowError:
+            cutoff = None   # further back than any log: everything
     for path in (catches_path() + ".1", catches_path()):   # the rotated log first: oldest rows first
         try:
             fh = open(path, encoding="utf-8", errors="replace")
@@ -1247,8 +1250,7 @@ def _with_repo_note(out, data: dict, which: str, agent: str):
 # ----------------------------------------------------------- guard install
 def settings_path() -> str:
     """Claude Code's user settings; CLAUDE_CONFIG_DIR moves them, and Claude Code then reads hooks from there."""
-    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
-    return os.path.join(base, "settings.json")
+    return os.path.join(hookline.claude_dir(), "settings.json")
 
 
 WIN_PATH = re.compile(r"^[A-Za-z]:[\\/]|^(?:\\\\|//)")

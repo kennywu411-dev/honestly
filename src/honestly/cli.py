@@ -28,10 +28,24 @@ def _audited(path, parse, cfg_sig, use_cache, extra=""):
         hit = cache.get(path, cfg_sig + extra)
         if hit is not None:
             return hit
-    out = audit_turns(parse(path))
+    try:
+        out = audit_turns(parse(path))
+    except Exception as e:   # one log that cannot be read costs that log, not the whole audit
+        SKIPPED.append((path, e))
+        return []
     if use_cache:
         cache.put(path, cfg_sig + extra, out)
     return out
+
+
+SKIPPED: list = []
+
+
+def _report_skipped() -> None:
+    if SKIPPED:
+        path, e = SKIPPED[0]
+        print(f"honestly: skipped {len(SKIPPED)} session log(s) that could not be read, first {path}: {e.__class__.__name__}: {e}", file=sys.stderr)
+        SKIPPED.clear()
 
 
 def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, project=None, use_cache=True, cursor_root=None, gemini_root=None):
@@ -65,6 +79,7 @@ def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, pr
         findings = [f for f in findings if project.lower() in (f.project or "").lower()]
     if cutoff:
         findings = [f for f in findings if (f.ts or "9999") >= cutoff]
+    _report_skipped()
     seen, deduped = set(), []
     for f in findings:
         key = (f.category, f.claim, f.last_edit[:60], str(f.ts or "")[:16])
@@ -453,7 +468,7 @@ def _dispatch(args: list):
     p.add_argument("--version", action="version", version=f"honestly {__version__}")
     sub = p.add_subparsers(dest="cmd", required=False)
     pa = sub.add_parser("audit", help="scan Claude Code, Codex, Cursor and Gemini CLI session logs and print the report")
-    pa.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects)")
+    pa.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects, or under $CLAUDE_CONFIG_DIR)")
     pa.add_argument("--codex-root", default=None, help="Codex sessions dir (default ~/.codex/sessions)")
     pa.add_argument("--agent", action="append", choices=["claude-code", "codex", "cursor", "gemini"], help="limit to one assistant (repeatable)")
     pa.add_argument("--since", default=None, help="only claims from the last N days/weeks/months, e.g. 30d, 8w, 3m")
@@ -461,7 +476,7 @@ def _dispatch(args: list):
     pa.add_argument("--summary-json", action="store_true", help="print machine-readable counts instead of the report")
     _common(pa); pa.set_defaults(fn=cmd_audit)
     ps = sub.add_parser("share", help="write a shareable card (SVG, and PNG when a converter is available)")
-    ps.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects)")
+    ps.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects, or under $CLAUDE_CONFIG_DIR)")
     ps.add_argument("--codex-root", default=None, help="Codex sessions dir (default ~/.codex/sessions)")
     ps.add_argument("--out", default=None, help="output directory (default ~/.honestly)")
     ps.add_argument("--since", default=None, help="e.g. 30d, 8w, 3m")

@@ -13,7 +13,7 @@ import urllib.parse
 from . import __version__, config, guardfile, hookline, hooks
 from .programs import program
 from .redact import redact
-from .claude_code import iter_sessions, parse_session
+from .claude_code import iter_sessions, parse_session, projects_root
 
 REPO = "https://github.com/kennywu411-dev/honestly"
 
@@ -199,15 +199,17 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         _check_hook_entries(_our_entries(agent_settings, agent == "cursor"), lines, problems, L, agent, (ok, bad))
     paths = list(iter_sessions())
     if paths:
-        newest = max(paths, key=os.path.getmtime)
+        newest = max(paths, key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0)
         try:
             n = len(parse_session(newest, tail=True))
             lines.append(f"{ok}" + L(f"{len(paths)} Claude Code session logs; newest parses ({n} turns read)", f"{len(paths)} 个 Claude Code 会话记录；最新的能解析（读到 {n} 轮）"))
+        except OSError as e:
+            lines.append(f"{warn}" + L(f"newest session log cannot be read: {e}", f"最新的会话记录读不了：{e}"))
         except Exception as e:
             lines.append(f"{bad}" + L(f"newest session log failed to parse: {e}", f"最新的会话记录解析失败：{e}"))
             problems.append(L(f"report this: honestly feedback --issue  (parse error on {os.path.basename(newest)})", f"请反馈：honestly feedback --issue（{os.path.basename(newest)} 解析出错）"))
     else:
-        lines.append(f"{warn}" + L("no Claude Code session logs under ~/.claude/projects (nothing to audit yet)", "~/.claude/projects 下没有会话记录（还没有可审计的内容）"))
+        lines.append(f"{warn}" + L(f"no Claude Code session logs under {projects_root()} (nothing to audit yet)", f"{projects_root()} 下没有会话记录（还没有可审计的内容）"))
     codex_dir = os.path.expanduser("~/.codex/sessions")
     lines.append((f"{ok}" if os.path.isdir(codex_dir) else "  -    ") + L(f"Codex sessions {'found' if os.path.isdir(codex_dir) else 'not found (fine if you do not use Codex)'}",
                                                                            f"Codex 会话记录{'已找到' if os.path.isdir(codex_dir) else '未找到（不用 Codex 就没关系）'}"))
@@ -234,8 +236,11 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         else:
             lines.append(f"{ok}" + L(f"the hooks let some input through unchecked (not an error); last note in {ep}:", f"hook 有部分输入未检查直接放行（非错误）；{ep} 的最后一条："))
             lines += ["         " + l for l in tail.strip().splitlines()[-1:]]
-    rows = hooks.load_catches()
-    lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {hooks.local_time(rows[-1].get('ts', ''))}" if rows else "") + f"  ({hooks.catches_path()})")
+    try:
+        rows = hooks.load_catches()
+        lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {hooks.local_time(rows[-1].get('ts', ''))}" if rows else "") + f"  ({hooks.catches_path()})")
+    except OSError as e:
+        lines.append(f"{warn}" + L(f"catches log cannot be read: {hooks.catches_path()} ({e.strerror})", f"拦截记录读不了：{hooks.catches_path()}（{e.strerror}）"))
     notify = os.environ.get("HONESTLY_NOTIFY") == "1" or os.path.exists(hooks.notify_flag_path())
     lines.append(f"{ok}" + L(f"desktop notifications {'on' if notify else 'off  (honestly guard notify on)'}", f"桌面通知{'已开' if notify else '未开（honestly guard notify on）'}"))
     cfg = config.load()

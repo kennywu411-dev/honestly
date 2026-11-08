@@ -56,7 +56,8 @@ def text_report(findings, sessions: int, duplicates: int) -> str:
             return "\n".join(lines)
         if sessions == 0:
             lines.append("No session logs found.")
-            lines.append("  looked in: ~/.claude/projects (Claude Code), ~/.codex/sessions (Codex),")
+            from .claude_code import projects_root
+            lines.append(f"  looked in: {projects_root()} (Claude Code), ~/.codex/sessions (Codex),")
             lines.append("             ~/.cursor/projects/*/agent-transcripts (Cursor), ~/.gemini/tmp/*/chats (Gemini CLI)")
             lines.append("  Plain Claude/ChatGPT/Gemini web chat keeps no logs on disk, so there is nothing to audit.")
             lines.append("  If your logs live elsewhere: honestly audit --root <dir> or --codex-root <dir>")

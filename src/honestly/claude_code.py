@@ -12,6 +12,7 @@ import os
 import re
 import stat
 from dataclasses import dataclass, field
+from .hookline import claude_dir
 
 
 @dataclass
@@ -56,10 +57,15 @@ def _summarize_input(name: str, inp) -> str:
     return ""
 
 
+def projects_root() -> str:
+    return os.path.join(claude_dir(), "projects")
+
+
 def iter_sessions(root: str | None = None):
-    root = root or os.path.expanduser("~/.claude/projects")
-    for path in sorted(glob.glob(os.path.join(root, "*", "*.jsonl"))):
-        yield path
+    root = root or projects_root()
+    for path in sorted(glob.glob(os.path.join(glob.escape(root), "*", "*.jsonl"))):
+        if os.path.isfile(path):
+            yield path
 
 
 # The harness's whole message when a command goes to the background. A command can print these words too, so the message has
@@ -227,7 +233,8 @@ def subagent_files(path: str) -> list[str]:
     d = os.path.join(os.path.splitext(path)[0], "subagents")
     if not os.path.isdir(d):
         return []
-    return sorted(glob.glob(os.path.join(d, "agent-*.jsonl")) + glob.glob(os.path.join(d, "workflows", "*", "agent-*.jsonl")))
+    d = glob.escape(d)
+    return sorted(f for f in glob.glob(os.path.join(d, "agent-*.jsonl")) + glob.glob(os.path.join(d, "workflows", "*", "agent-*.jsonl")) if os.path.isfile(f))
 
 
 def _iso_epoch(ts: str) -> float:
@@ -262,8 +269,12 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
     keys = [ts for ts, _ in starts]
     arriving: dict[int, list] = {}
     for f in subagent_files(path):
-        if since and os.path.getmtime(f) < since:
-            continue   # finished before the window we hold: nothing of it can land in these turns
+        try:
+            if since and os.path.getmtime(f) < since:
+                continue   # finished before the window we hold: nothing of it can land in these turns
+            events = [e for t in _parse(f, sidechain=True) for e in t.events if e.kind == "tool" and e.ts]
+        except Exception:
+            continue   # one subagent's file that cannot be read costs that file, not the parent's whole turn
         agent_id = os.path.basename(f)[len("agent-"):-len(".jsonl")]
         meta = {}
         try:
@@ -271,7 +282,6 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
                 meta = json.load(fh)
         except Exception:
             pass
-        events = [e for t in _parse(f, sidechain=True) for e in t.events if e.kind == "tool" and e.ts]
         if not events:
             continue
         bg = str(meta.get("requestShape") or "") == "background"

@@ -142,7 +142,7 @@ def collect_turns(root: str, cutoff: str, agents=("claude-code", "codex", "curso
     (`cd /path/to/repo && …`, an edit of a file under it)."""
     sessions = []
     if "claude-code" in agents:
-        base = claude_root or os.path.expanduser("~/.claude/projects")
+        base = claude_root or claude_code.projects_root()
         enc = _encoded(root)
         for path in claude_code.iter_sessions(base):
             if not _recent(path, cutoff):

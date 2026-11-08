@@ -20,6 +20,11 @@ _PLAIN = re.compile(r"[\w@%+=:,./-]+", re.ASCII)
 _WINDOWS = re.compile(r"^[A-Za-z]:[\\/]|^(?:\\\\|//)")
 
 
+def claude_dir() -> str:
+    """Claude Code's folder; CLAUDE_CONFIG_DIR moves its settings and its session logs."""
+    return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+
+
 def stem(path: str) -> str:
     return os.path.splitext(re.split(r"[\\/]", path)[-1])[0].lower()
 

@@ -1075,3 +1075,129 @@ def test_nothing_to_show_writes_no_card(tmp_path):
     assert r.returncode == 0 and b"nothing to" in r.stderr.lower() and not list((home / ".honestly").glob("*.svg"))
     r = _honestly(["catches", "--card"], home)
     assert r.returncode == 0 and not list((home / ".honestly").glob("*.svg"))
+
+
+# ---------------------------------------------------------------- reading logs
+def test_claude_config_dir_is_where_the_sessions_are(tmp_path):
+    home = tmp_path / "home"
+    alt = tmp_path / "alt"
+    p = _seed_session(alt.parent / "x")   # build the session elsewhere and move it under the custom dir
+    (alt / "projects" / "-w").mkdir(parents=True)
+    os.replace(p, alt / "projects" / "-w" / "s.jsonl")
+    env = {"CLAUDE_CONFIG_DIR": str(alt)}
+    out = json.loads(_honestly(["audit", "--summary-json"], home, env=env).stdout)
+    assert out["sessions"] == 1
+    assert b"1 Claude Code session logs" in _honestly(["doctor"], home, env=env).stdout
+
+
+def test_the_no_logs_message_names_the_folder_it_looked_in(tmp_path):
+    alt = tmp_path / "alt"
+    out = _honestly(["audit"], tmp_path / "home", env={"CLAUDE_CONFIG_DIR": str(alt)}).stdout.decode()
+    assert str(alt) in out
+
+
+def test_pr_note_finds_sessions_under_claude_config_dir(tmp_path, monkeypatch):
+    from honestly import claude_code
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "alt"))
+    assert claude_code.projects_root() == str(tmp_path / "alt" / "projects")
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    assert claude_code.projects_root() == os.path.join(str(tmp_path), ".claude", "projects")
+
+
+def _make_dir(p):
+    p.mkdir()
+
+
+def _make_unreadable(p):
+    p.write_text("{}\n")
+    p.chmod(0)
+
+
+def _make_dangling(p):
+    p.symlink_to("/nonexistent/nothing")
+
+
+@posix_only
+@pytest.mark.parametrize("make", [_make_dir, _make_unreadable, _make_dangling])
+def test_one_bad_session_log_does_not_stop_the_audit(tmp_path, make):
+    home = tmp_path / "home"
+    good = _seed_session(home)
+    make(good.parent / "bad.jsonl")
+    r = _honestly(["audit", "--summary-json"], home)
+    assert r.returncode == 0 and b"Traceback" not in r.stderr
+    assert json.loads(r.stdout)["sessions"] >= 1
+    r = _honestly(["doctor"], home)
+    assert b"Traceback" not in r.stderr
+
+
+@posix_only
+def test_an_unreadable_log_is_reported_not_hidden(tmp_path):
+    home = tmp_path / "home"
+    good = _seed_session(home)
+    _make_unreadable(good.parent / "bad.jsonl")
+    assert b"skipped" in _honestly(["audit"], home).stderr
+    (good.parent / "bad.jsonl").chmod(0o644)
+
+
+@posix_only
+def test_a_dangling_subagent_file_costs_only_that_file(tmp_path):
+    home = tmp_path / "home"
+    good = _seed_session(home)
+    (good.parent / "s" / "subagents").mkdir(parents=True)
+    _make_dangling(good.parent / "s" / "subagents" / "agent-a.jsonl")
+    r = _honestly(["audit", "--summary-json"], home)
+    assert r.returncode == 0 and json.loads(r.stdout)["sessions"] == 1
+    from honestly import claude_code
+    assert claude_code.parse_session(str(good))   # the hook still reads the turn, not "could not be parsed"
+
+
+def test_a_subagent_file_that_cannot_be_parsed_does_not_lose_the_parent(tmp_path, monkeypatch):
+    from honestly import claude_code
+    home = tmp_path / "home"
+    good = _seed_session(home)
+    sub = good.parent / "s" / "subagents"
+    sub.mkdir(parents=True)
+    (sub / "agent-a.jsonl").write_text("{}\n")
+    real = claude_code._parse
+    def parse(path, *a, **k):
+        if "agent-a" in str(path):
+            raise PermissionError(13, "denied", str(path))
+        return real(path, *a, **k)
+    monkeypatch.setattr(claude_code, "_parse", parse)
+    assert claude_code.parse_session(str(good))
+
+
+DAMAGED = [(CATCH + "\n").encode() + b"\xff\xfe\n" + (CATCH + "\n").encode(),
+           json.dumps({"ts": "2026-11-08T00:00:00+00:00", "project": 5, "kind": "stop"}) + "\n",
+           json.dumps({"ts": "2026-11-08T00:00:00+00:00", "message": 5, "kind": 7}) + "\n",
+           json.dumps({"ts": "2026-11-08T00:00:00+00:00", "agent": 5, "model": 7, "kind": "stop"}) + "\n",
+           json.dumps({"ts": "2026-11-08T00:00:00+00:00", "tools": 5, "kind": "stop", "claim": 3, "command": 4, "reason": [], "version": 5}) + "\n",
+           CATCH[:40], "[1, 2]\n5\n", ""]
+
+
+@pytest.mark.parametrize("log", DAMAGED)
+@pytest.mark.parametrize("args", [["catches"], ["catches", "--lang", "zh"], ["feedback"], ["feedback", "--issue"], ["doctor"], ["catches", "--days", "999999"], ["catches", "--days", "99999999999"]])
+def test_a_damaged_catches_log_never_stops_the_report(tmp_path, log, args):
+    home = tmp_path / "home"
+    _write(home / ".honestly" / "catches.jsonl", log)
+    r = _honestly(args, home)
+    assert b"Traceback" not in r.stdout + r.stderr
+    assert r.returncode in (0, 1) and r.stdout.strip()
+
+
+@pytest.mark.parametrize("args", [["catches"], ["feedback"]])
+@pytest.mark.parametrize("kind", ["dir", pytest.param("unreadable", marks=posix_only)])
+def test_a_catches_log_it_cannot_open_is_one_line(tmp_path, args, kind):
+    home = tmp_path / "home"
+    log = home / ".honestly" / "catches.jsonl"
+    if kind == "dir":
+        log.mkdir(parents=True)
+    else:
+        _write(log, CATCH + "\n")
+        log.chmod(0)
+    r = _honestly(args, home)
+    assert r.returncode == 1 and b"Traceback" not in r.stderr and b"catches.jsonl" in r.stderr
+    d = _honestly(["doctor"], home)
+    assert b"Traceback" not in d.stderr and b"catches.jsonl" in d.stdout
