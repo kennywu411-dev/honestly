@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 import unicodedata
-from . import rules, config, agents, claude_code, saferegex, store
+from . import rules, config, agents, claude_code, saferegex, store, hookline
 from . import shell as _sh
 from .programs import program
 from .audit import audit_turn
@@ -31,7 +31,7 @@ MARKS = (MARK,) + LEGACY_MARKS
 
 
 def _ours(h: dict) -> bool:
-    return agents.OUR_COMMAND.search(str(h.get("command", ""))) is not None
+    return hookline.is_ours(h)
 
 
 def _read_stdin():
@@ -1250,35 +1250,87 @@ def settings_path() -> str:
     return os.path.join(base, "settings.json")
 
 
-def _exe() -> str:
-    """The honestly executable as the hooks should call it: absolute, quoted when the path has a space."""
+WIN_PATH = re.compile(r"^[A-Za-z]:[\\/]|^(?:\\\\|//)")
+TEMPORARY_INSTALL = re.compile(r"[\\/](?:archive|environments|builds)-v\d+[\\/]|[\\/]\.cache[\\/][0-9a-f]{8,}[\\/](?:bin|Scripts)[\\/]", re.I)   # uvx and `uv run --with`; `pipx run`
+
+
+def _temporary_install(path: str) -> bool:
+    return bool(TEMPORARY_INSTALL.search(path))
+
+
+def _importable_without_path(python: str) -> bool:
+    """`python -m honestly` keeps working from a hook only if honestly is installed for that python, not found through PYTHONPATH or a checkout."""
+    import subprocess
+    try:
+        return subprocess.run([python, "-I", "-c", "import honestly"], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _exe_parts() -> tuple:
+    """(program, is_python_module): what a hook has to start, as a plain path."""
+    import ntpath, posixpath, shutil
     argv0 = sys.argv[0] if sys.argv else ""
-    import ntpath, posixpath
-    is_ours = os.path.splitext(re.split(r"[\\/]", argv0)[-1])[0] == "honestly"
-    if is_ours and not (ntpath.isabs(argv0) or posixpath.isabs(argv0)):
-        argv0 = os.path.abspath(argv0)   # hooks run from any cwd, so a relative .venv/bin/honestly would break
-    exe = argv0 if is_ours else "honestly"   # Scripts\honestly.exe on Windows
-    if WIN_PATH.match(exe):
-        exe = exe.replace("\\", "/")   # the hook line is run by a POSIX shell (Git Bash on Windows), which would eat the backslashes
-    if " " in exe:
-        exe = f'"{exe}"'
-    return exe
+    name = hookline.stem(argv0)
+    if name == "honestly":
+        path = argv0 if ntpath.isabs(argv0) or posixpath.isabs(argv0) else os.path.abspath(argv0)   # hooks run from any cwd, so a relative .venv/bin/honestly would break
+    elif name in ("__main__", "cli") and hookline.stem(os.path.dirname(argv0)) == "honestly" and _importable_without_path(sys.executable):
+        return sys.executable.replace("\\", "/") if WIN_PATH.match(sys.executable) else sys.executable, True
+    elif argv0 and hookline.stem(os.path.realpath(argv0)) == "honestly":
+        path = os.path.realpath(argv0)   # a symlink with another name
+    else:
+        path = shutil.which("honestly") or "honestly"
+    if WIN_PATH.match(path):
+        path = path.replace("\\", "/")   # the line may be run by a POSIX shell (Git Bash), which would eat the backslashes
+        if not path.lower().endswith(".exe"):
+            path += ".exe"   # pip's launcher strips .exe from argv[0]; the file on disk has it
+    return path, False
 
 
-WIN_PATH = re.compile(r"^[A-Za-z]:\\")
+def _exe() -> str:
+    """The honestly executable as one shell word (`/x/python -m honestly` for a module run), absolute and quoted as needed."""
+    path, module = _exe_parts()
+    return hookline.shell_word(path) + (" -m honestly" if module else "")
+
+
+def _check_installable(agent: str) -> None:
+    """Refuse before writing a hook line that could not keep working."""
+    path, _ = _exe_parts()
+    if _temporary_install(path):
+        raise SystemExit("honestly guard: this copy of honestly runs from a temporary folder (uvx or pipx run), and a hook pointing there breaks when that cache is cleared.\n"
+                         "Install it for good and run this again: uv tool install honestly  (or: pipx install honestly)")
+    if os.path.basename(path) == path and not hookline.runnable(path):
+        raise SystemExit("honestly guard: no `honestly` command was found for the hooks to run.\n"
+                         "With the Claude Code plugin you need nothing else: its hooks are already active. Otherwise install the command first: pipx install honestly  (or: pip install honestly)")
+    if agent != "claude-code" and WIN_PATH.match(path) and re.search(r"[$`\"]", path):
+        raise SystemExit(f"honestly guard: the install path {path} holds a character a Windows shell would expand. Install honestly in another folder and run this again.")
 
 
 def _entries():
-    exe = _exe()
+    path, module = _exe_parts()
+    windows = os.name == "nt" or bool(WIN_PATH.match(path))
+
+    def one(which: str, timeout: int) -> dict:
+        if windows and not hookline.plain_word(path):
+            # Without Git Bash the line runs in PowerShell, where a quoted path followed by arguments is a syntax error: start the program directly
+            h = {"type": "command", "command": path, "args": (["-m", "honestly"] if module else []) + ["hook", which], "timeout": timeout}
+        else:
+            h = {"type": "command", "command": f"{_exe()} hook {which}  # {MARK}", "timeout": timeout}
+        if windows:
+            h["onFailure"] = "continue"   # without Git Bash, a hook that fails would otherwise block every shell command
+        return h
+
     return {
-        "Stop": {"matcher": "", "hooks": [{"type": "command", "command": f"{exe} hook stop  # {MARK}", "timeout": 30}]},
-        "PreToolUse": {"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": f"{exe} hook pre  # {MARK}", "timeout": 10}]},
+        "Stop": {"matcher": "", "hooks": [one("stop", 30)]},
+        "PreToolUse": {"matcher": "Bash|PowerShell", "hooks": [one("pre", 10)]},
     }
 
 
 def guard(action: str, dry_run: bool = False, agent: str = "claude-code") -> str:
     if agent == "all":
         return "\n".join(guard(action, dry_run, a) for a in agents.SUPPORTED)
+    if action == "install" and not dry_run:
+        _check_installable(agent)
     if agent != "claude-code":
         return agents.guard(agent, action, _exe(), dry_run)
     path = settings_path()

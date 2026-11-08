@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from honestly import config, hooks, report
 
@@ -9,6 +11,12 @@ def _isolated_catch_log(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "hook-errors.log"))
     monkeypatch.setattr(config, "trust_path", lambda: str(tmp_path / "trusted.json"))
     monkeypatch.setattr(config, "notices_path", lambda: str(tmp_path / "notices.json"))
+
+
+@pytest.fixture(autouse=True)
+def _running_as_the_installed_command(monkeypatch):
+    """`guard install` writes the path of the running program; under pytest that is pytest, so stand in for the installed command."""
+    monkeypatch.setattr(sys, "argv", ["/test/venv/bin/honestly"])
 
 
 @pytest.fixture(autouse=True)

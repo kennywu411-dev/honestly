@@ -92,7 +92,8 @@ def test_guard_entry_uses_windows_exe_path(monkeypatch):
     cmd = hooks._entries()["Stop"]["hooks"][0]["command"]
     assert cmd.startswith("C:/Users/a/venv/Scripts/honestly.exe hook stop")   # forward slashes: the line is run by Git Bash, which eats backslashes
     monkeypatch.setattr(sys, "argv", [r"C:\Program Files\x\honestly.exe"])
-    assert hooks._entries()["Stop"]["hooks"][0]["command"].startswith('"C:/Program Files/x/honestly.exe" hook stop')
+    h = hooks._entries()["Stop"]["hooks"][0]   # a quoted path with arguments is a syntax error in PowerShell, so a path with a space starts directly
+    assert h["command"] == "C:/Program Files/x/honestly.exe" and h["args"] == ["hook", "stop"]
 
 
 # ---------------------------------------------------------------- hooks
