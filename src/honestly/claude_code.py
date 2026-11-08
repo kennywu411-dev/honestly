@@ -1,6 +1,7 @@
 """Parse Claude Code session logs (~/.claude/projects/**/*.jsonl) into turns.
 
-A turn = everything the assistant did between two human prompts.
+A turn = everything the assistant did between two prompts a person wrote. A task notification, a compaction summary or
+another session's message arrives as a `user` record too, and stays inside the turn as a "mark" event.
 Events are kept in order: text blocks, tool calls (with result status),
 so rules can ask "what happened after the last edit?".
 """
@@ -17,7 +18,7 @@ from .hookline import claude_dir
 
 @dataclass
 class Event:
-    kind: str            # text | tool
+    kind: str            # text | tool | mark (something arrived mid-turn: name "report" is someone else's work, name "notice" this session's own)
     name: str = ""       # tool name for kind=tool
     text: str = ""       # text block, or command/path summary for tools
     tool_use_id: str = ""
@@ -173,6 +174,38 @@ def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "
     return clip_output(rc)
 
 
+# Records in a `user` row that no person typed, for transcripts too old to carry promptSource or turnOrigin.
+NOT_TYPED = re.compile(r"\s*(?:<task-notification>|<local-command-|<command-(?:name|message|args)>|<bash-(?:input|stdout|stderr)>|This session is being continued from a previous conversation|Caveat: The messages below)")
+# Someone else's report: a reply to it is about their work, and is not judged on what this session edited.
+OUTSIDE_REPORT = re.compile(r"^\s*(?:<side-sessions-event>|<ci-monitor-event>|<agent-message|Another Claude session sent a message)|\bThe session\b.{0,200}\byou started\b|\bfinished a turn\b", re.S)
+OWN_TASK = re.compile(r"<tool-use-id>([\w-]+)</tool-use-id>")
+
+
+def _is_prompt(r: dict, content, origin: dict) -> bool:
+    """A request a person made: what a turn starts with. Everything else that arrives as a `user` row (a tool's result, a task notification,
+    a compaction summary, a skill's text, another session's message) happens inside the turn that person's request began."""
+    if r.get("isMeta") and r.get("turnOrigin") != "scheduled":
+        return False
+    if r.get("isCompactSummary") or r.get("isVisibleInTranscriptOnly"):
+        return False
+    if origin.get("kind"):
+        return origin["kind"] == "human" or r.get("turnOrigin") == "scheduled"   # a scheduled task carries a request of its own
+    if r.get("promptSource") or r.get("turnOrigin"):
+        return r.get("promptSource") != "system" or r.get("turnOrigin") == "scheduled"
+    return isinstance(content, str) and not NOT_TYPED.match(content)   # an older transcript: a list held only tool results and skill text
+
+
+def _mark(text: str, seen_calls: dict, peer: bool, compact: bool, ts: str) -> Event:
+    """What a record that is not a prompt leaves in the turn. "report": someone else's work, a wall for what follows. "notice": this session's
+    background task ended or its context was compacted, so the reply may sum up earlier work. "meta": anything else, a skill's text or a reminder."""
+    head = text[:1500]
+    task = head.lstrip().startswith("<task-notification>")
+    own = OWN_TASK.search(head)
+    if peer or OUTSIDE_REPORT.search(head) or (task and not (own and own.group(1) in seen_calls)):
+        return Event("mark", name="report", text=head, ts=ts)
+    return Event("mark", name="notice" if task or compact else "meta", text=head, ts=ts)
+
+
 def _parse(path: str, sidechain: bool = False, start: int = 0):
     """Turns of one transcript. sidechain=True reads a subagent file (every record there is marked isSidechain)."""
     session = os.path.splitext(os.path.basename(path))[0]
@@ -193,20 +226,23 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
         ts = str(r.get("timestamp") or "")
         content = msg.get("content")
         if t == "user":
-            human = origin.get("kind") == "human" or isinstance(content, str)
             if isinstance(content, list):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
                         name, inp = calls.get(b.get("tool_use_id", ""), ("", None))
                         results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b, name, inp, project))
-                if any(isinstance(b, dict) and b.get("type") == "text" for b in content) and origin.get("kind") == "human":
-                    human = True
-            if human:
-                prompt = content if isinstance(content, str) else " ".join(
-                    str(b.get("text") or "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+            text = content if isinstance(content, str) else " ".join(str(b.get("text") or "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text")
+            if not text.strip():
+                continue
+            if FEEDBACK.match(text) or _is_prompt(r, content, origin):
                 if cur is not None:
                     turns.append(cur)
-                cur = Turn(session=session, index=len(turns), version=version, prompt=prompt[:2000], ts=ts, project=project)
+                cur = Turn(session=session, index=len(turns), version=version, prompt=text[:2000], ts=ts, project=project)
+            else:
+                if cur is None:   # a transcript that starts here: a tail read drops it, a whole one judges it as before
+                    cur = Turn(session=session, index=len(turns), version=version, prompt=text[:2000] if start == 0 else "", ts=ts, project=project)
+                else:
+                    cur.events.append(_mark(text, calls, origin.get("kind") == "peer", bool(r.get("isCompactSummary")) or text.lstrip().startswith("This session is being continued"), ts))
         elif t == "assistant" and isinstance(content, list):
             if cur is None:
                 cur = Turn(session=session, index=0, version=version, prompt="", ts=ts)
@@ -304,6 +340,9 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
     return merged
 
 
+FEEDBACK = re.compile(r"\s*(?:Stop hook feedback|⚠️ honestly)")   # a Stop hook sending the agent back: judged with the turn it answers, by hooks.stop_hook
+
+
 TAIL_THRESHOLD = 8 * 1024 * 1024
 TAIL_WINDOW = 3 * 1024 * 1024
 SCAN_CHUNK = 4 * 1024 * 1024
@@ -395,7 +434,7 @@ def parse_session(path: str, subagents: bool = True, tail: bool = False, min_tur
         while True:
             start = tail_start(path, _claude_prompt_row, want)
             turns = _parse(path, start=start)
-            if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
+            if start == 0 or sum(1 for t in turns if t.prompt and not FEEDBACK.match(t.prompt)) >= min_turns:
                 break
             want *= 4   # some user rows are not prompts: read further back
         if start > 0 and turns and not turns[0].prompt:

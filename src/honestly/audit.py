@@ -569,17 +569,23 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     ev = turn.events
     automated = automated_prompt(turn.prompt or "")
     flags = [_is_edit(x) for x in ev]
+    wall, answering = 0, turn.prompt or ""   # another session's report starts a stretch of its own: a reply to it is about that work
     for i, e in enumerate(ev):
+        if e.kind == "mark":
+            automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
+            if e.name == "report":
+                wall, answering = i + 1, e.text
+            continue
         if e.kind != "text":
             continue
         for hit in rules.find_claims(e.text):
-            before = ev[:i]
+            before = ev[wall:i]
             if hit.category in noncode.SPECS:
-                prev_ev = prev.events if prev is not None else None
+                prev_ev = ev[:wall] if wall else (prev.events if prev is not None else None)
                 verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools)
                 if verdict == "unbacked" and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("saved, now checking") is judged on everything the turn did before it ended
-                    v2 = noncode.judge(hit.category, hit.sentence, ev, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
+                    v2 = noncode.judge(hit.category, hit.sentence, ev[wall:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
                     if v2[0] != "unbacked":
                         verdict, reason, vb, out_snip = v2
                 tools_in_turn = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in before if x.kind == "tool"]
@@ -588,7 +594,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                 out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
                                    hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
                 continue
-            edit_idx = max((j for j in range(i) if flags[j]), default=-1)
+            edit_idx = max((j for j in range(wall, i) if flags[j]), default=-1)
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
             tools_after = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in after]
             last_edit = f"{ev[edit_idx].name}: {ev[edit_idx].text[:400]}" if edit_idx >= 0 else ""
@@ -610,7 +616,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                     v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"})
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
-                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev, turn.prompt):
+                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev[wall:], answering):
                     verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
                 if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
                     verdict, reason = "unverifiable", "a recap of work already committed; a later edit is not part of it"
@@ -627,7 +633,7 @@ def audit_turns(turns):
     seen = []
     continued = False
     for t in turns:
-        continued = continued or any(mark in (t.prompt or "") for mark in NOT_ALL_HERE)
+        continued = continued or any(mark in text for text in [t.prompt or ""] + [e.text for e in t.events if e.kind == "mark"] for mark in NOT_ALL_HERE)
         seen.extend(e for e in t.events if e.kind == "tool")
         findings.extend(audit_turn(t, prev, None if continued else (lambda: seen)))
         prev = t
