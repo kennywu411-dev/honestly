@@ -36,12 +36,35 @@ LABELS = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could
           "weak": "weak", "not_this_turn": "no edit this turn", "out_of_scope": "not audited"}
 
 
-def _is_edit(e: Event) -> bool:
+TEMP_TOP = re.compile(r"^(?:/private)?/tmp/?$|^(?:/private)?/var/folders/[^/]+/[^/]+/T/?$|^/var/folders/?$|AppData/Local/Temp/?$", re.I)
+AGENT_SCRATCH = re.compile(r"(?:^|/)scratchpad(?:/|$)|/claude-\d+(?:/|$)|/Temp/claude", re.I)
+
+
+def _temp_project(project: str) -> list:
+    """The names of the folder a session runs in, when that folder lives under a temp directory: /tmp/demo is someone's project, and a new user trying
+    honestly there must see it work. The temp directory itself, and an agent's own scratch space, are not projects."""
+    root = (project or "").rstrip("/")
+    if not root or not rules.TEMP_PATH.search(root + "/") or TEMP_TOP.search(root) or AGENT_SCRATCH.search(root):
+        return []
+    plain = root[len("/private"):] if root.startswith("/private/") else root
+    return [plain, "/private" + plain] if plain.startswith(("/tmp/", "/var/")) else [root]
+
+
+def _inside(text: str, names: list) -> str:
+    """`text` with a project's temp path taken off, so that what is left is judged like any project's own path."""
+    for name in names:
+        text = re.sub(re.escape(name) + r"(?=[/\s\"';&|)]|$)", ".", text)
+    return text
+
+
+def _is_edit(e: Event, names: list = ()) -> bool:
+    """names: _temp_project() of the session this ran in."""
     if e.kind != "tool":
         return False
+    text = _inside(e.text, names) if names else e.text
     if e.name in rules.EDIT_TOOLS:
-        return bool(e.text.strip()) and not rules.path_is_doc(e.text)   # an Edit with no path is not evidence of a code edit
-    return e.name == "Bash" and rules.bash_is_edit(e.text)
+        return bool(text.strip()) and not rules.path_is_doc(text)   # an Edit with no path is not evidence of a code edit
+    return e.name == "Bash" and rules.bash_is_edit(text)
 
 
 # What a run printed is read by verdicts.py, one table per runner.
@@ -572,7 +595,8 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     out = []
     ev = turn.events
     automated = automated_prompt(turn.prompt or "")
-    flags = [_is_edit(x) for x in ev]
+    names = _temp_project(getattr(turn, "project", ""))
+    flags = [_is_edit(x, names) for x in ev]
     wall, answering = 0, turn.prompt or ""   # another session's report starts a stretch of its own: a reply to it is about that work
     for i, e in enumerate(ev):
         if e.kind == "mark":
