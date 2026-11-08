@@ -477,3 +477,111 @@ def test_status_says_when_the_command_behind_the_entry_is_gone(where):
     _write(where["claude-code"], json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/gone/honestly hook stop  # honestly hook"}]}]}}))
     status = hooks.guard("status")
     assert "installed for Stop" in status and "/gone/honestly" in status and "guard install" in status
+
+
+# ---------------------------------------------------------------- the plugin and the pip guard: exactly one acts
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RUN = os.path.join(ROOT, "hooks", "run.py")
+PIPED = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "pytest | head"}, "session_id": "s", "cwd": "/tmp"})
+
+
+def _stop_event(tmp_path):
+    t = tmp_path / "t.jsonl"
+    rows = [{"type": "user", "message": {"role": "user", "content": "fix"}, "origin": {"kind": "human"}, "cwd": "/w", "timestamp": "2026-01-01T00:00:00Z"},
+            {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": "t1", "name": "Edit", "input": {"file_path": "/w/src/a.py", "old_string": "a", "new_string": "b"}}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:01Z"},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:02Z"},
+            {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": "Fixed. All tests pass."}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:03Z"}]
+    t.write_text("\n".join(map(json.dumps, rows)) + "\n")
+    return json.dumps({"transcript_path": str(t), "cwd": "/w", "session_id": "s", "last_assistant_message": "Fixed. All tests pass."})
+
+
+def _plugin_acts(tmp_path, which, settings=None):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True, exist_ok=True)
+    if settings is not None:
+        (home / ".claude" / "settings.json").write_text(json.dumps(settings))
+    env = dict(os.environ, HOME=str(home), USERPROFILE=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1")
+    r = subprocess.run([sys.executable, RUN, "hook", which], input=PIPED if which == "pre" else _stop_event(tmp_path), capture_output=True, text=True, encoding="utf-8", env=env)
+    assert r.returncode == 0 and not r.stderr
+    return bool(r.stdout.strip())
+
+
+def _pip_settings(exe, events=("Stop", "PreToolUse")):
+    which = {"Stop": "stop", "PreToolUse": "pre"}
+    return {"hooks": {ev: [{"hooks": [{"type": "command", "command": f"{hookline.shell_word(str(exe))} hook {which[ev]}  # honestly hook"}]}] for ev in events}}
+
+
+@posix_only
+def test_a_working_pip_guard_means_the_plugin_steps_aside_for_both_events(tmp_path):
+    exe = _script(tmp_path / "bin" / "honestly")
+    assert not _plugin_acts(tmp_path, "stop", _pip_settings(exe))
+    assert not _plugin_acts(tmp_path, "pre", _pip_settings(exe))
+
+
+@posix_only
+def test_the_plugin_covers_the_event_the_pip_guard_does_not_have(tmp_path):
+    exe = _script(tmp_path / "bin" / "honestly")
+    assert _plugin_acts(tmp_path, "stop", _pip_settings(exe, ["PreToolUse"]))
+    assert not _plugin_acts(tmp_path, "pre", _pip_settings(exe, ["PreToolUse"]))
+    assert _plugin_acts(tmp_path, "pre", _pip_settings(exe, ["Stop"]))
+    assert not _plugin_acts(tmp_path, "stop", _pip_settings(exe, ["Stop"]))
+
+
+@posix_only
+@pytest.mark.parametrize("body", ["#!/gone/python3.12\nimport honestly\n", "#!/bin/sh\n'''exec' \"/gone/my python\" \"$0\" \"$@\"\n' '''\nimport honestly\n"])
+def test_a_script_whose_python_went_away_does_not_count_as_working(tmp_path, body):
+    exe = _script(tmp_path / "bin" / "honestly", body)
+    assert _plugin_acts(tmp_path, "pre", _pip_settings(exe))
+    assert _plugin_acts(tmp_path, "stop", _pip_settings(exe))
+
+
+@posix_only
+def test_a_file_that_is_not_executable_does_not_count_as_working(tmp_path):
+    exe = tmp_path / "bin" / "honestly"
+    exe.parent.mkdir()
+    exe.write_text("x")
+    exe.chmod(0o644)
+    assert _plugin_acts(tmp_path, "pre", _pip_settings(exe))
+
+
+@posix_only
+def test_the_trampoline_pip_writes_for_a_long_path_counts_when_its_python_is_there(tmp_path):
+    exe = _script(tmp_path / "bin" / "honestly", f"#!/bin/sh\n'''exec' \"{sys.executable}\" \"$0\" \"$@\"\n' '''\nimport honestly\n")
+    assert not _plugin_acts(tmp_path, "pre", _pip_settings(exe))
+
+
+@posix_only
+def test_a_dead_or_foreign_line_leaves_the_plugin_in_charge(tmp_path):
+    assert _plugin_acts(tmp_path, "pre", _pip_settings("/gone/honestly"))
+    assert _plugin_acts(tmp_path, "pre", {"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "echo 'honestly hook pre'"}]}]}})
+    assert _plugin_acts(tmp_path, "pre")
+
+
+def test_exec_form_entries_count_as_a_pip_guard(tmp_path):
+    exe = _script(tmp_path / "bin" / "honestly") if os.name != "nt" else tmp_path
+    settings = {"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": str(exe), "args": ["hook", "pre"]}]}]}}
+    if os.name != "nt":
+        assert not _plugin_acts(tmp_path, "pre", settings)
+
+
+def test_windows_runnable_finds_the_launcher_behind_a_stripped_name(tmp_path, monkeypatch):
+    # not run on Windows: pip's launcher strips .exe, so older entries name the file without it
+    (tmp_path / "honestly.exe").write_text("x")
+    monkeypatch.setattr(hookline.os, "name", "nt")
+    assert hookline.runnable(str(tmp_path / "honestly"))
+    assert not hookline.runnable(str(tmp_path / "other"))
+
+
+def test_the_plugin_hook_can_never_block_a_command_when_it_fails():
+    # docs: on Windows without Git Bash a failing shell-form PreToolUse hook blocks the call unless onFailure says otherwise
+    with open(os.path.join(ROOT, "hooks", "hooks.json"), encoding="utf-8") as fh:
+        plugin = json.load(fh)["hooks"]
+    h = plugin["PreToolUse"][0]["hooks"][0]
+    assert h["onFailure"] == "continue"
+
+
+@pytest.mark.parametrize("skill", ["catches", "pr-note"])
+def test_the_skills_work_where_only_python_exists(skill):
+    with open(os.path.join(ROOT, "skills", skill, "SKILL.md"), encoding="utf-8") as fh:
+        text = fh.read()
+    assert 'Bash(python "${CLAUDE_PLUGIN_ROOT}/hooks/run.py"' in text and "Bash(python3 " in text

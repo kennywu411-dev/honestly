@@ -41,6 +41,7 @@ def test_plugin_entry_runs_from_checkout_and_steps_aside_for_guard(tmp_path):
     assert '"deny"' in out.stdout   # the guard entry points at a binary that is gone (pip uninstall): the plugin keeps checking
     exe.parent.mkdir()
     exe.write_text("")
+    exe.chmod(0o755)
     out = settings(f'"{exe}" hook pre  # honestly hook')
     assert out.returncode == 0 and out.stdout.strip() == ""   # a working guard install: the plugin steps aside
     for broken in ({"hooks": ["x"]}, {"hooks": {"Stop": ["str"]}}, {"hooks": {"Stop": [{"hooks": ["s"]}]}}):

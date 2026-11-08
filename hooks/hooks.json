@@ -18,7 +18,8 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook pre 2>/dev/null || python \"${CLAUDE_PLUGIN_ROOT}/hooks/run.py\" hook pre 2>/dev/null || true",
-            "timeout": 10
+            "timeout": 10,
+            "onFailure": "continue"
           }
         ]
       }
