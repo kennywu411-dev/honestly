@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sys
-from . import rules, config, agents
+from . import rules, config, agents, claude_code
 from .audit import audit_turn
 from .claude_code import Event, Turn
 
@@ -385,6 +385,16 @@ def _short(path: str) -> str:
     return parts[-1] if parts else ""
 
 
+def _session_tools(agent: str, path: str):
+    """Every tool call in the session, or None if it cannot be known. A bad or unreadable file must not turn into a hold."""
+    try:
+        if agent == "claude-code":
+            return claude_code.session_tools(path)
+        return [e for t in agents.parser_for(agent)(path) for e in t.events if e.kind == "tool"]
+    except Exception:
+        return None
+
+
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
     second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
@@ -418,7 +428,14 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
         turn.events.append(Event("text", text=final))
-    bad = [f for f in audit_turn(turn, prev) if f.verdict in config.blocked_verdicts(cfg)]
+    known = {}
+
+    def session_tools():   # only read the whole transcript if a claim needs it
+        if "tools" not in known:
+            known["tools"] = _session_tools(agent, path)
+        return known["tools"]
+
+    bad = [f for f in audit_turn(turn, prev, session_tools if path else None) if f.verdict in config.blocked_verdicts(cfg)]
     if not bad:
         return None
     zh = _lang_zh(cfg, bad[0].claim)

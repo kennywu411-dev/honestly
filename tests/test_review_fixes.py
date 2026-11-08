@@ -126,7 +126,7 @@ def test_claude_code_parser_survives_odd_records():
     turns = claude_code.parse_session(_cc(lines))
     fs = audit_turns(turns)
     assert all(isinstance(f.ts, str) for f in fs)
-    assert all(not (f.verdict == "unbacked") for f in fs)      # an Edit with no path is not a code edit
+    assert all(f.reason != "no verification command after the last edit" for f in fs)      # an Edit with no path is not a code edit
 
 
 def test_codex_cli_shell_command_and_exit_code():
