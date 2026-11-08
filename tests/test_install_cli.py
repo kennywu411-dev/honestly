@@ -1558,3 +1558,27 @@ def test_the_readme_says_how_to_uninstall_and_what_the_exit_codes_mean():
         assert "honestly guard uninstall --agent all" in text and "/plugin uninstall honestly" in text
         assert "pipx uninstall honestly" in text and "uv tool uninstall honestly" in text and "~/.honestly" in text
         assert "| 141 |" in text and "| 2 |" in text
+
+
+# ---------------------------------------------------------------- paths under the home folder
+def test_a_path_under_home_is_never_built_with_a_forward_slash():
+    # on Windows expanduser("~/.honestly") is C:\Users\Jo/.honestly, and that half-and-half path is what messages print
+    import re
+    src = os.path.join(ROOT, "src", "honestly")
+    for name in os.listdir(src):
+        if name.endswith(".py"):
+            assert not re.search(r"""expanduser\(\s*["']~[/\\]|\.replace\(\s*["']~["']""", _read("src", "honestly", name)), name
+
+
+def test_paths_under_home_read_whole_with_windows_rules(monkeypatch):
+    # string level, not run on Windows: the same functions with the path rules Windows uses
+    import ntpath
+    from honestly import cache, config, store, update
+    monkeypatch.setenv("USERPROFILE", r"C:\Users\Jo")
+    monkeypatch.setattr(os, "path", ntpath)
+    got = {"config": config.user_path(), "cache": cache.cache_dir(), "update": update.cache_path(),
+           "notify": hooks.notify_flag_path(), "store": store.folder(), "codex": agents.config_path("codex"), "gemini": agents.config_path("gemini")}
+    monkeypatch.undo()
+    assert got == {"config": r"C:\Users\Jo\.honestly\config.json",
+                   "cache": r"C:\Users\Jo\.honestly\cache", "update": r"C:\Users\Jo\.honestly\update-check.json", "notify": r"C:\Users\Jo\.honestly\notify",
+                   "store": r"C:\Users\Jo\.honestly", "codex": r"C:\Users\Jo\.codex\hooks.json", "gemini": r"C:\Users\Jo\.gemini\settings.json"}

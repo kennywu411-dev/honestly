@@ -18,7 +18,7 @@ from .redact import redact
 
 
 def cache_dir() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "cache")
+    return os.path.join(store.folder(), "cache")
 
 
 _RULES_SIG = ""

@@ -26,7 +26,7 @@ EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "write_file", "replace", "edit_file"
 # ------------------------------------------------------------ transcripts: Cursor
 def cursor_sessions(root: str | None = None):
     import glob
-    root = root or os.path.expanduser("~/.cursor/projects")
+    root = root or os.path.join(os.path.expanduser("~"), ".cursor", "projects")
     yield from sorted(glob.glob(os.path.join(root, "*", "agent-transcripts", "*", "*.jsonl")) +
                       glob.glob(os.path.join(root, "*", "agent-transcripts", "*.jsonl")))
 
@@ -108,7 +108,7 @@ def cursor_parse(path: str, start: int = 0):
 # --------------------------------------------------------- transcripts: Gemini CLI
 def gemini_sessions(root: str | None = None):
     import glob
-    root = root or os.path.expanduser("~/.gemini/tmp")
+    root = root or os.path.join(os.path.expanduser("~"), ".gemini", "tmp")
     yield from sorted(glob.glob(os.path.join(root, "*", "chats", "session-*.jsonl")) + glob.glob(os.path.join(root, "*", "chats", "session-*.json")))
 
 
@@ -322,7 +322,7 @@ def config_path(agent: str) -> str:
     if agent == "claude-code":
         from .hooks import settings_path
         return settings_path()
-    return {"codex": "~/.codex/hooks.json", "cursor": "~/.cursor/hooks.json", "gemini": "~/.gemini/settings.json"}[agent].replace("~", os.path.expanduser("~"), 1)
+    return os.path.join(os.path.expanduser("~"), *{"codex": (".codex", "hooks.json"), "cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
 
 
 def _is_ours(h) -> bool:

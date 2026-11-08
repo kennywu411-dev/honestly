@@ -290,7 +290,7 @@ def _notify_due() -> bool:
 
 
 def notify_flag_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "notify")
+    return os.path.join(store.folder(), "notify")
 
 
 def set_notify(on: bool) -> str:
@@ -309,7 +309,7 @@ def set_notify(on: bool) -> str:
 
 
 def catches_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "catches.jsonl")
+    return os.path.join(store.folder(), "catches.jsonl")
 
 
 def local_time(ts: str) -> str:
@@ -1167,7 +1167,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
 
 
 def errors_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "hook-errors.log")
+    return os.path.join(store.folder(), "hook-errors.log")
 
 
 # Seconds a hook may take, a little under the timeout it is installed with (30 and 10). Without this the assistant's own timeout

@@ -210,7 +210,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
             problems.append(L(f"report this: honestly feedback --issue  (parse error on {os.path.basename(newest)})", f"请反馈：honestly feedback --issue（{os.path.basename(newest)} 解析出错）"))
     else:
         lines.append(f"{warn}" + L(f"no Claude Code session logs under {projects_root()} (nothing to audit yet)", f"{projects_root()} 下没有会话记录（还没有可审计的内容）"))
-    codex_dir = os.path.expanduser("~/.codex/sessions")
+    codex_dir = os.path.join(os.path.expanduser("~"), ".codex", "sessions")
     lines.append((f"{ok}" if os.path.isdir(codex_dir) else "  -    ") + L(f"Codex sessions {'found' if os.path.isdir(codex_dir) else 'not found (fine if you do not use Codex)'}",
                                                                            f"Codex 会话记录{'已找到' if os.path.isdir(codex_dir) else '未找到（不用 Codex 就没关系）'}"))
     for name, passed, _msg in self_test():

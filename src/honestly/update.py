@@ -19,7 +19,7 @@ RETRY_AFTER_FAILURE = 6 * 3600   # offline, every command would otherwise wait f
 
 
 def cache_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "update-check.json")
+    return os.path.join(store.folder(), "update-check.json")
 
 
 VERSION = re.compile(r"\d+(?:\.\d+)*(?:(?:a|b|rc|\.post|\.dev)\d+)*")   # this string gets printed, so it must be a version and nothing else

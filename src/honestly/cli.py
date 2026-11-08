@@ -123,7 +123,8 @@ def cmd_share(a):
     if not findings:
         print("Nothing to put on a card yet: no checkable claims in your session logs.", file=sys.stderr)
         return 0
-    out = a.out or os.path.expanduser("~/.honestly")
+    from . import store
+    out = a.out or store.folder()
     written = write_card(findings, sessions, out)
     for p in written:
         print(p)
@@ -168,7 +169,8 @@ def cmd_catches(a):
     if a.card:
         from .hooks import load_catches
         from .report import write_catches_card
-        out = a.out or os.path.expanduser("~/.honestly")
+        from . import store
+        out = a.out or store.folder()
         rows = load_catches(a.days)
         if not rows:
             print("No card written: nothing was caught in this window.", file=sys.stderr)

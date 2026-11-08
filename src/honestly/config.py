@@ -22,7 +22,7 @@ import stat
 import sys
 import time
 
-from . import rules
+from . import rules, store
 
 STRICTNESS = {
     "strict": ("unbacked", "contradicted", "weak"),   # also claims about anything other than code, weak evidence, and a filter or a head on a narrowed test run
@@ -39,7 +39,7 @@ NOTICES_KEPT = 200
 
 
 def user_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "config.json")
+    return os.path.join(store.folder(), "config.json")
 
 
 def current_folder() -> str:
@@ -289,11 +289,11 @@ def load(cwd: str | None = None) -> dict:
 
 # ------------------------------------------------------------------- trust
 def trust_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "trusted.json")
+    return os.path.join(store.folder(), "trusted.json")
 
 
 def notices_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "notices.json")
+    return os.path.join(store.folder(), "notices.json")
 
 
 def _trust_key(path: str) -> str:
