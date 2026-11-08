@@ -15,6 +15,7 @@ class Spec:
     tool: re.Pattern | None      # matches a tool *name* (MCP tools, SendUserFile, CronCreate ...)
     bash: re.Pattern | None      # matches a Bash command text
     noun: str                    # for the reason text
+    heredoc: re.Pattern | None = None   # matches the body of an interpreter heredoc that ran; a heredoc's text is otherwise not evidence
 
 
 _I = re.I
@@ -30,8 +31,12 @@ SPECS: dict[str, Spec] = {
     "downloaded": Spec(
         tool=re.compile(r"(download|fetch_file|save_file)", _I),
         bash=re.compile(r"(\bcurl\b(?! -s -o /dev/null)[^|\n]*(-o |-O\b|--output|--remote-name)|\bwget\b|yt-dlp|youtube-dl|\baria2c\b|gh release download|kaggle (competitions|datasets|kernels) (download|output|files)|huggingface-cli download|\bhf download|pip download|gsutil cp|aws s3 (cp|sync)|git clone|git sparse-checkout|rclone (copy|sync)|scp \S+@\S+:|\bgdown\b"
-                        r"|hf_hub_download|snapshot_download|urlretrieve|requests\.get|urllib\.request|httpx\.(get|stream)|aiohttp|brew (install|fetch)|apt(-get)? install|pip3? install|npm (install|i)\b|conda install|\bdownload\w*\()", _I),
-        noun="download"),
+                        r"|hf_hub_download|snapshot_download|urlretrieve|requests\.get|urllib\.request|httpx\.(get|stream)|aiohttp|brew (install|fetch)|apt(-get)? install|pip3? install|npm (install|i)\b|conda install|\bdownload\w*\("
+                        # a script of the project that says what it does, run and not merely written or read
+                        r"|(?:^|[\s;&|(])(?:[\w./~-]{0,200}/)?(?:python[\d.]*|uv run(?: python[\d.]*)?|node|bun|deno run|bash|sh|zsh|ruby|tsx)\s+(?:-[\w-]{1,20}\s+){0,4}(?:[\w.~-]{0,60}/){0,8}[\w-]{0,60}(?:fetch|download)[\w-]{0,60}\.\w{1,4}\b"
+                        r"|(?:^|[\s;&|(])\.{0,2}/(?:[\w.~-]{0,60}/){0,8}[\w-]{0,60}(?:fetch|download)[\w-]{0,60}(?:\.\w{1,4})?(?=\s|$))", _I),
+        noun="download",
+        heredoc=re.compile(r"\b(?:urlretrieve|urlopen|hf_hub_download|snapshot_download)\s?\(|\b(?:requests|httpx|session)\.(?:get|stream)\s?\(|\bdownload\w{0,30}\s?\(", _I)),
     "saved": Spec(
         tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$"),
         bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
@@ -73,21 +78,56 @@ def _shell_text(cmd: str) -> str:
         return cmd
 
 
+COMMENT_LINE = re.compile(r"^[ \t]*(?:#|//).*$", re.M)
+
+
+def _heredoc_did_it(spec: Spec, cmd: str) -> bool:
+    """A heredoc fed to an interpreter ran: its calls count, and so do the commands of one fed to a shell. What it merely prints or writes down does not."""
+    if not spec.heredoc or "<<" not in cmd:
+        return False
+    from . import rules
+    for seg in rules.segments(cmd):
+        if not (seg.heredoc and seg.interp and "\n" in seg.text):
+            continue
+        body = seg.text.split("\n", 1)[1]
+        if rules.SHELL_HEAD.match(seg.text):
+            if spec.bash.search(_shell_text(body)):
+                return True
+        elif spec.heredoc.search(COMMENT_LINE.sub("", QUOTED_STRING.sub('""', body))):
+            return True
+    return False
+
+
 def _hits(spec: Spec, tools: list, must_mention: str = "") -> list:
     out = []
     for t in tools:
         if spec.tool and spec.tool.search(t.name or ""):
             out.append(t)
-        elif t.name == "Bash" and spec.bash and spec.bash.search(_shell_text(t.text or "")):
+        elif t.name == "Bash" and spec.bash and (spec.bash.search(_shell_text(t.text or "")) or _heredoc_did_it(spec, t.text or "")):
             out.append(t)
     if must_mention:
         out = [t for t in out if must_mention in (t.text or "").lower()]
     return out
 
 
+QUOTED_STRING = re.compile(r"\"[^\"\n]{0,400}\"|'[^'\n]{0,400}'")
 # the step itself failing, and not the word turning up in what another step of the command printed
 DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\bfailed to\b|\b(?:deploy(?:ment)?|upload|download|publish|release|push|build)(?:ing)? failed\b"
                            r"|\b(?:permission|access) denied\b|\bHTTP(?:/\S+)? ?[45]\d\d\b|\bERROR [45]\d\d\b|\breturned error\b|\b404 not found\b", re.I | re.M)
+
+
+DOWNLOAD_FAILED = re.compile(r"\bcurl: \(\d{1,3}\)|\bwget: |\bno such file\b|(?<!matches )\bnot found\b|\bunable to\b|\bcould not\b|\bcannot\b", re.I)
+
+
+def _a_later_step_failed(spec: Spec, t) -> bool:
+    """`kaggle datasets download ...; ls *.zip`: a command exits with its last step. An error from a step after the download, with nothing saying the download failed, is not the download failing."""
+    out = t.result or ""
+    if DEPLOY_FAILED.search(out) or DOWNLOAD_FAILED.search(out):
+        return False
+    from . import rules
+    segs = rules.segments(t.text or "")
+    steps = [i for i, s in enumerate(segs) if spec.bash.search(_shell_text(s.text)) or _heredoc_did_it(spec, s.text)]
+    return bool(steps) and steps[-1] < len(segs) - 1
 
 
 def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False, session_tools=None, own_notice: bool = False) -> tuple[str, str, str, str]:
@@ -191,6 +231,10 @@ def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: l
             last = ok[-1]; label = f"{last.name}: {(last.text or '')[:80]}"
         elif category in ("checked", "verified"):
             return "unverifiable", f"the only {spec.noun} call errored: {label}", label, (last.result or "")[:300]
+        elif category == "downloaded" and any(BROWSER_TOOL.search(t.name or "") for t in tools):
+            return "unverifiable", "a browser tool ran in this turn; a download there is not on the transcript", label, (last.result or "")[:300]
+        elif category == "downloaded" and _a_later_step_failed(spec, last):
+            pass
         else:
             return "contradicted", f"the {spec.noun} call errored: {label}", label, (last.result or "")[:300]
     if category in ("deployed", "downloaded") and DEPLOY_FAILED.search((last.result or "")[:600]) \
