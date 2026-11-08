@@ -58,6 +58,29 @@ honestly guard install --agent gemini    # ~/.gemini/settings.json
 honestly guard status                    # 四家一起看；guard uninstall [--agent …] 只删 honestly 自己写的条目
 ```
 
+Windows 上插件的 hook 需要 Git Bash（Git for Windows）。没有它时 hook 会失败但不会拦任何命令，这时请用 `honestly guard install`，它直接启动程序。这些 Windows 路径是按 Claude Code 文档写的，做过字符串级测试，还没在 Windows 机器上跑过。
+
+### 卸载
+
+```bash
+honestly guard uninstall --agent all     # 只删 honestly 自己的条目；趁命令还在时先做这一步
+honestly rule uninstall                  # 如果往项目说明里加过那一节
+pip uninstall honestly                   # 或：pipx uninstall honestly、uv tool uninstall honestly
+rm -rf ~/.honestly                       # 拦截记录、设置和缓存
+```
+
+插件：在 Claude Code 里运行 `/plugin uninstall honestly@honestly`。如果先卸了包，失效的 hook 条目会留下，Claude Code 每条命令都会报 hook 错误：重新安装后运行 `guard uninstall`，或者从设置文件里删掉以 `# honestly hook` 结尾的条目。每次修改都会在文件旁留一份带时间戳的 `*.bak-honestly-*`。
+
+### 退出码
+
+| 退出码 | 含义 |
+|---|---|
+| 0 | 完成。hook 总是退出 0，拦截回复时也一样：拦截写在它们的 JSON 里。 |
+| 1 | 做不到要求的事，或发现了问题：`doctor` 查出问题、`pr-note --check` 没看到通过的测试、文件读写失败。 |
+| 2 | 命令行写错了。 |
+| 130 | 被中断（Ctrl-C）。 |
+| 141 | 读输出的一方关掉了管道（`honestly audit \| head`）。 |
+
 ## 拦截时你会看到什么
 
 ![honestly 拦下一条没跑测试的"测试通过"](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo.zh.gif)

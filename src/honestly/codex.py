@@ -22,7 +22,7 @@ def is_prompt_row(line: bytes) -> bool:
 
 
 def iter_sessions(root: str | None = None):
-    root = root or os.path.expanduser("~/.codex/sessions")
+    root = root or os.path.join(os.path.expanduser("~"), ".codex", "sessions")
     yield from sorted(glob.glob(os.path.join(root, "**", "*.jsonl"), recursive=True))
 
 

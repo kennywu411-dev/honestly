@@ -18,20 +18,16 @@ import sys
 import threading
 import time
 import unicodedata
-from . import rules, config, agents, claude_code, saferegex, store
+from . import rules, config, agents, saferegex, store, hookline
 from . import shell as _sh
 from .programs import program
-from .audit import audit_turn
-from .claude_code import Event, Turn
 from .redact import redact, strip_controls
 
-MARK = "honestly hook"
-LEGACY_MARKS = ("sober hook",)   # entries written by the package's previous name
-MARKS = (MARK,) + LEGACY_MARKS
+MARK = hookline.MARK
 
 
 def _ours(h: dict) -> bool:
-    return agents.OUR_COMMAND.search(str(h.get("command", ""))) is not None
+    return hookline.is_ours(h)
 
 
 def _read_stdin():
@@ -294,15 +290,18 @@ def _notify_due() -> bool:
 
 
 def notify_flag_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "notify")
+    return os.path.join(store.folder(), "notify")
 
 
 def set_notify(on: bool) -> str:
     """`honestly guard notify on|off`: a marker file, so it works on every platform without touching the environment."""
     path = notify_flag_path()
     if on:
-        with store.open_private(path):
-            pass
+        try:
+            with store.open_private(path):
+                pass
+        except OSError as e:
+            raise SystemExit(f"honestly guard: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
         return "honestly guard: desktop notifications on (each catch also pops up as a system notification)"
     if os.path.exists(path):
         os.remove(path)
@@ -310,7 +309,7 @@ def set_notify(on: bool) -> str:
 
 
 def catches_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "catches.jsonl")
+    return os.path.join(store.folder(), "catches.jsonl")
 
 
 def local_time(ts: str) -> str:
@@ -350,12 +349,26 @@ def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: st
         pass
 
 
+def catches_unreadable() -> str:
+    """Why the log exists and cannot be opened, or ''. Reading it carries on without it; a report should say so rather than show nothing."""
+    try:
+        with open(catches_path(), "rb"):
+            return ""
+    except (FileNotFoundError, NotADirectoryError):
+        return ""
+    except OSError as e:
+        return e.strerror or str(e)
+
+
 def load_catches(since_days: int | None = None) -> list[dict]:
     import datetime
     rows = []
     cutoff = None
     if since_days:
-        cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=since_days)).isoformat(timespec="seconds")
+        try:
+            cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=since_days)).isoformat(timespec="seconds")
+        except OverflowError:
+            cutoff = None   # further back than any log: everything
     for path in (catches_path() + ".1", catches_path()):   # the rotated log first: oldest rows first
         try:
             fh = open(path, encoding="utf-8", errors="replace")
@@ -442,13 +455,16 @@ def _session_tools(agent: str, path: str):
     """Every tool call in the session, or None if it cannot be known. A bad or unreadable file must not turn into a hold."""
     try:
         if agent == "claude-code":
-            return claude_code.session_tools(path)
+            from .claude_code import session_tools
+            return session_tools(path)
         return [e for t in agents.parser_for(agent)(path) for e in t.events if e.kind == "tool"]
     except Exception:
         return None
 
 
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
+    from .audit import audit_turn
+    from .claude_code import Event, Turn
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
     second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
     cfg = config.load(data.get("cwd") or None)
@@ -457,7 +473,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
     path = data.get("transcript_path") or ""
     turn = None
     prev = None
-    if path and os.path.exists(path):
+    if path and os.path.isfile(path):   # a folder or a named pipe is no transcript, and reading a pipe would wait for ever
         try:
             turns = agents.parser_for(agent, tail=True)(path)
         except Exception as e:
@@ -1130,7 +1146,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     zh = _lang_zh(cfg, cmd)
     turn = None
     tp = data.get("transcript_path") or ""
-    if tp and os.path.exists(tp):
+    if tp and os.path.isfile(tp):
         try:
             turns = agents.parser_for(agent, light=True)(tp)   # the verdict is in: this is only to name the model and the conversation
             turn = turns[-1] if turns else None
@@ -1138,6 +1154,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             turn = None
     if turn is not None and not zh and cfg.get("language", "auto") == "auto":
         zh = _is_zh(turn.prompt)
+    from .claude_code import Turn
     plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
     if data.get("session_id") or data.get("transcript_path") or data.get("conversation_id"):   # no session: someone trying the hook by hand or from a script, not a catch
         _record("pre", data, turn, plain, command=t)
@@ -1150,7 +1167,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
 
 
 def errors_path() -> str:
-    return os.path.join(os.path.expanduser("~/.honestly"), "hook-errors.log")
+    return os.path.join(store.folder(), "hook-errors.log")
 
 
 # Seconds a hook may take, a little under the timeout it is installed with (30 and 10). Without this the assistant's own timeout
@@ -1217,6 +1234,8 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
         except Exception:
             pass
         return 0
+    finally:
+        disarm()
     if out:
         print(json.dumps(out, ensure_ascii=True))   # ASCII: a Windows pipe defaults to cp1252, and a character it cannot write would end the hook and lose the hold
     return 0
@@ -1246,84 +1265,147 @@ def _with_repo_note(out, data: dict, which: str, agent: str):
 # ----------------------------------------------------------- guard install
 def settings_path() -> str:
     """Claude Code's user settings; CLAUDE_CONFIG_DIR moves them, and Claude Code then reads hooks from there."""
-    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
-    return os.path.join(base, "settings.json")
+    return os.path.join(hookline.claude_dir(), "settings.json")
+
+
+WIN_PATH = re.compile(r"^[A-Za-z]:[\\/]|^(?:\\\\|//)")
+TEMPORARY_INSTALL = re.compile(r"[\\/](?:archive|environments|builds)-v\d+[\\/]|[\\/]\.cache[\\/][0-9a-f]{8,}[\\/](?:bin|Scripts)[\\/]", re.I)   # uvx and `uv run --with`; `pipx run`
+
+
+def _temporary_install(path: str) -> bool:
+    return bool(TEMPORARY_INSTALL.search(path))
+
+
+def _importable_without_path(python: str) -> bool:
+    """`python -m honestly` keeps working from a hook only if honestly is installed for that python, not found through PYTHONPATH or a checkout."""
+    import subprocess
+    try:
+        return subprocess.run([python, "-I", "-c", "import honestly"], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _exe_parts() -> tuple:
+    """(program, is_python_module): what a hook has to start, as a plain path."""
+    import ntpath, posixpath, shutil
+    argv0 = sys.argv[0] if sys.argv else ""
+    name = hookline.stem(argv0)
+    if name == "honestly":
+        path = argv0 if ntpath.isabs(argv0) or posixpath.isabs(argv0) else os.path.abspath(argv0)   # hooks run from any cwd, so a relative .venv/bin/honestly would break
+    elif name in ("__main__", "cli") and hookline.stem(os.path.dirname(argv0)) == "honestly" and _importable_without_path(sys.executable):
+        return sys.executable.replace("\\", "/") if WIN_PATH.match(sys.executable) else sys.executable, True
+    elif argv0 and hookline.stem(os.path.realpath(argv0)) == "honestly":
+        path = os.path.realpath(argv0)   # a symlink with another name
+    else:
+        path = shutil.which("honestly") or "honestly"
+    if WIN_PATH.match(path):
+        path = path.replace("\\", "/")   # the line may be run by a POSIX shell (Git Bash), which would eat the backslashes
+        if not path.lower().endswith(".exe"):
+            path += ".exe"   # pip's launcher strips .exe from argv[0]; the file on disk has it
+    return path, False
 
 
 def _exe() -> str:
-    """The honestly executable as the hooks should call it: absolute, quoted when the path has a space."""
-    argv0 = sys.argv[0] if sys.argv else ""
-    import ntpath, posixpath
-    is_ours = os.path.splitext(re.split(r"[\\/]", argv0)[-1])[0] == "honestly"
-    if is_ours and not (ntpath.isabs(argv0) or posixpath.isabs(argv0)):
-        argv0 = os.path.abspath(argv0)   # hooks run from any cwd, so a relative .venv/bin/honestly would break
-    exe = argv0 if is_ours else "honestly"   # Scripts\honestly.exe on Windows
-    if WIN_PATH.match(exe):
-        exe = exe.replace("\\", "/")   # the hook line is run by a POSIX shell (Git Bash on Windows), which would eat the backslashes
-    if " " in exe:
-        exe = f'"{exe}"'
-    return exe
+    """The honestly executable as one shell word (`/x/python -m honestly` for a module run), absolute and quoted as needed."""
+    path, module = _exe_parts()
+    return hookline.shell_word(path) + (" -m honestly" if module else "")
 
 
-WIN_PATH = re.compile(r"^[A-Za-z]:\\")
+def _check_installable(agent: str) -> None:
+    """Refuse before writing a hook line that could not keep working."""
+    path, _ = _exe_parts()
+    if _temporary_install(path):
+        raise SystemExit("honestly guard: this copy of honestly runs from a temporary folder (uvx or pipx run), and a hook pointing there breaks when that cache is cleared.\n"
+                         "Install it for good and run this again: uv tool install honestly  (or: pipx install honestly)")
+    if os.path.basename(path) == path and not hookline.runnable(path):
+        raise SystemExit("honestly guard: no `honestly` command was found for the hooks to run.\n"
+                         "With the Claude Code plugin you need nothing else: its hooks are already active. Otherwise install the command first: pipx install honestly  (or: pip install honestly)")
+    if agent != "claude-code" and WIN_PATH.match(path) and re.search(r"[$`\"]", path):
+        raise SystemExit(f"honestly guard: the install path {path} holds a character a Windows shell would expand. Install honestly in another folder and run this again.")
 
 
 def _entries():
-    exe = _exe()
+    path, module = _exe_parts()
+    windows = os.name == "nt" or bool(WIN_PATH.match(path))
+
+    def one(which: str, timeout: int) -> dict:
+        if windows and not hookline.plain_word(path):
+            # Without Git Bash the line runs in PowerShell, where a quoted path followed by arguments is a syntax error: start the program directly
+            h = {"type": "command", "command": path, "args": (["-m", "honestly"] if module else []) + ["hook", which], "timeout": timeout}
+        else:
+            h = {"type": "command", "command": f"{_exe()} hook {which}  # {MARK}", "timeout": timeout}
+        if windows:
+            h["onFailure"] = "continue"   # without Git Bash, a hook that fails would otherwise block every shell command
+        return h
+
     return {
-        "Stop": {"matcher": "", "hooks": [{"type": "command", "command": f"{exe} hook stop  # {MARK}", "timeout": 30}]},
-        "PreToolUse": {"matcher": "Bash|PowerShell", "hooks": [{"type": "command", "command": f"{exe} hook pre  # {MARK}", "timeout": 10}]},
+        "Stop": {"matcher": "", "hooks": [one("stop", 30)]},
+        "PreToolUse": {"matcher": "Bash|PowerShell", "hooks": [one("pre", 10)]},
     }
+
+
+def plugin_enabled(settings) -> bool:
+    """The Claude Code plugin is switched on in these settings: its hooks are active without anything in the `hooks` section."""
+    plugins = settings.get("enabledPlugins") if isinstance(settings, dict) else None
+    return isinstance(plugins, dict) and any(str(k).split("@")[0] == "honestly" and v for k, v in plugins.items())
+
+
+def _status_line(label: str, path: str, flat: bool = False) -> str:
+    """`status` reports a broken settings file instead of failing, and says when an entry's program is gone."""
+    from . import guardfile
+    try:
+        _, _, _, obj = guardfile.read(path)
+    except guardfile.Refused as e:
+        return f"honestly guard: {e}" if label == "Claude Code" else str(e)
+    on = guardfile.hook_events(obj, flat)
+    if not on and label == "Claude Code" and plugin_enabled(obj):
+        return f"honestly guard ({label}): active through the plugin ({path})"
+    if not on:
+        return f"honestly guard ({label}): not installed ({path})"
+    gone = sorted({e.exe for e in map(hookline.parse_entry, guardfile.commands(obj, flat)) if not hookline.runnable(e.exe)})
+    dead = f", but its command is gone: {', '.join(gone)} (run honestly guard install)" if gone else ""
+    return f"honestly guard ({label}): installed for {', '.join(on)}{dead} ({path})"
+
+
+def _guard_edit(label: str, path: str, action: str, entries: dict, dry_run: bool, flat: bool = False, top: dict = None) -> tuple:
+    from . import guardfile
+    prefix = "honestly guard" if label == "Claude Code" else f"honestly guard ({label})"
+    try:
+        return guardfile.change(path, action, entries, flat=flat, dry_run=dry_run, top=top)
+    except guardfile.Refused as e:
+        raise SystemExit(f"{prefix}: {e}") from None
+    except OSError as e:
+        raise SystemExit(f"{prefix}: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
 
 
 def guard(action: str, dry_run: bool = False, agent: str = "claude-code") -> str:
     if agent == "all":
-        return "\n".join(guard(action, dry_run, a) for a in agents.SUPPORTED)
+        out, failed = [], False
+        for a in agents.SUPPORTED:   # one assistant's broken file does not stop the others
+            try:
+                out.append(guard(action, dry_run, a))
+            except SystemExit as e:
+                out.append(str(e.code))
+                failed = True
+        if failed:
+            raise SystemExit("\n".join(out))
+        return "\n".join(out)
+    if action == "install" and not dry_run:
+        _check_installable(agent)
     if agent != "claude-code":
         return agents.guard(agent, action, _exe(), dry_run)
     path = settings_path()
-    try:
-        cfg = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
-    except Exception as e:
-        return _fail(action, f"honestly guard: cannot read {path}: {e}  (the file was left untouched)")
-    if not isinstance(cfg, dict):
-        return _fail(action, f"honestly guard: {path} is not a JSON object (the file was left untouched)")
-    hooks = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
-    installed = {ev: any(_ours(h) for g in groups_of(hooks, ev) for h in hooks_of(g)) for ev in hooks}
     if action == "status":
-        on = [ev for ev, v in installed.items() if v]
-        return f"honestly guard (Claude Code): {'installed for ' + ', '.join(on) if on else 'not installed'} ({path})"
-    before = json.dumps(cfg, sort_keys=True)
-    cfg["hooks"] = hooks
-    if action == "install":
-        for ev, entry in _entries().items():
-            groups = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]   # replace older entries (path or name may have changed)
-            groups.append(entry)
-            hooks[ev] = groups
-    elif action == "uninstall":
-        for ev in list(hooks):
-            kept = [g for g in groups_of(hooks, ev) if not any(_ours(h) for h in hooks_of(g))]
-            if kept:
-                hooks[ev] = kept
-            else:
-                del hooks[ev]
-    if not hooks:
-        cfg.pop("hooks", None)
+        return _status_line("Claude Code", path)
+    entries = {ev: [entry] for ev, entry in _entries().items()} if action == "install" else {}
+    result, after = _guard_edit("Claude Code", path, action, entries, dry_run)
     if dry_run:
         return (f"honestly guard would write the following `hooks` section into {path} (a timestamped backup of the file is made first; "
-                f"`honestly guard uninstall` removes exactly these entries):\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2))
-    if json.dumps(cfg, sort_keys=True) == before:
+                f"`honestly guard uninstall` removes exactly these entries):\n" + json.dumps({"hooks": after.get("hooks", {})}, ensure_ascii=False, indent=2))
+    if result == "unchanged":
         return (f"honestly guard: already installed, nothing changed ({path})" if action == "install"
                 else f"honestly guard: not installed, nothing to remove ({path})")
-    config.write_json_atomic(path, cfg)
     return f"honestly guard: {action}ed → {path}"
-
-
-def _fail(action: str, msg: str) -> str:
-    """`status` reports a broken settings file; `install` / `uninstall` exit non-zero on it so scripts notice."""
-    if action == "status":
-        return msg
-    raise SystemExit(msg)
 
 
 def groups_of(hooks: dict, ev: str) -> list:

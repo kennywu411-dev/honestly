@@ -149,11 +149,16 @@ def test_pre_message_names_the_actual_pipe():
 def test_guard_survives_odd_settings_shapes(tmp_path, monkeypatch):
     sp = tmp_path / "settings.json"
     monkeypatch.setattr(hooks, "settings_path", lambda: str(sp))
-    for odd in ['{"hooks": null}', '{"hooks": {"Stop": "x"}}', '{"hooks": {"Stop": [{"hooks": "x"}]}}', '{"hooks": {"Stop": [1, {"hooks": [2]}]}}']:
+    for odd in ['{"hooks": null}', '{"hooks": {"Stop": [{"hooks": "x"}]}}', '{"hooks": {"Stop": [1, {"hooks": [2]}]}}']:
         sp.write_text(odd, encoding="utf-8")
         assert "not installed" in hooks.guard("status")
         assert "installed →" in hooks.guard("install")
         assert "installed for Stop, PreToolUse" in hooks.guard("status")
+    sp.write_text('{"hooks": {"Stop": "x"}}', encoding="utf-8")   # adding to this would overwrite it
+    assert "not installed" in hooks.guard("status")
+    with pytest.raises(SystemExit):
+        hooks.guard("install")
+    assert sp.read_text(encoding="utf-8") == '{"hooks": {"Stop": "x"}}'
     sp.write_text("[]", encoding="utf-8")
     assert "not a JSON object" in hooks.guard("status")
     with pytest.raises(SystemExit):
@@ -175,7 +180,7 @@ def test_guard_install_is_idempotent_without_new_backups(tmp_path, monkeypatch):
     assert "already installed" in hooks.guard("install")
     assert len(list(tmp_path.iterdir())) == n   # no second backup
     assert "uninstalled →" in hooks.guard("uninstall")
-    assert "hooks" not in json.loads(sp.read_text(encoding="utf-8"))
+    assert not sp.exists()   # it held nothing but our entries
 
 
 def test_windows_exe_path_is_written_with_forward_slashes(monkeypatch):

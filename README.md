@@ -58,6 +58,29 @@ honestly guard install --agent gemini    # ~/.gemini/settings.json
 honestly guard status                    # all four at once; `guard uninstall [--agent ...]` removes only honestly's entries
 ```
 
+On Windows the plugin's hooks need Git Bash (Git for Windows). Without it they fail without blocking anything, so use `honestly guard install`, which starts the program directly. These Windows paths are built from Claude Code's documentation and tested at string level, not yet on a Windows machine.
+
+### Uninstall
+
+```bash
+honestly guard uninstall --agent all     # removes only honestly's own entries; do this first, while the command still exists
+honestly rule uninstall                  # if you added the section to a project's instructions
+pip uninstall honestly                   # or: pipx uninstall honestly, uv tool uninstall honestly
+rm -rf ~/.honestly                       # your catches log, settings and cache
+```
+
+As a plugin: `/plugin uninstall honestly@honestly` in Claude Code. If you removed the package first, a dead hook entry stays behind and Claude Code reports a hook error on each command: install it again and run `guard uninstall`, or delete the entries that end in `# honestly hook` from the settings file. Every edit leaves a timestamped `*.bak-honestly-*` copy next to the file.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Done. The hooks always exit 0, also when they hold a reply: the hold is in their JSON. |
+| 1 | It could not do what was asked, or found a problem: `doctor` found one, `pr-note --check` saw no passing test, a file could not be read or written. |
+| 2 | The command line is wrong. |
+| 130 | Interrupted (Ctrl-C). |
+| 141 | Whatever was reading the output closed it (`honestly audit \| head`). |
+
 ## What you see when it catches something
 
 ![honestly guard stopping a stale "tests pass" claim](https://raw.githubusercontent.com/kennywu411-dev/honestly/main/assets/demo.gif)

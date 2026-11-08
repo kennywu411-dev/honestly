@@ -1,5 +1,8 @@
+import json
+import sys
+
 import pytest
-from honestly import config, hooks, report
+from honestly import cli, config, hooks, report
 
 
 @pytest.fixture(autouse=True)
@@ -9,6 +12,38 @@ def _isolated_catch_log(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "hook-errors.log"))
     monkeypatch.setattr(config, "trust_path", lambda: str(tmp_path / "trusted.json"))
     monkeypatch.setattr(config, "notices_path", lambda: str(tmp_path / "notices.json"))
+
+
+@pytest.fixture(autouse=True)
+def _the_entry_point_shortcut_never_skips_a_refusal(monkeypatch):
+    """cli.py answers some commands without loading the rules. Every command any test sees refused must not be one of them."""
+    real = hooks.find_hidden_status
+
+    def checked(cmd, *a, **k):
+        hit = real(cmd, *a, **k)
+        if hit and isinstance(cmd, str):
+            assert not cli._cannot_be_refused(json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}}).encode()), f"the shortcut in cli.py would skip this refusal: {cmd!r}"
+        return hit
+    monkeypatch.setattr(hooks, "find_hidden_status", checked)
+
+
+@pytest.fixture(autouse=True)
+def _rule_tables_back_to_defaults():
+    """A test that applies a config (an ignore phrase, a category switched off) must not change what the next test judges."""
+    yield
+    config.apply(config.DEFAULTS)
+
+
+@pytest.fixture(autouse=True)
+def _claude_folder_follows_home(monkeypatch):
+    """Tests move HOME; a CLAUDE_CONFIG_DIR from the developer's shell would keep pointing at the real sessions."""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _running_as_the_installed_command(monkeypatch):
+    """`guard install` writes the path of the running program; under pytest that is pytest, so stand in for the installed command."""
+    monkeypatch.setattr(sys, "argv", ["/test/venv/bin/honestly"])
 
 
 @pytest.fixture(autouse=True)

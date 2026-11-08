@@ -231,10 +231,11 @@ def test_a_cache_entry_of_the_wrong_shape_is_a_miss(tmp_path, monkeypatch, bad):
     cache.put(str(session), "", [_finding()])
     assert cache.get(str(session), "")
     name = os.path.join(cache.cache_dir(), os.listdir(cache.cache_dir())[0])
-    row = json.load(open(name, encoding="utf-8"))[0]
+    entry = json.load(open(name, encoding="utf-8"))
+    row = entry["findings"][0]
     row.update(bad)
     with open(name, "w", encoding="utf-8") as fh:
-        json.dump([row], fh)
+        json.dump(entry, fh)
     assert cache.get(str(session), "") is None
 
 

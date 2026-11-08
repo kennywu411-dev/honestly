@@ -10,16 +10,13 @@ Contracts (from the vendors' docs, 2026-10; marked experimental in the README un
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import re
 
-from .claude_code import Event, Turn, clip_output
+from . import hookline
 
-MARK = "honestly hook"
-# An entry this tool wrote runs honestly's own `hook stop` or `hook pre`. Mentioning the words is not enough: that could be another tool's hook.
-OUR_COMMAND = re.compile(r"""(?:^|[\s/\\"'])(?:honestly|sober)(?:\.exe)?["']?\s+hook\s+(?:stop|pre)\b""", re.I)
+MARK = hookline.MARK
 NAMES = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
 SUPPORTED = tuple(NAMES)
 SHELL_TOOLS = {"Bash", "shell", "shell_command", "exec", "exec_command", "local_shell", "container.exec", "run_shell_command", "Shell", "run_terminal_cmd", "terminal"}
@@ -28,12 +25,14 @@ EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "write_file", "replace", "edit_file"
 
 # ------------------------------------------------------------ transcripts: Cursor
 def cursor_sessions(root: str | None = None):
-    root = root or os.path.expanduser("~/.cursor/projects")
+    import glob
+    root = root or os.path.join(os.path.expanduser("~"), ".cursor", "projects")
     yield from sorted(glob.glob(os.path.join(root, "*", "agent-transcripts", "*", "*.jsonl")) +
                       glob.glob(os.path.join(root, "*", "agent-transcripts", "*.jsonl")))
 
 
-def _tool_event(name: str, inp, ts: str = "") -> Event:
+def _tool_event(name: str, inp, ts: str = ""):
+    from .claude_code import Event
     inp = inp if isinstance(inp, dict) else {}
     cmd = inp.get("command") or inp.get("cmd") or inp.get("commandLine") or ""
     if isinstance(cmd, list):
@@ -60,6 +59,7 @@ def _gemini_prompt_row(line: bytes) -> bool:
 
 def cursor_parse(path: str, start: int = 0):
     """Cursor's hook-visible transcript: one JSON object per line with role and message; tool inputs are kept, tool outputs are not."""
+    from .claude_code import Event, Turn
     session = os.path.splitext(os.path.basename(path))[0][:40]
     turns: list[Turn] = []
     cur: Turn | None = None
@@ -107,7 +107,8 @@ def cursor_parse(path: str, start: int = 0):
 
 # --------------------------------------------------------- transcripts: Gemini CLI
 def gemini_sessions(root: str | None = None):
-    root = root or os.path.expanduser("~/.gemini/tmp")
+    import glob
+    root = root or os.path.join(os.path.expanduser("~"), ".gemini", "tmp")
     yield from sorted(glob.glob(os.path.join(root, "*", "chats", "session-*.jsonl")) + glob.glob(os.path.join(root, "*", "chats", "session-*.json")))
 
 
@@ -190,6 +191,7 @@ def _gemini_project(path: str) -> str:
 
 def gemini_parse(path: str, start: int = 0):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
+    from .claude_code import Event, Turn, clip_output
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
@@ -320,11 +322,11 @@ def config_path(agent: str) -> str:
     if agent == "claude-code":
         from .hooks import settings_path
         return settings_path()
-    return {"codex": "~/.codex/hooks.json", "cursor": "~/.cursor/hooks.json", "gemini": "~/.gemini/settings.json"}[agent].replace("~", os.path.expanduser("~"), 1)
+    return os.path.join(os.path.expanduser("~"), *{"codex": (".codex", "hooks.json"), "cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
 
 
 def _is_ours(h) -> bool:
-    return isinstance(h, dict) and OUR_COMMAND.search(str(h.get("command", ""))) is not None
+    return hookline.is_ours(h)
 
 
 def entries(agent: str, exe: str) -> dict:
@@ -342,66 +344,30 @@ def entries(agent: str, exe: str) -> dict:
     raise ValueError(agent)
 
 
-def _strip_ours(agent: str, groups: list) -> list:
-    if agent == "cursor":
-        return [h for h in groups if not _is_ours(h)]
-    return [g for g in groups if not any(_is_ours(h) for h in (g.get("hooks") or []))]
-
-
 def installed(agent: str) -> list[str]:
-    path = config_path(agent)
+    from . import guardfile
     try:
-        cfg = json.load(open(path, encoding="utf-8"))
-    except Exception:
+        _, _, _, obj = guardfile.read(config_path(agent))
+    except guardfile.Refused:
         return []
-    hooks = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
-    out = []
-    for ev, groups in hooks.items():
-        if not isinstance(groups, list):
-            continue
-        if agent == "cursor":
-            if any(_is_ours(h) for h in groups):
-                out.append(ev)
-        elif any(_is_ours(h) for g in groups if isinstance(g, dict) for h in (g.get("hooks") or [])):
-            out.append(ev)
-    return out
+    return guardfile.hook_events(obj, agent == "cursor")
 
 
 def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     """install | uninstall | status for codex, cursor or gemini. The file is backed up first; only our own entries are touched."""
+    from . import hooks as _hooks
     path = config_path(agent)
     name = NAMES[agent]
-    try:
-        cfg = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
-    except Exception as e:
-        return f"cannot read {path}: {e}"
-    if not isinstance(cfg, dict):
-        cfg = {}
+    flat = agent == "cursor"
     if action == "status":
-        on = installed(agent)
-        return f"honestly guard ({name}): {'installed for ' + ', '.join(on) if on else 'not installed'} ({path})"
-    hooks = cfg.setdefault("hooks", {})
-    if agent == "cursor":
-        cfg.setdefault("version", 1)
-    for ev, groups in entries(agent, exe).items():
-        current = hooks.get(ev) if isinstance(hooks.get(ev), list) else []
-        current = _strip_ours(agent, current)
-        if action == "install":
-            current = current + groups
-        if current:
-            hooks[ev] = current
-        else:
-            hooks.pop(ev, None)
-    if action == "uninstall":
-        for ev in list(hooks):
-            if isinstance(hooks[ev], list):
-                hooks[ev] = _strip_ours(agent, hooks[ev])
-                if not hooks[ev]:
-                    del hooks[ev]
+        return _hooks._status_line(name, path, flat)
+    top = {"version": 1} if flat else None
+    result, after = _hooks._guard_edit(name, path, action, entries(agent, exe) if action == "install" else {}, dry_run, flat, top)
     if dry_run:
-        return f"honestly guard would write this `hooks` section into {path}:\n" + json.dumps({"hooks": hooks}, ensure_ascii=False, indent=2)
-    from . import config as _config
-    _config.write_json_atomic(path, cfg)
+        return f"honestly guard would write this `hooks` section into {path}:\n" + json.dumps({"hooks": after.get("hooks", {})}, ensure_ascii=False, indent=2)
+    if result == "unchanged":
+        return (f"honestly guard ({name}): already installed, nothing changed ({path})" if action == "install"
+                else f"honestly guard ({name}): not installed, nothing to remove ({path})")
     note = {"codex": "  Codex asks you to review new hooks once: run /hooks inside Codex.",
             "cursor": "  Cursor shows hook-visible transcripts only when they are enabled; the stop hook needs them to see what was said.",
             "gemini": ""}[agent]

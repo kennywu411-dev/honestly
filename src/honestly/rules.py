@@ -38,8 +38,18 @@ CLAIM_PATTERNS = [
         r"|已修复|修复了|修好了|修复完成|bug 已解决|问题已解决)", re.I), {"test", "build", "render", "exercise"}),  # "fixed bed reactor", "fixed-point", "fixed width" are adjectives, not a claim; running the fixed code (a repro script, a snippet, curl) counts
     ("verified", re.compile(r"(\b(?:is|are|was|were|been|all|now|I|we|both|everything)\s+verified\b(?!\s+(?:wording|results?|numbers?|data|version|claims?|facts?)\b)|\bverified\b(?=\s*(?:$|[.,;:!)]|by\b|against\b|with\b|that\b|in\b))|\bI('ve| have) (tested|checked|confirmed)\b|已验证|验证通过|核对无误|确认无误|跑通了|实测(通过|可用|正常)|检查过了)", re.I), {"verified"}),  # needs a run, a read or a screenshot in the turn
 ]
-from . import noncode as _noncode  # noqa: E402  (claims about sending, deploying, downloading, saving, checking, scheduling)
-CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in _noncode.CLAIMS]
+_noncode_added = False
+
+
+def claim_patterns() -> list:
+    """CLAIM_PATTERNS with the claims about sending, deploying, downloading, saving, checking and scheduling. Those live in noncode.py,
+    which only judging a reply needs: the hook that runs before every shell command does not load it."""
+    global _noncode_added
+    if not _noncode_added:
+        from . import noncode
+        CLAIM_PATTERNS[-1:-1] = [(name, pat, {name}) for name, pat in noncode.CLAIMS]
+        _noncode_added = True
+    return CLAIM_PATTERNS
 
 
 NOT_A_CLAIM = re.compile(
@@ -132,7 +142,7 @@ def find_claims(text: str):
         low = sent.lower()
         if any(p in low for p in IGNORE_PHRASES):
             continue
-        for name, pat, kinds in CLAIM_PATTERNS:
+        for name, pat, kinds in claim_patterns():
             if name in DISABLED:
                 continue
             m = pat.search(sent)

@@ -1,26 +1,21 @@
+"""The command line. Importing this module stays cheap, because a hook starts it before every shell command: what a command needs is imported inside it."""
 from __future__ import annotations
-import argparse
-import json
 import os
-import random
-import re
 import sys
-from dataclasses import asdict
-from . import claude_code, codex
-from .audit import audit_turns
-from .redact import strip_controls
-from .report import text_report, write_card, colorize, want_color
 
 
 def _since_cutoff(spec):
     if not spec:
         return None
-    import datetime as dt
+    import datetime as dt, re
     m = re.fullmatch(r"(\d+)([dwm])", spec.strip())
     if not m:
         raise SystemExit("--since takes a number followed by d, w or m, e.g. 30d")
     days = int(m.group(1)) * {"d": 1, "w": 7, "m": 30}[m.group(2)]
-    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    except OverflowError:
+        return None   # further back than any log: everything
 
 
 ALL_AGENTS = ("claude-code", "codex", "cursor", "gemini")
@@ -28,19 +23,37 @@ ALL_AGENTS = ("claude-code", "codex", "cursor", "gemini")
 
 def _audited(path, parse, cfg_sig, use_cache, extra=""):
     from . import cache
+    from .audit import audit_turns
     if use_cache:
         hit = cache.get(path, cfg_sig + extra)
         if hit is not None:
             return hit
-    out = audit_turns(parse(path))
+    from .claude_code import TASK_FILES_READ
+    TASK_FILES_READ.clear()
+    try:
+        out = audit_turns(parse(path))
+    except Exception as e:   # one log that cannot be read costs that log, not the whole audit
+        SKIPPED.append((path, e))
+        return []
     if use_cache:
-        cache.put(path, cfg_sig + extra, out)
+        cache.put(path, cfg_sig + extra, out, deps=sorted(TASK_FILES_READ))
     return out
 
 
+SKIPPED: list = []
+
+
+def _report_skipped() -> None:
+    if SKIPPED:
+        path, e = SKIPPED[0]
+        print(f"honestly: skipped {len(SKIPPED)} session log(s) that could not be read, first {path}: {e.__class__.__name__}: {e}", file=sys.stderr)
+        SKIPPED.clear()
+
+
 def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, project=None, use_cache=True, cursor_root=None, gemini_root=None):
-    from . import config
-    cfg = config.load(os.getcwd())
+    import json
+    from . import claude_code, codex, config
+    cfg = config.load(None)
     config.apply(cfg)   # the user's ignore list and custom checks apply to the audit too
     cfg_sig = json.dumps(cfg, sort_keys=True, ensure_ascii=False)
     cutoff = _since_cutoff(since)
@@ -68,6 +81,7 @@ def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, pr
         findings = [f for f in findings if project.lower() in (f.project or "").lower()]
     if cutoff:
         findings = [f for f in findings if (f.ts or "9999") >= cutoff]
+    _report_skipped()
     seen, deduped = set(), []
     for f in findings:
         key = (f.category, f.claim, f.last_edit[:60], str(f.ts or "")[:16])
@@ -78,6 +92,14 @@ def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, pr
 
 
 def cmd_audit(a):
+    import json
+    from dataclasses import asdict
+    from .redact import strip_controls
+    from .report import text_report, colorize, want_color
+    if a.clear_cache:
+        from . import cache
+        print(f"honestly: cleared {cache.clear()} cache entries ({cache.cache_dir()})")
+        return 0
     agents = tuple(a.agent) if a.agent else ALL_AGENTS
     findings, sessions, dups = collect(a.root, a.codex_root, agents, a.since, project=a.project, use_cache=not a.no_cache, cursor_root=a.cursor_root, gemini_root=a.gemini_root)
     if a.json:
@@ -96,8 +118,13 @@ def cmd_audit(a):
 
 
 def cmd_share(a):
+    from .report import write_card
     findings, sessions, _ = collect(a.root, a.codex_root, since=a.since, project=a.project, use_cache=not a.no_cache, cursor_root=a.cursor_root, gemini_root=a.gemini_root)
-    out = a.out or os.path.expanduser("~/.honestly")
+    if not findings:
+        print("Nothing to put on a card yet: no checkable claims in your session logs.", file=sys.stderr)
+        return 0
+    from . import store
+    out = a.out or store.folder()
     written = write_card(findings, sessions, out)
     for p in written:
         print(p)
@@ -107,12 +134,14 @@ def cmd_share(a):
 
 
 def cmd_explain(a):
+    from .redact import strip_controls
     findings, _, _ = collect(a.root, a.codex_root, since=a.since, project=a.project, use_cache=not a.no_cache, cursor_root=a.cursor_root, gemini_root=a.gemini_root)
     flagged = [f for f in findings if f.verdict in ("unbacked", "contradicted")]
     if not flagged:
         print("nothing flagged"); return
     if a.n < 1 or a.n > len(flagged):
-        print(f"pick 1..{len(flagged)}"); return
+        print(f"honestly explain: pick 1..{len(flagged)}", file=sys.stderr)
+        return 1
     f = flagged[a.n - 1]
     show = lambda text: print(strip_controls(text))
     show(f"[{a.n}/{len(flagged)}] {f.label}  ·  {f.category}  ·  {f.agent} {f.model or f.version}  ·  session {f.session[:8]} turn {f.turn}  ·  {f.ts[:19]}")
@@ -128,14 +157,24 @@ def cmd_explain(a):
 
 def cmd_catches(a):
     from .hooks import catches_report, _is_zh
+    from .redact import strip_controls
     from .update import update_note
     from . import __version__
+    from .hooks import catches_path, catches_unreadable
+    why = catches_unreadable()
+    if why:
+        print(f"honestly: cannot read {catches_path()}: {why}", file=sys.stderr)
+        return 1
     print(strip_controls(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh")))
     if a.card:
         from .hooks import load_catches
         from .report import write_catches_card
-        out = a.out or os.path.expanduser("~/.honestly")
-        for p in write_catches_card(load_catches(a.days), a.days, out):
+        from . import store
+        out = a.out or store.folder()
+        rows = load_catches(a.days)
+        if not rows:
+            print("No card written: nothing was caught in this window.", file=sys.stderr)
+        for p in write_catches_card(rows, a.days, out) if rows else []:
             print("wrote", p)
     note = update_note(__version__, zh=_is_zh(""))   # once a day, CLI only, never from the hooks
     if note:
@@ -143,9 +182,15 @@ def cmd_catches(a):
 
 
 def cmd_guard(a):
-    from .hooks import guard, set_notify
+    from .hooks import guard, set_notify, notify_flag_path
     if a.action == "notify":
-        print(set_notify((a.value or "on") == "on")); return
+        if a.value is None:
+            print(f"honestly guard: desktop notifications {'on' if os.path.exists(notify_flag_path()) else 'off'}"); return
+        if a.dry_run:
+            print(f"honestly guard would turn desktop notifications {a.value}"); return
+        print(set_notify(a.value == "on")); return
+    if a.value is not None:
+        return _usage_error(f"honestly guard {a.action}: {a.value!r} only goes with `guard notify`")
     agent = a.agent or ("all" if a.action == "status" else "claude-code")
     print(guard(a.action, dry_run=a.dry_run, agent=agent))
 
@@ -153,7 +198,7 @@ def cmd_guard(a):
 def cmd_ignore(a):
     from . import config
     if a.list or not a.phrase:
-        print(config.show(os.getcwd())); return
+        print(config.show(None)); return
     fn = config.remove_from if a.remove else config.add_to
     print(fn("ignore", a.phrase, project=a.project))
     _project_hint(a)
@@ -162,14 +207,21 @@ def cmd_ignore(a):
 def cmd_config(a):
     from . import config
     if not a.key:
-        print(config.show(os.getcwd())); return
+        print(config.show(None)); return
     k, v = a.key, (a.value or "")
+    if k == "strictness" and v not in config.STRICTNESS:
+        return _usage_error(f"honestly config strictness: pick one of {', '.join(config.STRICTNESS)}")
+    if k == "language" and v not in ("auto", "zh", "en"):
+        return _usage_error("honestly config language: pick auto, zh or en")
     if k in ("strictness", "language"):
         print(config.set_value(k, v, project=a.project)); _project_hint(a); return
     if k in ("off", "on"):
         cats = [c.strip() for c in v.split(",") if c.strip()]
         if not cats:
-            raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: honestly config)")
+            raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: {', '.join(config.CATEGORIES)})")
+        unknown = [c for c in cats if c not in config.CATEGORIES] if k == "off" else []
+        if unknown:
+            return _usage_error(f"honestly config off: no category called {', '.join(unknown)}  (categories: {', '.join(config.CATEGORIES)})")
         for cat in cats:
             print((config.add_to if k == "off" else config.remove_from)("off", cat, project=a.project))
         _project_hint(a)
@@ -240,7 +292,18 @@ def cmd_purge(a):
 
 
 def cmd_feedback(a):
+    from .hooks import load_catches
+    from .redact import strip_controls
     from .support import feedback
+    from .hooks import catches_path, catches_unreadable
+    why = catches_unreadable()
+    if why:
+        print(f"honestly: cannot read {catches_path()}: {why}", file=sys.stderr)
+        return 1
+    total = len(load_catches())
+    if total and not 1 <= a.n <= total:
+        print(strip_controls(feedback(a.n)), file=sys.stderr)
+        return 1
     print(strip_controls(feedback(a.n, issue_url=a.issue)))
 
 
@@ -270,6 +333,7 @@ def cmd_pr_note(a):
 
 
 def cmd_doctor(a):
+    from .redact import strip_controls
     from .support import doctor
     text, problems = doctor(zh=None if a.lang == "auto" else a.lang == "zh", with_problems=True)
     print(strip_controls(text))
@@ -277,14 +341,15 @@ def cmd_doctor(a):
         sys.exit(1)
 
 
-def cmd_hook(a):
-    from .hooks import run_hook
-    sys.exit(run_hook(a.which, a.agent or "claude-code"))
-
-
 def cmd_sample(a):
-    rows = [json.loads(l) for l in open(a.findings, encoding="utf-8")]
-    rows = [r for r in rows if r["verdict"] == a.verdict and not r["session"].startswith(tuple(a.exclude))]
+    import json, random
+    try:
+        with open(a.findings, encoding="utf-8") as fh:
+            rows = [json.loads(l) for l in fh]
+        rows = [r for r in rows if r["verdict"] == a.verdict and not r["session"].startswith(tuple(a.exclude))]
+    except (ValueError, KeyError, TypeError):
+        print(f"honestly sample: {a.findings} is not a findings file (make one with honestly audit --json)", file=sys.stderr)
+        return 1
     random.Random(a.seed).shuffle(rows)
     per, picked = {}, []
     for r in rows:
@@ -333,27 +398,146 @@ guard: {status}\nhonestly --help for everything.
 """
 
 
-def main(argv=None):
-    for stream in (sys.stdout, sys.stderr):  # Windows redirects default to the locale code page
+def _positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise ValueError(text)
+    return value
+
+
+def _usage_error(message: str) -> int:
+    print(message, file=sys.stderr)
+    return 2
+
+
+EXIT_CODES = """exit codes:
+  0    done (a hook always exits 0, also when it holds a reply: the hold is in its JSON)
+  1    it could not do what was asked, or it found a problem: doctor found one, pr-note --check saw no passing test, a file could not be read or written
+  2    the command line is wrong
+  130  interrupted (Ctrl-C)
+  141  whatever was reading the output closed it (`honestly audit | head`)
+"""
+HOOK_AGENTS = ("claude-code", "codex", "cursor", "gemini")
+
+
+def _set_up_streams(utf8: bool = False) -> None:
+    """Output never fails on a character the terminal lacks. Hooks always speak UTF-8; for people, the terminal's encoding is kept (and a
+    PYTHONIOENCODING they set), except that a Windows redirect, which defaults to the locale code page, becomes UTF-8."""
+    if not utf8 and sys.platform == "win32" and not os.environ.get("PYTHONIOENCODING"):
+        utf8 = not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
+    for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
+                stream.reconfigure(**({"encoding": "utf-8", "errors": "replace"} if utf8 else {"errors": "replace"}))
             except Exception:
                 pass
+
+
+def _silence_stdout() -> None:
+    """After a failed write, point stdout at nothing, so the interpreter's flush on the way out has nothing to complain about."""
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        os.close(devnull)
+    except Exception:
+        pass
+
+
+def _flush_stdout() -> None:
+    if sys.stdout is not None:
+        sys.stdout.flush()
+
+
+def _hook_args(args: list):
+    """(which, agent) from what follows `hook`, or None. The marker comment arrives as plain words when the line runs in a shell without `#` comments (cmd.exe)."""
+    if "#" in args:
+        args = args[:args.index("#")]
+    if not args or args[0] not in ("stop", "pre"):
+        return None
+    if len(args) == 1:
+        return args[0], "claude-code"
+    if len(args) == 3 and args[1] == "--agent" and args[2] in HOOK_AGENTS:
+        return args[0], args[2]
+    return None
+
+
+def _run_hook(args: list) -> int:
+    """The assistant is waiting on this. Whatever goes wrong here, it exits 0 and says nothing: exit 2 would mean "block", and a bug must not stop the assistant."""
+    try:
+        _set_up_streams(utf8=True)
+        parsed = _hook_args(args)
+        if parsed is None:
+            from .hooks import _note
+            _note("args", f"hook started with arguments this version does not know: {args}; nothing checked")
+            return 0
+        event = _take_event()
+        if parsed[0] == "pre" and event is not None and _cannot_be_refused(event):
+            return 0
+        from .hooks import run_hook
+        run_hook(*parsed)
+        _flush_stdout()
+    except BaseException:
+        _silence_stdout()
+    return 0
+
+
+def _take_event():
+    """Read the hook's event, leaving it readable for the code that judges it. None when there is no stdin."""
+    stream = getattr(sys.stdin, "buffer", None)
+    if stream is None:
+        return None
+    import io
+    event = stream.read()
+    sys.stdin = io.TextIOWrapper(io.BytesIO(event), encoding="utf-8", errors="replace")
+    return event
+
+
+CAN_HIDE_A_RESULT = (b"|", b"<", b">", b"`", b"$(", b"$'", b"\\u00")   # a pipe, a redirect, a capture, a process substitution, or one of them spelled as an escape
+
+
+def _cannot_be_refused(event: bytes) -> bool:
+    """The pre hook refuses a command that keeps a result from the agent, and every way of doing that needs one of these characters. A well-formed
+    event with none of them needs no rule table loaded, which is what makes most commands cheap. `2>&1` hides nothing. conftest.py checks every
+    refusal in the test suite against this, so a new kind of refusal that this would skip fails there."""
+    body = event.replace(b"2>&1", b"")
+    if any(mark in body for mark in CAN_HIDE_A_RESULT):
+        return False
+    import json
+    try:
+        data = json.loads(event)
+    except (ValueError, RecursionError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    folder = data.get("cwd") or (data.get("workspace_roots") or [""])[0] if isinstance(data.get("workspace_roots") or [], list) else data.get("cwd")
+    while isinstance(folder, str) and folder:   # a repository's .honestly.json can make the hook say something once per conversation: that takes the long way
+        if os.path.lexists(os.path.join(folder, ".honestly.json")):
+            return False
+        parent = os.path.dirname(folder)
+        if parent == folder:
+            break
+        folder = parent
+    return True
+
+
+def _dispatch(args: list):
+    import argparse
     from . import __version__
-    p = argparse.ArgumentParser(prog="honestly", description="Block unverified \"tests pass / fixed / pushed\" claims from coding agents, and audit past sessions.")
+    p = argparse.ArgumentParser(prog="honestly", description="Block unverified \"tests pass / fixed / pushed\" claims from coding agents, and audit past sessions.",
+                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog=EXIT_CODES)
     p.add_argument("--version", action="version", version=f"honestly {__version__}")
     sub = p.add_subparsers(dest="cmd", required=False)
     pa = sub.add_parser("audit", help="scan Claude Code, Codex, Cursor and Gemini CLI session logs and print the report")
-    pa.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects)")
+    pa.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects, or under $CLAUDE_CONFIG_DIR)")
     pa.add_argument("--codex-root", default=None, help="Codex sessions dir (default ~/.codex/sessions)")
     pa.add_argument("--agent", action="append", choices=["claude-code", "codex", "cursor", "gemini"], help="limit to one assistant (repeatable)")
     pa.add_argument("--since", default=None, help="only claims from the last N days/weeks/months, e.g. 30d, 8w, 3m")
     pa.add_argument("--json", default=None, help="also write every finding as JSONL")
     pa.add_argument("--summary-json", action="store_true", help="print machine-readable counts instead of the report")
+    pa.add_argument("--clear-cache", action="store_true", help="empty ~/.honestly/cache and stop")
     _common(pa); pa.set_defaults(fn=cmd_audit)
     ps = sub.add_parser("share", help="write a shareable card (SVG, and PNG when a converter is available)")
-    ps.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects)")
+    ps.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects, or under $CLAUDE_CONFIG_DIR)")
     ps.add_argument("--codex-root", default=None, help="Codex sessions dir (default ~/.codex/sessions)")
     ps.add_argument("--out", default=None, help="output directory (default ~/.honestly)")
     ps.add_argument("--since", default=None, help="e.g. 30d, 8w, 3m")
@@ -362,7 +546,7 @@ def main(argv=None):
     pe.add_argument("n", type=int); pe.add_argument("--root", default=None); pe.add_argument("--codex-root", default=None); pe.add_argument("--since", default=None)
     _common(pe); pe.set_defaults(fn=cmd_explain)
     pc = sub.add_parser("catches", help="what guard stopped recently (reads ~/.honestly/catches.jsonl)")
-    pc.add_argument("--days", type=int, default=7, help="window in days (default 7)")
+    pc.add_argument("--days", type=_positive_int, default=7, help="window in days (default 7)")
     pc.add_argument("--card", action="store_true", help="also write a shareable card (SVG, and PNG when a converter is available)")
     pc.add_argument("--lang", choices=["auto", "zh", "en"], default="auto")
     pc.add_argument("--out", default=None, help="directory for the card (default ~/.honestly)")
@@ -408,24 +592,75 @@ def main(argv=None):
     pd.add_argument("--lang", choices=["auto", "zh", "en"], default="auto"); pd.set_defaults(fn=cmd_doctor)
     ph = sub.add_parser("hook", help="(internal) run as the assistant's hook; reads the hook event as JSON on stdin")
     ph.add_argument("which", choices=["stop", "pre"]); ph.add_argument("--agent", choices=["claude-code", "codex", "cursor", "gemini"], default="claude-code")
-    ph.set_defaults(fn=cmd_hook)
+    ph.set_defaults(fn=lambda a: _run_hook([a.which, "--agent", a.agent]))
     pm = sub.add_parser("sample", help="(maintainers) draw a labelling sample from a findings JSONL")
     pm.add_argument("findings"); pm.add_argument("--verdict", default="unbacked"); pm.add_argument("--n", type=int, default=100)
     pm.add_argument("--per-session", type=int, default=8); pm.add_argument("--seed", type=int, default=42)
     pm.add_argument("--exclude", nargs="*", default=[]); pm.add_argument("--out", default=".honestly-labels/label_sheet.md")
     pm.set_defaults(fn=cmd_sample)
-    a = p.parse_args(argv)
+    a = p.parse_args(args)
     if not a.cmd:
         from .hooks import guard
-        status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l) or "not installed (honestly guard install)"
-        print(OVERVIEW.format(v=__version__, status=status)); return
+        status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l or "active through" in l) or "not installed (honestly guard install)"
+        print(OVERVIEW.format(v=__version__, status=status)); return 0
     from . import store
     store.tighten()
     try:
-        a.fn(a)
+        return a.fn(a)
     finally:
         store.tighten()
 
 
+def _say(message: str) -> None:
+    try:
+        print(message, file=sys.stderr)
+    except Exception:
+        pass
+
+
+def _failed(e: Exception) -> int:
+    if isinstance(e, OSError):
+        if e.filename:
+            _say(f"honestly: cannot use {e.filename}: {e.strerror}")
+        elif isinstance(e, FileNotFoundError):
+            _say("honestly: the current folder no longer exists. cd to another folder and try again.")
+        else:
+            _say(f"honestly: {e}")
+    elif isinstance(e, OverflowError):
+        _say("honestly: that number is too large.")
+    else:
+        _say(f"honestly: unexpected error: {e.__class__.__name__}: {e}. Set HONESTLY_DEBUG=1 to see where; please report it with honestly feedback --issue.")
+    if os.environ.get("HONESTLY_DEBUG"):
+        import traceback
+        traceback.print_exc()
+    return 1
+
+
+def main(argv=None):
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["hook"] and "-h" not in args and "--help" not in args:
+        return _run_hook(args[1:])
+    _set_up_streams()
+    try:
+        rc = _dispatch(args)
+        _flush_stdout()
+        return rc or 0
+    except SystemExit:   # argparse's own exit, a refusal with its message, a command's exit code
+        try:
+            _flush_stdout()
+        except BrokenPipeError:
+            _silence_stdout()
+            raise SystemExit(141) from None
+        raise
+    except BrokenPipeError:
+        _silence_stdout()
+        return 141
+    except KeyboardInterrupt:
+        _silence_stdout()
+        return 130
+    except Exception as e:
+        return _failed(e)
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
