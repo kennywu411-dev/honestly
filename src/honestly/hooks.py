@@ -1324,6 +1324,12 @@ def _entries():
     }
 
 
+def plugin_enabled(settings) -> bool:
+    """The Claude Code plugin is switched on in these settings: its hooks are active without anything in the `hooks` section."""
+    plugins = settings.get("enabledPlugins") if isinstance(settings, dict) else None
+    return isinstance(plugins, dict) and any(str(k).split("@")[0] == "honestly" and v for k, v in plugins.items())
+
+
 def _status_line(label: str, path: str, flat: bool = False) -> str:
     """`status` reports a broken settings file instead of failing, and says when an entry's program is gone."""
     from . import guardfile
@@ -1332,6 +1338,8 @@ def _status_line(label: str, path: str, flat: bool = False) -> str:
     except guardfile.Refused as e:
         return f"honestly guard: {e}" if label == "Claude Code" else str(e)
     on = guardfile.hook_events(obj, flat)
+    if not on and label == "Claude Code" and plugin_enabled(obj):
+        return f"honestly guard ({label}): active through the plugin ({path})"
     if not on:
         return f"honestly guard ({label}): not installed ({path})"
     gone = sorted({e.exe for e in map(hookline.parse_entry, guardfile.commands(obj, flat)) if not hookline.runnable(e.exe)})

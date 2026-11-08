@@ -333,13 +333,21 @@ guard: {status}\nhonestly --help for everything.
 """
 
 
-def main(argv=None):
-    for stream in (sys.stdout, sys.stderr):  # Windows redirects default to the locale code page
+def _set_up_streams(utf8: bool = False) -> None:
+    """Output never fails on a character the terminal lacks. Hooks always speak UTF-8; for people, the terminal's encoding is kept (and a
+    PYTHONIOENCODING they set), except that a Windows redirect, which defaults to the locale code page, becomes UTF-8."""
+    if not utf8 and sys.platform == "win32" and not os.environ.get("PYTHONIOENCODING"):
+        utf8 = not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
+    for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
+                stream.reconfigure(**({"encoding": "utf-8", "errors": "replace"} if utf8 else {"errors": "replace"}))
             except Exception:
                 pass
+
+
+def main(argv=None):
+    _set_up_streams()
     from . import __version__
     p = argparse.ArgumentParser(prog="honestly", description="Block unverified \"tests pass / fixed / pushed\" claims from coding agents, and audit past sessions.")
     p.add_argument("--version", action="version", version=f"honestly {__version__}")
@@ -417,7 +425,7 @@ def main(argv=None):
     a = p.parse_args(argv)
     if not a.cmd:
         from .hooks import guard
-        status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l) or "not installed (honestly guard install)"
+        status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l or "active through" in l) or "not installed (honestly guard install)"
         print(OVERVIEW.format(v=__version__, status=status)); return
     from . import store
     store.tighten()

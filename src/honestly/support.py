@@ -10,7 +10,7 @@ import sys
 import tempfile
 import urllib.parse
 
-from . import __version__, config, hooks
+from . import __version__, config, guardfile, hookline, hooks
 from .programs import program
 from .redact import redact
 from .claude_code import iter_sessions, parse_session
@@ -19,41 +19,48 @@ REPO = "https://github.com/kennywu411-dev/honestly"
 
 
 # ------------------------------------------------------------------- doctor
-def _hook_cmds(settings: dict) -> list[str]:
-    """The command lines guard installed, one per distinct executable."""
-    out = []
-    hk = settings.get("hooks") if isinstance(settings.get("hooks"), dict) else {}
-    for ev in hk:
-        for g in hooks.groups_of(hk, ev):
-            for h in hooks.hooks_of(g):
-                if hooks._ours(h):
-                    out.append(str(h.get("command", "")))
-    return list(dict.fromkeys(out))
+def _our_entries(settings: dict, flat: bool = False) -> list:
+    """The hook entries guard installed, one per distinct program."""
+    seen, out = set(), []
+    for h in guardfile.commands(settings, flat):
+        exe = hookline.parse_entry(h).exe
+        if exe not in seen:
+            seen.add(exe)
+            out.append(h)
+    return out
 
 
-def _hook_cmd_paths(settings: dict) -> list[str]:
-    return list(dict.fromkeys(c.split(" hook ", 1)[0].strip().strip('"') for c in _hook_cmds(settings)))
+_STOP_WORD = re.compile(r"(\shook\s+)stop(?=(?:\s+--agent\s+\S+)?(?:\s+#.*)?\s*$)")
 
 
-def _hook_runs(cmd: str) -> tuple:
-    """Run the installed hook line through a POSIX shell with an empty event, the way the assistant will: (ran, detail)."""
+def _hook_runs(hook: dict) -> tuple:
+    """Run the installed entry the way the assistant will, with an empty event: (ran, detail). A shell-form line goes through `sh -c`
+    (Git Bash on Windows provides it), an exec-form entry starts directly."""
     import subprocess
-    sh = None
-    for name in ("bash", "sh"):
-        try:
-            sh = shutil.which(program(name))
-        except FileNotFoundError:
-            continue
-        if sh:
-            break
-    if not sh:
-        return (None, "no bash/sh found to try the hook line")
+    if isinstance(hook.get("args"), list):
+        argv = [hook["command"]] + ["pre" if a == "stop" else a for a in hook["args"]]
+    else:
+        sh = None
+        for name in ("sh", "bash"):
+            try:
+                sh = shutil.which(program(name))
+            except FileNotFoundError:
+                continue
+            if sh:
+                break
+        if not sh:
+            return (None, "no sh/bash found to try the hook line")
+        argv = [sh, "-c", _STOP_WORD.sub(r"\1pre", hook["command"], count=1)]
     try:
-        r = subprocess.run([sh, "-c", cmd.replace("hook stop", "hook pre", 1)], input=b"{}", capture_output=True, timeout=20)
+        r = subprocess.run(argv, input=b"{}", capture_output=True, timeout=20)
     except Exception as e:
         return (False, f"{e.__class__.__name__}: {e}")
     err = r.stderr.decode("utf-8", "ignore").strip().splitlines()
     return (r.returncode == 0, err[-1] if err and r.returncode != 0 else "")
+
+
+def _shown(hook: dict) -> str:
+    return hook["command"].split("  #")[0] + (" " + " ".join(hook["args"]) if isinstance(hook.get("args"), list) else "")
 
 
 def _fake_session(d: str, rows: list) -> str:
@@ -66,7 +73,8 @@ def _fake_session(d: str, rows: list) -> str:
 
 def self_test() -> list:
     """Feed guard two fake turns and see whether it blocks: a code claim ('All tests pass.' right after an edit, no test
-    run) and a non-code claim ('I've sent you the file.' with no send tool). Returns [(name, blocked, message)]."""
+    run) and a non-code claim ('I've sent you the file.' with no send tool). Returns [(name, blocked, message)].
+    It tests the program, not the user's choices, so the default settings apply: a lenient config is not a broken install."""
     with tempfile.TemporaryDirectory(prefix="honestly-doctor-") as d:
         return _self_test_in(d)
 
@@ -87,9 +95,10 @@ def _self_test_in(d: str) -> list:
         {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "report.pdf"}]}, "cwd": d, "timestamp": ts.format(2)},
         {"type": "assistant", "message": {"role": "assistant", "model": "doctor", "content": [{"type": "text", "text": "I've sent you the report."}]}, "cwd": d, "timestamp": ts.format(3)},
     ])
-    saved = (hooks.catches_path, hooks._notify)
+    saved = (hooks.catches_path, hooks._notify, config.load)
     hooks.catches_path = lambda: os.path.join(d, "catches.jsonl")   # never pollute the real log
     hooks._notify = lambda *a, **k: None
+    config.load = lambda cwd=None: dict(config.DEFAULTS)
     results = []
     try:
         for name, tp, last in (("code", code, "Fixed. All tests pass."), ("non-code", noncode, "I've sent you the report.")):
@@ -99,8 +108,30 @@ def _self_test_in(d: str) -> list:
                 out = {"error": str(e)}
             results.append((name, bool(out and out.get("decision") == "block"), (out or {}).get("systemMessage", "") or str(out)))
     finally:
-        hooks.catches_path, hooks._notify = saved
+        hooks.catches_path, hooks._notify, config.load = saved
+        config.apply(config.load())
     return results
+
+
+def _check_hook_entries(entries: list, lines: list, problems: list, L, agent: str, marks: tuple) -> None:
+    """Can each hook entry's program start, and does the first line really run?"""
+    ok, bad = marks
+    install = "honestly guard install" + (f" --agent {agent}" if agent else "")
+    for h in entries:
+        exe = hookline.parse_entry(h).exe
+        if hookline.runnable(exe):
+            lines.append(f"{ok}" + L(f"hook command exists: {exe}", f"hook 命令存在：{exe}"))
+        else:
+            lines.append(f"{bad}" + L(f"hook command cannot start: {exe}", f"hook 命令启动不了：{exe}"))
+            problems.append(L(f"{agent or 'Claude Code'}: the hook points to {exe}, which cannot start; run: {install}", f"{agent or 'Claude Code'}：hook 指向的 {exe} 启动不了；运行：{install}"))
+    for h in entries[:1]:
+        ran, detail = _hook_runs(h)
+        if ran is None:
+            continue
+        lines.append(f"{ok if ran else bad}" + L(f"hook line runs through the shell: {_shown(h)}", f"hook 命令行能在 shell 里跑：{_shown(h)}") + (f"  ({detail})" if detail else ""))
+        if not ran:
+            problems.append(L(f"the hook line fails when a shell runs it (the assistant would skip the guard silently); run `{install}` again and send this output with `honestly feedback --issue`",
+                              f"hook 命令行在 shell 里跑不起来（助手会静默跳过 guard）；重新 {install}，并用 honestly feedback --issue 发来这段输出"))
 
 
 def doctor(zh: bool | None = None, with_problems: bool = False):
@@ -125,53 +156,47 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     elif relaxed:
         lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules ({', '.join(relaxed)}); ignored until you run honestly trust",
                                    f"本项目的 {pp} 想放宽规则（{'、'.join(relaxed)}），已忽略；运行 honestly trust 才会生效"))
+    for p in config.problems():
+        lines.append(f"{warn}{p}")
+        problems.append(L(f"fix or delete it: {p}", f"修复或删除它：{p}"))
     sp = hooks.settings_path()
     settings = {}
     if os.path.exists(sp):
         try:
-            settings = json.load(open(sp, encoding="utf-8"))
-            lines.append(f"{ok}" + L(f"Claude Code settings readable: {sp}", f"Claude Code 设置文件可读：{sp}"))
+            with open(sp, encoding="utf-8") as fh:
+                settings = json.load(fh)
+            if isinstance(settings, dict):
+                lines.append(f"{ok}" + L(f"Claude Code settings readable: {sp}", f"Claude Code 设置文件可读：{sp}"))
+            else:
+                settings = {}
+                lines.append(f"{bad}" + L(f"settings file is not a JSON object: {sp}", f"设置文件不是 JSON 对象：{sp}"))
+                problems.append(L(f"fix the JSON in {sp} (a backup may exist next to it)", f"修复 {sp} 里的 JSON（旁边可能有备份）"))
         except Exception as e:
             lines.append(f"{bad}" + L(f"settings file is not valid JSON: {sp} ({e})", f"设置文件不是合法 JSON：{sp}（{e}）"))
             problems.append(L(f"fix the JSON in {sp} (a backup may exist next to it)", f"修复 {sp} 里的 JSON（旁边可能有备份）"))
     else:
         lines.append(f"{warn}" + L(f"no Claude Code settings file at {sp}", f"没有 Claude Code 设置文件：{sp}"))
+    from . import agents as _ag
     _hk = settings.get("hooks") if isinstance(settings.get("hooks"), dict) else {}
-    installed = {ev for ev in _hk if any(hooks._ours(h) for g in hooks.groups_of(_hk, ev) for h in hooks.hooks_of(g))}
+    installed = set(guardfile.hook_events(settings))
+    other_agents = [a for a in ("codex", "cursor", "gemini") if _ag.installed(a)]
     if {"Stop", "PreToolUse"} <= installed:
         lines.append(f"{ok}" + L("guard hooks installed (Stop, PreToolUse)", "guard 的两个 hook 已装（Stop、PreToolUse）"))
         if not any("PowerShell" in str(g.get("matcher") or "") for g in hooks.groups_of(_hk, "PreToolUse") if any(hooks._ours(h) for h in hooks.hooks_of(g))):
             lines.append(f"{warn}" + L("the pre hook does not cover Claude Code's PowerShell tool, the main shell on Windows; run: honestly guard install",
                                        "pre hook 没覆盖 Claude Code 的 PowerShell 工具（Windows 上的主要 shell）；运行：honestly guard install"))
+    elif hooks.plugin_enabled(settings):
+        lines.append(f"{ok}" + L("guard active through the Claude Code plugin", "guard 通过 Claude Code 插件生效"))
+    elif other_agents:
+        lines.append("  -    " + L("Claude Code guard not installed (fine if you do not use Claude Code)", "没给 Claude Code 装 guard（不用 Claude Code 就没关系）"))
     else:
         lines.append(f"{bad}" + L("guard hooks not installed", "guard 的 hook 没装") + (f" ({', '.join(sorted(installed))})" if installed else ""))
         problems.append(L("run: honestly guard install", "运行：honestly guard install"))
-    for exe in _hook_cmd_paths(settings):
-        if exe == "honestly":
-            found = shutil.which("honestly")
-            lines.append((f"{ok}" + L(f"hook command 'honestly' resolves to {found}", f"hook 命令 honestly 指向 {found}")) if found
-                         else (f"{bad}" + L("hook command 'honestly' is not on PATH for non-interactive shells", "hook 命令 honestly 不在非交互 shell 的 PATH 里")))
-            if not found:
-                problems.append(L("run `honestly guard install` from the environment where honestly is installed, so the hook gets a full path",
-                                  "在装了 honestly 的环境里运行 honestly guard install，让 hook 写成完整路径"))
-        else:
-            exists = os.path.exists(exe)
-            lines.append(f"{ok if exists else bad}" + L(f"hook command exists: {exe}", f"hook 命令存在：{exe}"))
-            if not exists:
-                problems.append(L("the hook points to a missing file; run: honestly guard install", "hook 指向的文件不存在；运行：honestly guard install"))
-    for cmd in _hook_cmds(settings)[:1]:
-        ran, detail = _hook_runs(cmd)
-        if ran is None:
-            continue
-        lines.append(f"{ok if ran else bad}" + L(f"hook line runs through the shell: {cmd.split('  #')[0]}", f"hook 命令行能在 shell 里跑：{cmd.split('  #')[0]}") + (f"  ({detail})" if detail else ""))
-        if not ran:
-            problems.append(L("the hook line fails when a shell runs it (the assistant would skip the guard silently); run `honestly guard install` again and send this output with `honestly feedback --issue`",
-                              "hook 命令行在 shell 里跑不起来（助手会静默跳过 guard）；重新 honestly guard install，并用 honestly feedback --issue 发来这段输出"))
-    for agent in ("codex", "cursor", "gemini"):
-        from . import agents as _ag
-        on = _ag.installed(agent)
-        if on:
-            lines.append(f"{ok}" + L(f"{_ag.NAMES[agent]} guard installed ({', '.join(on)}) — experimental", f"{_ag.NAMES[agent]} 的 guard 已装（{', '.join(on)}）— 实验性"))
+    _check_hook_entries(_our_entries(settings), lines, problems, L, "", (ok, bad))
+    for agent in other_agents:
+        lines.append(f"{ok}" + L(f"{_ag.NAMES[agent]} guard installed ({', '.join(_ag.installed(agent))}) — experimental", f"{_ag.NAMES[agent]} 的 guard 已装（{', '.join(_ag.installed(agent))}）— 实验性"))
+        _, _, _, agent_settings = guardfile.read(_ag.config_path(agent))
+        _check_hook_entries(_our_entries(agent_settings, agent == "cursor"), lines, problems, L, agent, (ok, bad))
     paths = list(iter_sessions())
     if paths:
         newest = max(paths, key=os.path.getmtime)
@@ -194,8 +219,9 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
             problems.append(L(f"the {name} self-test was not blocked; run `honestly feedback --issue` and attach this output", f"{name} 自测没被拦；运行 honestly feedback --issue 并附上这段输出"))
     ep = hooks.errors_path()
     if os.path.exists(ep) and os.path.getsize(ep) > 0:
-        with open(ep, encoding="utf-8", errors="ignore") as fh:
-            tail = fh.read()[-8000:]
+        with open(ep, "rb") as fh:   # the log can have grown large: only its end matters
+            fh.seek(max(0, os.path.getsize(ep) - 8000))
+            tail = fh.read().decode("utf-8", "ignore")
         # the last entry starts at the last timestamped line; a traceback can be longer than a few hundred
         # characters when the install path is long, so the whole entry is checked, not a fixed tail
         entry_lines = tail.splitlines()

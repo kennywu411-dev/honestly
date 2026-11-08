@@ -754,3 +754,127 @@ def test_a_config_folder_it_cannot_create_gives_one_clear_line(cfg, edit):
     with pytest.raises(SystemExit) as e:
         edit(config)
     assert "cannot write" in str(e.value)
+
+
+# ---------------------------------------------------------------- doctor
+def _doctor_home(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home / ".claude"))
+    monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
+    monkeypatch.chdir(home)
+    return home
+
+
+def _doctor(zh=False):
+    from honestly import support
+    return support.doctor(zh=zh, with_problems=True)
+
+
+def test_doctor_with_only_the_plugin_is_happy(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    (home / ".claude" / "settings.json").write_text('{"enabledPlugins": {"honestly@honestly": true}}')
+    text, problems = _doctor()
+    assert not problems and "FAIL" not in text and "plugin" in text
+    assert "plugin" in hooks.guard("status")
+    assert "not installed" not in hooks.guard("status")
+
+
+def test_a_disabled_plugin_does_not_count(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    (home / ".claude" / "settings.json").write_text('{"enabledPlugins": {"honestly@honestly": false}}')
+    _, problems = _doctor()
+    assert problems
+
+
+def test_doctor_with_only_another_assistant_is_happy(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    exe = _script(tmp_path / "bin" / "honestly")
+    monkeypatch.setattr(sys, "argv", [str(exe)])
+    hooks.guard("install", agent="codex")
+    text, problems = _doctor()
+    assert not problems and "FAIL" not in text and "Codex" in text
+    assert home
+
+
+def test_doctor_with_nothing_installed_says_so(tmp_path, monkeypatch):
+    _doctor_home(tmp_path, monkeypatch)
+    text, problems = _doctor()
+    assert "FAIL" in text and any("guard install" in p for p in problems)
+
+
+@pytest.mark.parametrize("setup", [lambda c: c.set_value("strictness", "lenient"), lambda c: c.add_to("off", "tests_pass"), lambda c: c.add_to("off", "sent"), lambda c: c.add_to("ignore", "tests pass")])
+def test_your_own_settings_do_not_fail_the_self_test(tmp_path, monkeypatch, setup):
+    from honestly import config
+    _doctor_home(tmp_path, monkeypatch)
+    exe = _script(tmp_path / "bin" / "honestly")
+    monkeypatch.setattr(sys, "argv", [str(exe)])
+    hooks.guard("install")
+    setup(config)
+    text, problems = _doctor()
+    assert not problems and "self-test (code)" in text and "NOT blocked" not in text
+    assert config.load()   # the user's config is still in effect afterwards
+
+
+def test_doctor_runs_the_line_of_every_assistant(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    _write(home / ".codex" / "hooks.json", json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/gone/honestly hook stop --agent codex  # honestly hook"}]}]}}))
+    text, problems = _doctor()
+    assert "/gone/honestly" in text and any("Codex" in p or "codex" in p for p in problems)
+
+
+@posix_only
+def test_doctor_reads_the_program_out_of_a_line_whatever_the_path(tmp_path, monkeypatch):
+    _doctor_home(tmp_path, monkeypatch)
+    exe = _script(tmp_path / "a hook b" / "honestly")
+    monkeypatch.setattr(sys, "argv", [str(exe)])
+    hooks.guard("install")
+    text, problems = _doctor()
+    assert not problems and f"hook command exists: {exe}" in text
+
+
+def test_doctor_leaves_no_temporary_folder(tmp_path, monkeypatch):
+    _doctor_home(tmp_path, monkeypatch)
+    temp = tmp_path / "tmp"
+    temp.mkdir()
+    import tempfile
+    monkeypatch.setattr(tempfile, "tempdir", str(temp))
+    from honestly import support
+    assert support.self_test()
+    assert not list(temp.iterdir())
+
+
+@pytest.mark.parametrize("text", ["[]", "null"])
+def test_doctor_reports_a_settings_file_that_is_not_an_object(tmp_path, monkeypatch, text):
+    home = _doctor_home(tmp_path, monkeypatch)
+    (home / ".claude" / "settings.json").write_text(text)
+    out, problems = _doctor()
+    assert "not a JSON object" in out and problems
+
+
+def test_doctor_warns_about_a_config_it_is_ignoring(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    _write(home / ".honestly" / "config.json", '{"a": 1,}')
+    out, problems = _doctor()
+    assert "not valid JSON" in out and problems
+
+
+def test_doctor_reads_only_the_end_of_a_big_error_log(tmp_path, monkeypatch):
+    home = _doctor_home(tmp_path, monkeypatch)
+    log = tmp_path / "hook-errors.log"   # conftest points errors_path here
+    with open(log, "w") as fh:
+        fh.write("x" * 1000 + "\n")
+        fh.write("2026-11-08T00:00:00 stop claude-code\nTraceback (most recent call last):\nValueError: y\n")
+    out, _ = _doctor()
+    assert "ValueError: y" in out
+    assert home
+
+
+def test_doctor_stream_encoding_is_read_before_it_is_changed():
+    code = "import sys; from honestly import cli; sys.exit(cli.main(['doctor']))"
+    env = dict(os.environ, PYTHONIOENCODING="ascii", PYTHONPATH=os.path.join(ROOT, "src"), HONESTLY_NO_UPDATE_CHECK="1")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env)
+    r.stdout.decode("ascii")   # the user asked for ascii and got it
+    assert b"terminal encoding ascii" in r.stdout
