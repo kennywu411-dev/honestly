@@ -599,9 +599,12 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     flags = [_is_edit(x, names) for x in ev]
     wall, answering = 0, turn.prompt or ""   # another session's report starts a stretch of its own: a reply to it is about that work
     since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
+    prompted_by_harness = automated
+    own_notice = False
     for i, e in enumerate(ev):
         if e.kind == "mark":
             automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
+            own_notice = not prompted_by_harness and not wall and (own_notice or e.name == "notice") and e.name != "report"
             if e.name == "report":
                 wall, answering = i + 1, e.text
             if e.name != "meta":
@@ -613,7 +616,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
             before = ev[since:i]
             if hit.category in noncode.SPECS:
                 prev_ev = ev[:since] if since else (prev.events if prev is not None else None)
-                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools)
+                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools, own_notice)
                 if verdict == "unbacked" and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("saved, now checking") is judged on everything the turn did before it ended
                     v2 = noncode.judge(hit.category, hit.sentence, ev[since:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
@@ -636,7 +639,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                 verdict, reason = "out_of_scope", "fuzzy category not audited in v1"
             elif edit_idx < 0:
                 verdict, reason = "not_this_turn", "no code edit in this turn before the claim"
-                if _never_in_session(hit, session_tools, automated):
+                if _never_in_session(hit, session_tools, automated and not own_notice):
                     verdict, reason = "unbacked", "nothing in this session ran what this claims"
             else:
                 verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i)

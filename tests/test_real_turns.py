@@ -240,3 +240,27 @@ def test_a_recap_right_after_compaction_is_not_held(tmp_path):
     look = _call(10, "Read", {"file_path": "/work/proj/a.py"}, "x")
     p = _session(tmp_path, _prompt("go on"), *look, COMPACT, _say("I sent the email to the maintainer earlier."))
     assert not held(stop(p, "I sent the email to the maintainer earlier."))
+
+
+# ---------------------------------------------------------------- a notification does not excuse a claim nothing in the session ever did
+NOTE = {"type": "user", "origin": {"kind": "task-notification"}, "promptSource": "system", "turnOrigin": "task_notification", "timestamp": "2026-11-08T12:00:40.000Z",
+        "message": {"role": "user", "content": "<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>t2</tool-use-id>\n<status>completed</status>\n</task-notification>"}}
+
+
+def test_a_send_nothing_in_the_session_did_is_held_after_a_notification(tmp_path):
+    bg = _call(2, "Bash", {"command": "sleep 1", "run_in_background": True}, "Command running in background with ID: b1. Output is being written to: /nowhere/tasks/b1.output.")
+    p = _session(tmp_path, _prompt("mail the maintainer"), *bg, _say("Waiting."), NOTE, _say("I sent the email to the maintainer."))
+    assert held(stop(p, "I sent the email to the maintainer."))
+
+
+def test_a_send_the_session_did_earlier_is_a_recap_after_a_notification(tmp_path):
+    send = _call(1, "SendUserFile", {"file_path": "/work/proj/a.png"}, "sent")
+    bg = _call(2, "Bash", {"command": "sleep 1", "run_in_background": True}, "Command running in background with ID: b1. Output is being written to: /nowhere/tasks/b1.output.")
+    p = _session(tmp_path, _prompt("show me"), *send, *bg, _say("Waiting."), NOTE, _say("I've sent you the picture."))
+    assert stop(p, "I've sent you the picture.") is None
+
+
+@pytest.mark.parametrize("report", [PEER, CHILD], ids=["peer", "child session"])
+def test_a_claim_relayed_from_another_session_is_still_not_held(tmp_path, report):
+    p = _session(tmp_path, _prompt("wait for the others"), report, _say("It has been deployed to staging by the other session."))
+    assert stop(p, "It has been deployed to staging by the other session.") is None
