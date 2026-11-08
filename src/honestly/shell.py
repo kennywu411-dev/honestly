@@ -932,11 +932,16 @@ def shell_body(argv: list, stage_doc: str | None = None):
 
 
 def expanduser(path: str) -> str:
-    """os.path.expanduser that never raises on a null byte or a lone surrogate."""
+    """os.path.expanduser with one answer on every system. A null byte or a lone surrogate means this is no path: it stays as written,
+    where POSIX raises and Windows would make up another user's home. On Windows the `/` after `~` becomes the home folder's `\\`."""
+    if not path.startswith("~") or "\x00" in path:
+        return path
     try:
-        return os.path.expanduser(path)
+        path.encode("utf-8")
+        out = os.path.expanduser(path)
     except (ValueError, UnicodeError):
         return path
+    return out.replace("/", os.sep) if out != path and os.sep != "/" else out
 
 
 # ------------------------------------------------------------ the commands in the order they run
@@ -1178,7 +1183,8 @@ def _next_cwd(st: _State, argv: list, certain: bool):
         st.cwd = None if m else target
         return
     if st.cwd and st.cwd != "~" and not (target.startswith(("/", "~")) or re.match(r"[A-Za-z]:[\\/]", target)):
-        st.cwd = st.cwd.rstrip("/\\") + "/" + target
+        base = st.cwd.rstrip("/\\")
+        st.cwd = base + "\\" + target.replace("/", "\\") if re.match(r"[A-Za-z]:\\", st.cwd) else base + "/" + target
     else:
         st.cwd = target
 

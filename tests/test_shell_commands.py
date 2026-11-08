@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from honestly import hooks, rules
+from honestly import hooks, rules, shell
 from honestly.claude_code import Event
 from shell_cases import GROUPS
 
@@ -335,3 +335,41 @@ def test_a_command_that_is_not_text_does_not_raise(value):
     assert rules.segments(value) == []
     assert rules.verifying_segments(value, T) == []
     assert hooks.find_hidden_status(value) is None
+
+
+# ------------------------------------------------------------ paths on Windows: ntpath is the real thing on any system
+@pytest.fixture
+def windows(monkeypatch):
+    import ntpath
+    monkeypatch.setenv("USERPROFILE", "C:\\Users\\me")
+    monkeypatch.setenv("USERNAME", "me")
+    monkeypatch.setattr(os.path, "expanduser", ntpath.expanduser)
+    monkeypatch.setattr(os, "sep", "\\")
+
+
+@pytest.mark.parametrize("cmd,want", [("cd $HOME/p && pytest", "C:\\Users\\me\\p"), ("cd ~/p/q && pytest", "C:\\Users\\me\\p\\q"), ("git -C ~/p status", "C:\\Users\\me\\p"),
+                                      ("cd C:\\a\\b && pytest", "C:\\a\\b"), ("cd C:\\a\\b && cd C:/a/b && pytest", "C:\\a\\b")])
+def test_a_directory_has_one_kind_of_separator_on_windows(windows, cmd, want):
+    assert _dir(cmd) == want
+
+
+def test_a_relative_cd_keeps_the_separator_of_where_it_started():
+    u = [x for x in shell.units("cd C:\\a && cd b/c && pytest") if x.text == "pytest"][0]
+    assert u.cwd == "C:\\a\\b\\c"
+    assert rules.seg_dir("cd C:\\a && cd b/c && pytest", "pytest") == "C:\\a\\b\\c"
+
+
+def test_an_edit_in_the_home_folder_has_one_kind_of_separator_on_windows(windows):
+    assert rules.event_dir(Event("tool", name="Edit", text="~/src/app.py")) == "C:\\Users\\me\\src\\app.py"
+
+
+@pytest.mark.parametrize("path", ["~\x00", "~\x00/a.py", "~a\x00b", "~\ud800/a.py", "~\ud800"])
+def test_what_cannot_be_a_path_is_left_as_written_on_every_system(windows, path):
+    assert shell.expanduser(path) == path
+    assert rules.event_dir(Event("tool", name="Edit", text=path)) == path
+
+
+@pytest.mark.parametrize("path", ["C:\\Users\\me\\AppData\\Local\\Temp\\x\\a.py", "C:/Users/me/AppData/Local/Temp/x/a.py", "C:\\p\\scratchpad\\a.py", "D:\\a\\Temp\\claude\\b.py", "C:\\Temp\\a.py"])
+def test_a_temp_folder_is_known_with_either_separator(path):
+    assert rules.TEMP_PATH.search(path)
+    assert rules.TMP_CWD.search("cd C:\\p\\scratchpad\\x") and rules.TMP_CWD.search("cd C:\\p\\scratchpad")

@@ -157,7 +157,7 @@ DOC_DIRS = re.compile(
     r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.(?:claude|vscode|idea)/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
     r"|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
 ALWAYS_SCRATCH = re.compile(r"/scratchpad/|/\.claude/projects/|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude|^[A-Za-z]:/(?:Temp|tmp)/", re.I)
-TMP_CWD = re.compile(r"(^|\s)cd (?:(?:/private)?/tmp(?:/|$)|\S*scratchpad(?:/|$))")
+TMP_CWD = re.compile(r"(^|\s)cd (?:(?:/private)?/tmp(?:/|$)|\S*scratchpad(?:[\\/]|$))")
 INTERP_HEADS = re.compile(r"^(?:python[\d.]*|pypy[\d.]*|node|bun|deno|bash|zsh|sh|dash|ruby|perl|php|psql|sqlite3)$")
 _CODE_HEADS = re.compile(r"^(?:python[\d.]*|pypy[\d.]*|node|bun|deno|ruby|perl|php)$")
 WRITE_MARK = re.compile(r"(write_text\(|write_bytes\(|open\([^)]*['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]|\.write\(|writeFileSync|appendFileSync|copyFileSync|renameSync|unlinkSync|rmSync|fs\.write|fs\.append|fs\.copy|fs\.rename|fs\.unlink|fs\.rm\b|fs\.promises"
@@ -607,7 +607,7 @@ def _code_shell_lines(code: str) -> list:
     return out[:32]
 
 
-TEMP_PATH = re.compile(r"^(?:/private/tmp/|/tmp/|/var/tmp/|/dev/shm/|/var/folders/)|(?:^|/)scratchpad(?:/|$)|AppData/Local/Temp|/Temp/claude|^\$\{?TMPDIR|^[A-Za-z]:[\\/](?:Temp|tmp)[\\/]")
+TEMP_PATH = re.compile(r"^(?:/private/tmp/|/tmp/|/var/tmp/|/dev/shm/|/var/folders/)|(?:^|[\\/])scratchpad(?:[\\/]|$)|AppData[\\/]Local[\\/]Temp|[\\/]Temp[\\/]claude|^\$\{?TMPDIR|^[A-Za-z]:[\\/](?:Temp|tmp)[\\/]")
 WRITE_ARG = re.compile(r"\bopen\(\s*(?P<a>[^,()]+?(?:\([^()]*\)[^,()]*?)?)\s*,\s*(?:mode\s*=\s*)?['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]"
                        r"|\((?P<g>[^()]*\([^()]*\)[^()]*)\)\.write_(?:text|bytes)\("
                        r"|(?P<b>\b[\w.]+(?:\([^()]*\))?)\.write_(?:text|bytes)\("
@@ -998,6 +998,12 @@ def seg_dir(cmd: str, seg_text: str):
     return None
 
 
+def _dir_key(d: str) -> str:
+    """Two spellings of one directory compare equal: a trailing separator, and `C:\\a` beside `C:/a`."""
+    d = d.rstrip("/\\") or d
+    return d.replace("\\", "/") if os.sep == "\\" or re.match(r"[A-Za-z]:[\\/]", d) else d
+
+
 def event_dir(e):
     """Where a tool call worked: an Edit/Write's file, a Bash command's `cd` or `-C` directory, or the one absolute path its single command names.
     A command that moves between two directories, or that mixes commands with and without a place, has no single place: None."""
@@ -1007,7 +1013,7 @@ def event_dir(e):
         return None
     cmd = e.text if isinstance(e.text, str) else ""
     us = _sh.units(cmd)
-    dirs = set()
+    dirs = {}
     named, placeless = [], False
     for u in us:
         if u.level or u.guard == "no":
@@ -1016,14 +1022,15 @@ def event_dir(e):
         if after is None:
             return None
         if after:
-            dirs.add(after.rstrip("/\\") or after)
+            dirs.setdefault(_dir_key(after), after.rstrip("/\\") or after)
         for c in u.pipeline.commands:
             if c.kind != "simple" or not c.words:
                 continue
             argv = c.argv
             flag = _dir_flag(argv)
             if flag:
-                dirs.add(_sh.resolve(flag, u.env).rstrip("/\\"))
+                flag = _sh.resolve(flag, u.env)
+                dirs.setdefault(_dir_key(flag), flag.rstrip("/\\") or flag)
                 continue
             h = _sh.head_name(argv[0])
             if h in ("cd", "pushd", "popd", "chdir", "Set-Location", "sl", "export"):
@@ -1044,7 +1051,7 @@ def event_dir(e):
     if len(dirs) > 1:
         return None
     if dirs:
-        return _sh.expanduser(dirs.pop())
+        return _sh.expanduser(next(iter(dirs.values())))
     if named and not placeless:
         return _sh.expanduser(named[0])
     return None
