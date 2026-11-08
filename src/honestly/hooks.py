@@ -533,8 +533,14 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
             known["tools"] = _session_tools(agent, path)
         return known["tools"]
 
-    bad = [f for f in audit_turn(turn, prev, session_tools if path else None) if f.verdict in config.blocked_verdicts(cfg)]
+    findings = audit_turn(turn, prev, session_tools if path else None)
+    bad = [f for f in findings if f.verdict in config.blocked_verdicts(cfg)]
     if not bad:
+        if findings and path and not os.path.exists(path) and not second_pass:   # no record of what it did (--no-session-persistence): nothing to hold it on, and the person should know
+            claim = _untrusted(findings[0].claim.strip().rstrip("。．.!！;；"), 60)
+            zh = _lang_zh(cfg, findings[0].claim)
+            return agents.warn(agent, f"⚠️ honestly 无法核实「{claim}」（could not check）：这个会话没有保存记录，请把它当作未经验证。" if zh else
+                               f'⚠️ honestly could not check "{claim}": this session keeps no transcript, so there is nothing to check it against. Treat it as unverified.')
         return None
     zh = _lang_zh(cfg, bad[0].claim)
     if second_pass:

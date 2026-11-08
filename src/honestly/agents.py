@@ -335,6 +335,11 @@ def normalize(agent: str, which: str, data: dict) -> dict:
     return d
 
 
+def _hook_error_note(plain: str) -> str:
+    """Claude Code (2.1.319) words a held reply as "Stop hook error occurred" and a refused command as "hook error". The person should not go looking for a fault."""
+    return "（Claude Code 会把这显示成 hook error，这不是故障：是 honestly 有意拦下的。）" if re.search(r"[\u4e00-\u9fff]", plain) else " (Claude Code calls this a \"hook error\". Nothing is broken: honestly held it on purpose.)"
+
+
 def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
     """Format a block for the assistant that is listening."""
     if agent == "cursor":
@@ -344,9 +349,10 @@ def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
     if agent == "gemini":
         return {"decision": "deny", "reason": plain + "\n" + instruction, "systemMessage": plain}
     # claude-code and codex share the contract
+    shown = plain + (_hook_error_note(plain) if agent == "claude-code" else "")
     if which == "stop":
-        return {"decision": "block", "reason": plain + "\n" + instruction, "systemMessage": plain}
-    return {"systemMessage": plain, "hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+        return {"decision": "block", "reason": plain + "\n" + instruction, "systemMessage": shown}
+    return {"systemMessage": shown, "hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                            "permissionDecisionReason": plain + "\n" + instruction}}
 
 
