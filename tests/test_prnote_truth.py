@@ -195,3 +195,118 @@ def test_reading_ci_is_not_a_test_run_here(tmp_path, cmd, out):
     session(cr, root, [EDIT, ("bash", cmd, out)])
     ev, block = note(root, cr)
     assert ev.status == "unclear" and "Tests ran after" not in block
+
+
+# ------------------------------------------------------------------ what happened on disk after the test
+def test_committing_what_was_tested_is_not_a_change(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    (tmp_path / "app" / "a.py").write_text("x = 2\n")
+    age(root)
+    session(cr, root, [EDIT, PASS])
+    git(root, "commit", "-qam", "work", when="2026-02-01T10:30:00Z")
+    ev, _ = note(root, cr)
+    assert ev.status == "pass" and not ev.changed
+
+
+def test_a_dirty_tree_after_the_test_is_called_out(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS])
+    (tmp_path / "app" / "a.py").write_text("broken\n")
+    ev, block = note(root, cr)
+    assert ev.status == "stale" and ev.changed == ["a.py"]
+    assert "Tests ran after" not in block and "Code changed after the last test" in block and "`a.py`" in block
+    assert check_code(root, cr, "--since", "2026-02-01T09:00:00Z") == 1
+
+
+def test_a_later_commit_of_new_code_is_called_out(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS])
+    (tmp_path / "app" / "other.py").write_text("y = 1\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "by hand", when="2026-02-01T11:00:00Z")
+    ev, block = note(root, cr)
+    assert ev.status == "stale" and ev.changed == ["other.py"]
+
+
+@pytest.mark.parametrize("change", ["rm", "git rm", "git mv", "mv", "untracked", "committed rm", "committed mv"])
+def test_every_way_code_can_change_is_called_out(tmp_path, change):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS])
+    app = tmp_path / "app"
+    if change == "rm":
+        (app / "a.py").unlink()
+    elif change == "git rm":
+        git(root, "rm", "-q", "a.py")
+    elif change == "git mv":
+        git(root, "mv", "a.py", "b.py")
+    elif change == "mv":
+        (app / "a.py").rename(app / "b.py")
+    elif change == "untracked":
+        (app / "new.py").write_text("z = 1\n")
+    elif change == "committed rm":
+        git(root, "rm", "-q", "a.py")
+        git(root, "commit", "-qm", "rm", when="2026-02-01T11:00:00Z")
+    else:
+        git(root, "mv", "a.py", "b.py")
+        git(root, "commit", "-qm", "mv", when="2026-02-01T11:00:00Z")
+    ev, block = note(root, cr)
+    assert ev.status == "stale", block
+    assert "Tests ran after" not in block
+
+
+def test_a_formatter_or_pull_is_seen_by_what_it_wrote(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS, ("bash", "black .", "reformatted a.py\n")])
+    (tmp_path / "app" / "a.py").write_text("x = 1  # reformatted\n")
+    assert note(root, cr)[0].status == "stale"
+    root2, cr2 = repo(tmp_path, "unchanged"), tmp_path / "c2"
+    session(cr2, root2, [EDIT, PASS, ("bash", "black .", "All done! 1 file left unchanged.\n")])
+    assert note(root2, cr2)[0].status == "pass"   # it changed nothing
+
+
+def test_docs_and_ignored_files_do_not_count(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    app = tmp_path / "app"
+    (app / ".gitignore").write_text("build/\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "ignore", when="2026-02-01T08:30:00Z")
+    age(root)
+    session(cr, root, [EDIT, PASS])
+    (app / "README.md").write_text("more\n")
+    (app / "build").mkdir()
+    (app / "build" / "out.py").write_text("generated\n")
+    (app / "notes.txt").write_text("x\n")
+    assert note(root, cr)[0].status == "pass"
+
+
+def test_a_failure_stays_a_failure_when_code_also_changed(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, FAIL])
+    (tmp_path / "app" / "a.py").write_text("y\n")
+    assert note(root, cr)[0].status == "fail"
+
+
+def test_evidence_from_another_branch_is_not_reported_as_this_ones(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    git(root, "checkout", "-qb", "feature-a")
+    session(cr, root, [("edit", "only_on_a.py"), PASS])
+    (tmp_path / "app" / "only_on_a.py").write_text("x\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "a", when="2026-02-01T10:30:00Z")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-qb", "feature-b")
+    ev, block = note(root, cr)
+    assert ev.status == "elsewhere", block
+    assert "Tests ran after" not in block and "`only_on_a.py`" in block and "not in this working tree" in block
+    assert check_code(root, cr, "--since", "2026-02-01T09:00:00Z") == 1
+
+
+def test_switching_branch_rewrites_what_differs_and_is_called_out(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    git(root, "checkout", "-qb", "feature-a")
+    (tmp_path / "app" / "a.py").write_text("x = 22\n")   # a new size: git trusts an unchanged time and size
+    age(root)
+    session(cr, root, [EDIT, PASS])
+    git(root, "commit", "-qam", "a", when="2026-02-01T10:30:00Z")
+    git(root, "checkout", "-q", "main")
+    assert note(root, cr)[0].status == "stale"

@@ -173,6 +173,48 @@ def collect_turns(root: str, cutoff: str, agents=("claude-code", "codex", "curso
     return out
 
 
+# -------------------------------------------------------------- the disk
+def _epoch(ts: str):
+    try:
+        return dt.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+    except (ValueError, AttributeError):
+        return None
+
+
+def _is_code(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in rules.CODE_EXT and not rules.path_is_doc(path) and os.path.basename(path) != ".honestly.json"
+
+
+def _listed(args: list, root: str) -> list:
+    return [p for p in _git(args + ["-z"], root).split("\0") if p]
+
+
+def changed_after(root: str, ts: str) -> list:
+    """Code files in this tree that changed after `ts`, whoever changed them: a person, a formatter, `git pull`, a merge, a
+    branch switch. A file's time says it for edits. A rename keeps its time, so a path new to HEAD or renamed since is judged by
+    its inode change time, and a deletion leaves no time at all, so it counts as changed: not knowing is not a pass."""
+    since = _epoch(ts)
+    if since is None:
+        return []
+    known = set(_listed(["ls-tree", "-r", "--name-only", "HEAD"], root))
+    renamed = _listed(["log", "-m", "--diff-filter=R", "-M", "--name-only", "--format=", f"--since={ts}", "HEAD"], root)
+    gone = _listed(["log", "-m", "--diff-filter=D", "-M", "--name-only", "--format=", f"--since={ts}", "HEAD"], root)
+    gone += _listed(["diff", "--name-only", "--diff-filter=D", "-M"], root) + _listed(["diff", "--cached", "--name-only", "--diff-filter=D", "-M"], root)
+    out = []
+    for path in _listed(["ls-files", "--cached", "--others", "--exclude-standard"], root):
+        if not _is_code(path):
+            continue
+        try:
+            st = os.stat(os.path.join(root, path))
+        except OSError:
+            continue
+        when = max(st.st_mtime, st.st_ctime) if path not in known or path in renamed else st.st_mtime
+        if when > since:
+            out.append(path)
+    out += [p for p in gone if _is_code(p) and not os.path.exists(os.path.join(root, p))]
+    return list(dict.fromkeys(out))
+
+
 # ---------------------------------------------------------------- evidence
 @dataclass
 class Check:
@@ -199,6 +241,8 @@ class Evidence:
     checks: list = field(default_factory=list)
     claims: dict = field(default_factory=dict)
     flagged: list = field(default_factory=list)
+    changed: list = field(default_factory=list)   # code on disk that changed after the deciding test
+    gone: list = field(default_factory=list)      # files the agent edited that are not in this working tree
 
     @property
     def after(self) -> list:
@@ -234,8 +278,15 @@ class Evidence:
 
     @property
     def status(self) -> str:
-        """pass | fail | none | no-test | narrowed | unclear | no-edit"""
-        return self.verdict[0]
+        """pass | fail | none | no-test | narrowed | unclear | no-edit | stale | elsewhere.
+        What is on disk can only take back a good result; a failure or a missing run stays what it is."""
+        status = self.verdict[0]
+        if status in ("pass", "narrowed"):
+            if self.changed:
+                return "stale"
+            if self.last_edit in self.gone:
+                return "elsewhere"
+        return status
 
 
 def _covers(run: Check, failed: Check) -> bool:
@@ -491,6 +542,8 @@ HEAD = {
     "unclear": "⚠️ A test ran after the last code edit, but its output shows no pass/fail line",
     "no-tests": "⚠️ The test run after the last code edit collected no tests",
     "no-edit": "ℹ️ No code edit by an agent in this window",
+    "stale": "⚠️ Code changed after the last test, so its result does not cover what is here now",
+    "elsewhere": "⚠️ The last code edit is not in this working tree, so this evidence may belong to another branch",
 }
 
 
@@ -499,18 +552,23 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
     names = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
     after = ev.after
     status, decisive = ev.verdict
-    head = HEAD[status]
+    head = HEAD[ev.status]
     if status == "fail" and decisive is not [c for c in after if c.kind == "test"][-1]:
         head = HEAD["fail-open"]
     elif status == "unclear" and decisive.result == "no tests":
         head = HEAD["no-tests"]
-    if status in ("pass", "fail", "narrowed") and decisive.line:
+    if ev.status in ("pass", "fail", "narrowed") and decisive.line:
         head += f": {_code(_redact(decisive.line))}"
     lines = [START, "### Verification evidence", "", f"**{head}**", ""]
     if ev.last_edit:
         more = len(ev.edited_files) - 1
         lines.append(f"Last code edit: {_code(_redact(ev.last_edit))} at {_local(ev.last_edit_ts)}"
                      + (f" ({more} other file{'s' if more != 1 else ''} edited before it)" if more > 0 else "") + ".")
+    if ev.changed:
+        shown = ", ".join(_code(_redact(p)) for p in ev.changed[:5])
+        lines += ["", f"Changed after the last test: {shown}" + (f" and {len(ev.changed) - 5} more" if len(ev.changed) > 5 else "") + ". Run the tests again to cover them."]
+    if ev.gone:
+        lines += ["", "Edited in these sessions but not in this working tree: " + ", ".join(_code(_redact(p)) for p in ev.gone[:5]) + (f" and {len(ev.gone) - 5} more" if len(ev.gone) > 5 else "") + "."]
     rows = after if after else []
     if rows:
         seen, uniq = set(), []
@@ -590,4 +648,8 @@ def run(cwd: str, base: str | None = None, since: str | None = None, agents=None
     cutoff, window = window_start(root, b, since)
     turns = collect_turns(root, cutoff, agents or ("claude-code", "codex", "cursor", "gemini"), claude_root, codex_root)
     ev = gather(root, cutoff, window, turns)
+    status, decisive = ev.verdict
+    if status in ("pass", "narrowed"):
+        ev.changed = changed_after(root, decisive.ts)
+    ev.gone = [p for p in ev.edited_files if p != "a shell edit" and not os.path.exists(os.path.join(root, p))]
     return ev, render(ev, __version__)
