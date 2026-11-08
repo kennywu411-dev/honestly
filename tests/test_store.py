@@ -99,7 +99,7 @@ def test_catches_are_scrubbed_before_they_are_written(home):
     raw = (home / "catches.jsonl").read_text(encoding="utf-8")
     assert TOKEN not in raw and "alice@acme.example" not in raw and os.environ["HOME"] not in raw
     row = json.loads(raw)
-    assert row["project"] == "~/client-acme" and hooks._short(row["project"]) == "client-acme"
+    assert row["project"].replace("\\", "/") == "~/client-acme" and hooks._short(row["project"]) == "client-acme"   # the separator is the system's
     assert row["claim"].startswith("Pushed with")
 
 
@@ -266,3 +266,41 @@ def test_a_folder_already_private_is_not_walked_on_every_hook(home, monkeypatch)
         raise AssertionError("tighten walked a folder that is already private")
     monkeypatch.setattr(os, "walk", no_walk)
     store.tighten()
+
+
+def test_the_folder_path_uses_one_kind_of_separator(home):
+    assert store.folder() == os.path.join(os.path.expanduser("~"), ".honestly")   # `purge` prints these paths; on Windows "~/.honestly" came out half and half
+
+
+def test_where_mode_bits_mean_nothing_the_folder_is_not_walked_on_every_hook(home, monkeypatch):
+    """Windows reports every file as loose, so without this each hook walked the whole cache, changing nothing."""
+    home.mkdir(mode=0o755)
+    monkeypatch.setattr(store, "POSIX_MODES", False)
+    def must_not_run(*a, **k):
+        raise AssertionError("mode bits do not protect anything here")
+    monkeypatch.setattr(os, "walk", must_not_run)
+    monkeypatch.setattr(os, "chmod", must_not_run)
+    store.tighten()
+
+
+def test_where_mode_bits_mean_nothing_writing_does_not_touch_them(home, monkeypatch):
+    monkeypatch.setattr(store, "POSIX_MODES", False)
+    def must_not_run(*a, **k):
+        raise AssertionError("mode bits do not protect anything here")
+    monkeypatch.setattr(os, "chmod", must_not_run)
+    if hasattr(os, "fchmod"):
+        monkeypatch.setattr(os, "fchmod", must_not_run)
+    with store.open_private(str(home / "x.log"), "a") as fh:
+        fh.write("line\n")
+    assert (home / "x.log").read_text() == "line\n"
+
+
+def test_a_symlink_is_refused_where_the_system_cannot_refuse_it_itself(home, tmp_path, monkeypatch):
+    """Windows has no O_NOFOLLOW, and creating a real symlink there needs a privilege the tests do not have."""
+    home.mkdir()
+    target = home / "catches.jsonl"
+    target.write_text("KEEP\n")
+    monkeypatch.setattr(os.path, "islink", lambda p: str(p) == str(target))
+    with pytest.raises(OSError):
+        store.open_private(str(target), "a")
+    assert target.read_text() == "KEEP\n"

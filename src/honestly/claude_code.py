@@ -120,6 +120,8 @@ def _is_under(path: str, folder: str) -> bool:
 def _task_file_tail(path: str):
     """The end of a background command's output file, or None unless it is an ordinary file. Opening never blocks or follows a link."""
     flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+    if os.path.islink(path):   # Windows has no O_NOFOLLOW
+        return None
     try:
         fd = os.open(path, flags)
     except (OSError, ValueError):

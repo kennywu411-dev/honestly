@@ -5,22 +5,24 @@ a link planted under one of these names must not turn a log write into a write s
 """
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import stat
 
+POSIX_MODES = os.name != "nt"   # on Windows mode bits protect nothing and every file reads as loose: the user profile's own permissions do this job
 MAX_LOG_BYTES = 4 << 20   # then the log becomes <name>.1, replacing the previous one
 RECORDED = ("catches.jsonl", "catches.jsonl.1", "hook-errors.log", "hook-errors.log.1", "update-check.json", "notices.json", "notify.last",
             "honestly-card.svg", "honestly-card.png", "honestly-catches.svg", "honestly-catches.png")
 
 
 def folder() -> str:
-    return os.path.expanduser("~/.honestly")
+    return os.path.join(os.path.expanduser("~"), ".honestly")
 
 
 def _private_folder(path: str) -> None:
     os.makedirs(path, mode=0o700, exist_ok=True)
-    if os.path.abspath(path).startswith(os.path.abspath(folder())):
+    if POSIX_MODES and os.path.abspath(path).startswith(os.path.abspath(folder())):
         here = os.lstat(path)
         if stat.S_ISDIR(here.st_mode) and stat.S_IMODE(here.st_mode) & 0o077:
             os.chmod(path, 0o700)
@@ -28,11 +30,13 @@ def _private_folder(path: str) -> None:
 
 def open_private(path: str, mode: str = "w"):
     """A text file only this user can read. Raises OSError when `path` is a symlink."""
+    if os.path.islink(path):   # O_NOFOLLOW below also closes the race, where the system has it
+        raise OSError(errno.ELOOP, "refusing to write through a symlink", path)
     _private_folder(os.path.dirname(path) or ".")
     flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if mode == "a" else os.O_TRUNC) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
     fd = os.open(path, flags, 0o600)
     try:
-        if hasattr(os, "fchmod") and stat.S_IMODE(os.fstat(fd).st_mode) & 0o077:
+        if POSIX_MODES and hasattr(os, "fchmod") and stat.S_IMODE(os.fstat(fd).st_mode) & 0o077:
             os.fchmod(fd, 0o600)
         return os.fdopen(fd, mode, encoding="utf-8")
     except BaseException:
@@ -53,6 +57,8 @@ def append_line(path: str, line: str) -> None:
 
 def tighten() -> None:
     """Bring a folder made by an older version, or by a command with a loose umask, to 0700 and 0600."""
+    if not POSIX_MODES:
+        return
     top = folder()
     try:
         info = os.lstat(top)

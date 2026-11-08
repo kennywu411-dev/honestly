@@ -14,7 +14,7 @@ Fixes go into the latest release on PyPI. Update with `pip install -U honestly` 
 
 ## What it stores
 
-Everything is under `~/.honestly`, which is private to your account (folder 0700, files 0600):
+Everything is under `~/.honestly`, which is private to your account (folder 0700, files 0600; on Windows, your user profile's own permissions protect it):
 
 | File | What it holds |
 |---|---|

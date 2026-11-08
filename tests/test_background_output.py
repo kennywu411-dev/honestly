@@ -185,3 +185,11 @@ def test_a_network_path_in_a_command_is_never_touched(monkeypatch, path):
     monkeypatch.setattr(os.path, "exists", lambda p: touched.append(p) or False)
     assert rules.project_of(path) is None
     assert not touched
+
+
+def test_a_linked_task_file_is_refused_where_the_system_cannot_refuse_it_itself(tmp_path, monkeypatch):
+    (tmp_path / "tasks").mkdir()
+    f = tmp_path / "tasks" / "b1.output"
+    f.write_text("4 passed\n")
+    monkeypatch.setattr(os.path, "islink", lambda p: str(p) == str(f))
+    assert claude_code._task_file_tail(str(f)) is None
