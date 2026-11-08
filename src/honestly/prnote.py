@@ -584,7 +584,7 @@ HEAD = {
     "unclear": "⚠️ A test ran after the last code edit, but its output shows no pass/fail line",
     "no-tests": "⚠️ The test run after the last code edit collected no tests",
     "no-edit": "ℹ️ No code edit by an agent in this window",
-    "stale": "⚠️ Code changed after the last test, so its result does not cover what is here now",
+    "stale": "⚠️ Code files were written or removed after the last test, so its result may not cover what is here now",
     "elsewhere": "⚠️ The last code edit is not in this working tree, so this evidence may belong to another branch",
 }
 
@@ -608,7 +608,7 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
                      + (f" ({more} other file{'s' if more != 1 else ''} edited before it)" if more > 0 else "") + ".")
     if ev.changed:
         shown = ", ".join(_code(_redact(p)) for p in ev.changed[:5])
-        lines += ["", f"Changed after the last test: {shown}" + (f" and {len(ev.changed) - 5} more" if len(ev.changed) > 5 else "") + ". Run the tests again to cover them."]
+        lines += ["", f"Written or removed after the last test: {shown}" + (f" and {len(ev.changed) - 5} more" if len(ev.changed) > 5 else "") + ". Run the tests again to cover them."]
     if ev.gone:
         lines += ["", "Edited in these sessions but not in this working tree: " + ", ".join(_code(_redact(p)) for p in ev.gone[:5]) + (f" and {len(ev.gone) - 5} more" if len(ev.gone) > 5 else "") + "."]
     rows = after if after else []

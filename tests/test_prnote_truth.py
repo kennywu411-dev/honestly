@@ -213,7 +213,7 @@ def test_a_dirty_tree_after_the_test_is_called_out(tmp_path):
     (tmp_path / "app" / "a.py").write_text("broken\n")
     ev, block = note(root, cr)
     assert ev.status == "stale" and ev.changed == ["a.py"]
-    assert "Tests ran after" not in block and "Code changed after the last test" in block and "`a.py`" in block
+    assert "Tests ran after" not in block and "written or removed after the last test" in block and "`a.py`" in block
     assert check_code(root, cr, "--since", "2026-02-01T09:00:00Z") == 1
 
 
@@ -478,3 +478,13 @@ def test_gh_and_out_together_do_both(tmp_path, monkeypatch):
     monkeypatch.chdir(root)
     cli.main(["pr-note", "--gh", "--out", str(out), "--agent", "claude-code", "--root", str(cr)])
     assert calls == [None] and out.exists()
+
+
+def test_a_rewrite_with_the_same_content_is_not_called_a_change(tmp_path):
+    """A branch switch there and back rewrites a file with what it held. The note cannot tell, so it says written, not changed."""
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS])
+    content = (tmp_path / "app" / "a.py").read_text()
+    (tmp_path / "app" / "a.py").write_text(content)
+    ev, block = note(root, cr)
+    assert ev.status == "stale" and "Code changed" not in block and "may not cover" in block

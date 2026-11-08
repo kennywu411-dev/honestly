@@ -10,7 +10,8 @@ def _since_cutoff(spec):
     import datetime as dt, re
     m = re.fullmatch(r"(\d+)([dwm])", spec.strip())
     if not m:
-        raise SystemExit("--since takes a number followed by d, w or m, e.g. 30d")
+        print("--since takes a number followed by d, w or m, e.g. 30d", file=sys.stderr)
+        sys.exit(2)
     days = int(m.group(1)) * {"d": 1, "w": 7, "m": 30}[m.group(2)]
     try:
         return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
