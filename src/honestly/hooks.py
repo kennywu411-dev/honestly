@@ -10,14 +10,17 @@ or discarded, or one suite's result scrolled away) and is not run with pipefail.
 from __future__ import annotations
 import json
 import os
+import faulthandler
 import re
+import signal
 import sys
+import threading
 import unicodedata
 from . import rules, config, agents, claude_code, store
+from .programs import program
 from .audit import audit_turn
 from .claude_code import Event, Turn
 from .redact import redact, strip_controls
-from .programs import program
 
 MARK = "honestly hook"
 LEGACY_MARKS = ("sober hook",)   # entries written by the package's previous name
@@ -946,14 +949,63 @@ def errors_path() -> str:
     return os.path.join(os.path.expanduser("~/.honestly"), "hook-errors.log")
 
 
+# Seconds a hook may take, a little under the timeout it is installed with (30 and 10). Without this the assistant's own timeout
+# ended the hook, and the check simply did not happen, with no trace anywhere.
+HOOK_BUDGET = {"stop": 25.0, "pre": 8.0}
+
+
+class _OutOfTime(BaseException):
+    """Not an Exception: the code it interrupts is full of `except Exception`, which must not carry on as if nothing happened."""
+
+
+def _has_alarm() -> bool:
+    return hasattr(signal, "SIGALRM")
+
+
+def _arm_budget(seconds: float):
+    """Start the clock; returns the function that stops it. The signal interrupts a regex and a blocked read alike."""
+    if threading.current_thread() is not threading.main_thread():
+        return lambda: None
+    if _has_alarm():
+        def on_alarm(*_):
+            raise _OutOfTime()
+        previous = signal.signal(signal.SIGALRM, on_alarm)
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+        def disarm():
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous)
+        return disarm
+    # Windows has no alarm. This watchdog thread needs no interpreter lock, so it can end the process even inside a regex, and leaves the stack in the log.
+    log = None
+    try:
+        log = store.open_private(errors_path(), "a")
+        faulthandler.dump_traceback_later(seconds, exit=True, file=log)
+    except (OSError, ValueError):
+        return lambda: None
+    def cancel():
+        faulthandler.cancel_dump_traceback_later()
+        log.close()
+    return cancel
+
+
 def run_hook(which: str, agent: str = "claude-code") -> int:
     """Entry point for the installed hooks. A bug in honestly must never block or slow the assistant: any exception is
-    written to ~/.honestly/hook-errors.log (shown by `honestly doctor`) and the hook exits 0 with no output."""
+    written to ~/.honestly/hook-errors.log (shown by `honestly doctor`) and the hook exits 0 with no output. Running out of
+    time is written there too, and the user is told that this reply or command was not checked."""
+    disarm = _arm_budget(HOOK_BUDGET.get(which, HOOK_BUDGET["pre"]))
     try:
-        store.tighten()
-        data = _read_stdin()
-        out = stop_hook(data, agent=agent) if which == "stop" else pre_hook(data, agent=agent)
-        out = _with_repo_note(out, data, which, agent)
+        try:
+            store.tighten()
+            data = _read_stdin()
+            out = stop_hook(data, agent=agent) if which == "stop" else pre_hook(data, agent=agent)
+            out = _with_repo_note(out, data, which, agent)
+        finally:
+            disarm()
+    except _OutOfTime:
+        _note(which, f"ran out of its {HOOK_BUDGET.get(which)} s budget, so this {which} was not checked")
+        what = ("这条回复" if which == "stop" else "这条命令") if system_zh() else ("reply" if which == "stop" else "command")
+        out = agents.warn(agent, f"⚠️ honestly 没能在时限内查完{what}，所以{what}没有经过检查。" if system_zh() else
+                          f"⚠️ honestly ran out of time on this {what}, so it was not checked. Treat it as unverified.")
     except Exception:
         import traceback, datetime
         try:
