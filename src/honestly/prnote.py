@@ -393,7 +393,7 @@ HEAD = {
 
 
 def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
-    from .support import _redact
+    from .redact import redact as _redact
     names = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
     after = ev.after
     head = HEAD[ev.status]
@@ -429,12 +429,12 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
     if ev.flagged:
         lines += ["", "<details><summary>Claims with nothing behind them</summary>", ""]
         for label, claim, why in ev.flagged[:6]:
-            lines.append(f"- *{label}*: “{_redact(claim)[:200]}” ({why})")
+            lines.append(f"- *{label}*: “{_redact(claim)[:200]}” ({_redact(why)})")
         lines += ["", "</details>"]
     who = ", ".join(names.get(a, a) for a in ev.agents)
     src = (f"Read from {ev.sessions} local {who} session{'s' if ev.sessions != 1 else ''} that worked in this repository"
            if ev.sessions else "No local agent session worked in this repository")
-    lines += ["", f"<sub>{src}, {ev.window}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
+    lines += ["", f"<sub>{src}, {_redact(ev.window)}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
               "Home paths, e-mails and tokens are redacted.</sub>", END]
     return "\n".join(lines) + "\n"
 

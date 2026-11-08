@@ -10,6 +10,7 @@ import tempfile
 import urllib.parse
 
 from . import __version__, config, hooks
+from .redact import redact
 from .claude_code import iter_sessions, parse_session
 
 REPO = "https://github.com/kennywu411-dev/honestly"
@@ -221,24 +222,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
 
 
 # ----------------------------------------------------------------- feedback
-SECRET_ASSIGN = re.compile(r"(?i)\b([\w.-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|auth|credential|private[_-]?key)[\w.-]*)(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)")
-SECRET_FLAG = re.compile(r"(?i)((?:^|\s)(?:-p|--password|--token|--api-key|--secret|-u|--user|--auth)[=\s]?)(\"[^\"]*\"|'[^']*'|\S+)")
-URL_CREDS = re.compile(r"(://)[^\s/@:]+:[^\s/@]+@")
-LONG_TOKEN = re.compile(r"(?<![\w/.-])[A-Za-z0-9_+\-]{20,}(?![\w/.-])")   # no `/`: a path is not a token
-BEARER = re.compile(r"(?i)(bearer\s+)\S+")
-
-
-def _redact(s: str) -> str:
-    """Paths under $HOME, e-mails, credential assignments and flags, URL user:pass and long token-like runs."""
-    home = os.path.expanduser("~")
-    s = s.replace(home, "~")
-    s = SECRET_ASSIGN.sub(lambda m: m.group(0) if m.group(3).lower() == "bearer" else m.group(1) + m.group(2) + "<redacted>", s)
-    s = BEARER.sub(r"\1<redacted>", s)
-    s = SECRET_FLAG.sub(lambda m: m.group(1) + "<redacted>", s)
-    s = URL_CREDS.sub(r"\1<redacted>@", s)
-    s = LONG_TOKEN.sub(lambda m: m.group(0) if re.fullmatch(r"[A-Z0-9_]+|[A-Za-z_]+|[a-z0-9_]+", m.group(0)) else "<redacted>", s)   # constant names and words stay
-    s = re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", s)
-    return s
+_redact = redact
 
 
 def feedback(n: int = 1, issue_url: bool = False) -> str:
@@ -249,23 +233,26 @@ def feedback(n: int = 1, issue_url: bool = False) -> str:
         return f"there are {len(rows)} catches; pick 1 (latest) to {len(rows)}."
     r = rows[-n]
     tools = r.get("tools") or ([r["command"]] if r.get("command") else [])
+    message = str(r.get("message", ""))
+    for private in (hooks._short(str(r.get("project", ""))), str(r.get("topic", ""))[:30]):   # which project and what was asked are the user's business
+        if private:
+            message = message.replace(private, "<withheld>")
     body = [
         "## honestly: a catch that looks wrong", "",
         f"- honestly {r.get('version') or __version__}, {platform.system()} {platform.release()}, Python {'.'.join(map(str, sys.version_info[:3]))}",
         f"- assistant: {r.get('agent', '')} {r.get('model', '')}".rstrip(),
         f"- kind: {'stop (claim without a check)' if r.get('kind') == 'stop' else 'pre (check result cut off by a pipe)'}",
-        f"- project: {hooks._short(r.get('project', ''))}",
         f"- what it said: \"{r.get('claim') or r.get('command') or ''}\"",
         f"- honestly's reason: {r.get('reason') or '(pipe check)'}",
         "- what ran before the sentence (after the last edit):",
     ] + ([f"  - {t}" for t in tools] or ["  - (nothing recorded)"]) + [
-        f"- the message shown: {r.get('message', '')}", "",
+        f"- the message shown: {message}", "",
         "Why it is wrong (one line): ", "",
     ]
     text = _redact("\n".join(body))
     out = ["Copy everything between the lines into a GitHub issue (check it for anything private first):", "-" * 60, text, "-" * 60]
     if issue_url:
-        title = f"False catch: {(r.get('claim') or r.get('command') or '')[:60]}"
+        title = _redact(f"False catch: {r.get('claim') or r.get('command') or ''}")[:80]
         url = f"{REPO}/issues/new?" + urllib.parse.urlencode({"title": title, "body": text})
         out.append(f"\nOpen a pre-filled issue: {url}")
     else:
