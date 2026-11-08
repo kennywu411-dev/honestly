@@ -221,6 +221,55 @@ def _reruns(runs: list, cmd: str) -> bool:
     return True
 
 
+_GIT = r"\s*git(?:\s+-[cC]\s+\S+)*\s+"
+_BASE_REF = r"(?:(?:origin|upstream)/)?(?:main|master)"
+_STASH_AWAY = re.compile(_GIT + r"stash(?:\s+(?:push|save)\b|\s+-\S*|\s*(?:\d?>|$))")
+_STASH_BACK = re.compile(_GIT + r"stash\s+(?:pop|apply)\b")
+_SHOW_BASE = re.compile(_GIT + r"show\s+" + _BASE_REF + r":(\S+)\s*>\s*(\S+)\s*$")
+_CHECKOUT_FILES = re.compile(_GIT + r"checkout\s+(?:-\S+\s+)*(\S+\s+)?--\s+(.+)$")
+_COPY = re.compile(r"\s*cp\s+(?:-\S+\s+)*(\S+)\s+(\S+)\s*$")
+
+
+def _runs_on_old_code(cmd: str):
+    """For each test run of this command, in order: was it on purpose on the old code? After a `git stash`, or with a file put back from main, and not yet undone.
+    Moving to a branch does not count: main can hold the merged fix, and that is a real run. None if no run was, or all were.
+    Empty if one was and the lines of the output may not be in the order of the runs: `pytest > a; git stash; pytest > b; git stash pop; tail b a`."""
+    runs = [r.text for r in rules.verifying_segments(cmd, {"test"}) if not r.text.lstrip().startswith("gh ")] if "git" in cmd else []
+    if len(runs) < 2:
+        return None
+    flags, unread, in_order, stashed, put_back, copies = [], "", True, False, set(), set()
+    for part in rules.segments(cmd):
+        t = part.text
+        if t in runs:
+            in_order = in_order and not unread
+            flags.append(stashed or bool(put_back))
+            target = REDIRECT_OUT.search(t.split("|")[0])
+            unread = target.group(1) if target and not _TO_NULL.search(t) else ""
+            continue
+        if unread and unread in t:
+            unread = ""
+        show, files, copy = _SHOW_BASE.match(t), _CHECKOUT_FILES.match(t), _COPY.match(t)
+        if _STASH_AWAY.match(t):
+            stashed = True
+        elif _STASH_BACK.match(t):
+            stashed = False
+        elif show:
+            (put_back if show.group(1) == show.group(2) else copies).add(show.group(2))
+        elif files:
+            names = set(files.group(2).split())
+            put_back = put_back | names if files.group(1) and re.fullmatch(_BASE_REF, files.group(1).strip()) else put_back - names
+        elif copy and copy.group(1) in copies:
+            put_back.add(copy.group(2))
+        elif copy and copy.group(2) in put_back:
+            put_back.discard(copy.group(2))
+        elif re.match(r"\s*cd\b", t) or rules.segment_is_edit(part, cmd):   # another repo, or the code changed again
+            stashed = False
+            put_back = set()
+    if len(flags) != len(runs) or not any(flags) or all(flags):
+        return None
+    return flags if in_order else []
+
+
 def _piped(seg: str, cmd: str) -> bool:
     """A pipe's last command set the exit status, so a failure only shows in what got through."""
     return bool(rules.PIPE_SWALLOW.search(seg)) and not rules.PIPEFAIL_ON.search(cmd)
@@ -241,10 +290,12 @@ def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
     """A test run: its own summary decides, its exit status can only take a pass away."""
     cmd = ev.text or seg
     status = _status(seg, cmd)
-    run = verdicts.read("" if _TO_NULL.search(status.run or seg) else text, last_run_only=status.rerun, later_steps=not status.own)
-    errored = bool(ev.is_error) and status.own
+    old_runs = _runs_on_old_code(cmd)
+    run = verdicts.read("" if _TO_NULL.search(status.run or seg) else text, last_run_only=status.rerun, later_steps=not status.own, old_runs=old_runs)
+    ended_on_old_code = bool(old_runs and old_runs[-1])   # the exit status is that run's, and says nothing about the new code
+    errored = bool(ev.is_error) and status.own and not ended_on_old_code
     piped = _piped(seg, cmd)
-    printed = _printed_status(cmd, verdicts.clean(ev.result or ""), status.run)
+    printed = None if ended_on_old_code else _printed_status(cmd, verdicts.clean(ev.result or ""), status.run)
     if printed is not None:
         errored, piped, status.hidden = printed != 0, False, False
         if errored and run.state != "fail" and run.state != "pass":
@@ -312,6 +363,31 @@ def _judge_check(seg: str, ev: Event, text: str):
     return "backed", f"verified by: {seg[:80]}"
 
 
+def _named_part(category: str, seg: str, claim_text: str):
+    """The tools in this part of the command that the sentence names, if it is a checks claim that names any."""
+    named = verdicts.named_checks(claim_text) if category == "checks_pass" and claim_text else []
+    return frozenset().union(*(tools for _word, _rx, tools in named)) & rules.tools_run(seg) if named else frozenset()
+
+
+def _judge_named(tools: frozenset, seg: str, ev: Event, text: str):
+    """`mypy passes`: only what mypy printed backs or contradicts that. Another tool's `Found 4 errors` or a test summary in the same command is about something else."""
+    cmd, name = ev.text or seg, "/".join(sorted(tools))
+    found = verdicts.read_check("" if _TO_NULL.search(seg) else text, tools)
+    if found.problem:
+        return "contradicted", f"{name}'s output reports errors: {found.problem[:80]}"
+    if found.clean:
+        return "backed", f"{name} reports no problems: {found.clean[:60]}"
+    crash = verdicts.crash_line(text, tools)
+    if crash:
+        return "contradicted", f"the output contains an error: {crash[:80]}"
+    if ev.is_error:
+        last = rules.segments(cmd)[-1:]
+        return ("unbacked" if last and last[0].text == seg else "unverifiable"), f"the command errored and {name} printed no verdict: {seg[:60]}"
+    if _piped(seg, cmd) or rules.run_unproven(cmd, seg) or REDIRECT_OUT.search(seg):
+        return "unverifiable", f"{name} printed no verdict and its exit status was not seen: {seg[:60]}"
+    return "backed", f"verified by: {seg[:80]}"
+
+
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
     text = _without_echoes(verdicts.clean(ev.result or ""), ev.text or seg)
@@ -323,6 +399,9 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         return "unverifiable", "only a syntax check ran after the fix"
     if category == "fixed" and re.search(r"kaggle kernels status", seg):
         return "unverifiable", "only a status read ran after the fix"
+    tools = _named_part(category, seg, claim_text)
+    if tools:
+        return _judge_named(tools, seg, ev, text)
     if category == "tests_pass" or rules.VERIFY["test"].search(seg):
         return _judge_run(category, seg, ev, text, claim_text)
     if category in ("checks_pass", "build_ok"):
@@ -492,6 +571,64 @@ def _a_step_follows(seg: str, ev: Event) -> bool:
     return seg in texts and texts.index(seg) < len(texts) - 1
 
 
+def _judged_with_read_back(hit, seg: str, x: Event, ev: list, end: int):
+    verdict, reason = judge_output(hit.category, seg, x, hit.sentence)
+    if verdict != "backed":
+        pos = next((k for k, z in enumerate(ev) if z is x), len(ev))
+        read, base = _read_back(seg, x.text, ev[pos + 1:end])
+        if read is not None:
+            v2, r2 = judge_output(hit.category, seg, dataclasses.replace(x, result=read.result, is_error=read.is_error), hit.sentence)
+            if v2 in ("backed", "contradicted"):
+                return v2, f"{r2} (output read back from {base})"
+    return verdict, reason
+
+
+def _ran_out_of_sight(rx, tools: frozenset, commands: list) -> bool:
+    """The check ran in a command, but not after the edit as a run of its own: `ruff check --fix` is itself the last edit; a commit hook ran it; `deno lint` has no table."""
+    for x in commands:
+        ran = rules.tools_run(x.text or "")
+        if ran & tools or ran & verdicts.UNREAD_CHECKERS or rules.runs_a_command_named(x.text or "", rx):
+            return True
+        if any(GIT_HOOK_RUN.match(s.text) for s in rules.segments(x.text or "")):
+            printed = GIT_COMMIT_TITLE.sub("", x.result or "")
+            if rx.search(printed) or any(tool in printed for tool in tools):
+                return True
+    return False
+
+
+def _named_checks(hit, ev: list, edit_idx: int, end: int, verifying: list, own_run):
+    """`mypy passes`, `type check and lint are clean`: the latest run of each check the sentence names decides, from its own part of the output.
+    Returns (verdict, reason, seg, last) or None, and the runs left for the rest of the claim to be judged on."""
+    runs = verifying if own_run is None or own_run in verifying else [own_run] + verifying
+    named = [(word, rx, tools) for word, rx, tools in verdicts.named_checks(hit.sentence)
+             if word not in verdicts.ORDINARY_WORDS or any(rules.tools_run(s.text) & tools for _x, segs in runs for s in segs)]
+    if not named:
+        return None, verifying
+    commands = [x for x in ev[edit_idx:end] if x.kind == "tool" and x.name == "Bash"]
+    plain = all(rules.only_runs_tests(s.text) or rules.import_only(s.text) or rules.tools_run(s.text) & set(verdicts.CHECK_TOOLS) for _x, segs in runs for s in segs)
+    worst, inside_a_script = None, False
+    for word, rx, tools in named:
+        run = next(((x, s.text) for x, segs in reversed(runs) for s in reversed(segs) if rules.tools_run(s.text) & tools), None)
+        if run is not None:
+            verdict, reason = _judged_with_read_back(hit, run[1], run[0], ev, end)
+        elif not plain:
+            inside_a_script = True
+            continue
+        elif _ran_out_of_sight(rx, tools, commands):
+            verdict, reason, run = "unverifiable", f"{word} ran, but its result cannot be placed after the last edit", (None, "")
+        else:
+            verdict, reason, run = "unbacked", f"the sentence names {word}, and nothing after the last edit ran it", (None, "")
+        if worst is None or RANK[verdict] > RANK[worst[0]]:
+            worst = verdict, reason, run[1], run[0]
+    about_tests = bool(_ABOUT_TESTS.search(hit.sentence))
+    if worst and (worst[0] in ("contradicted", "unbacked") or not (about_tests or inside_a_script)):
+        return worst, verifying
+    # what is left of the claim: the tests it also names, or what a script may have run, which a test summary says nothing about
+    keep = (lambda s: rules.VERIFY["test"].search(s.text)) if about_tests else (lambda s: not rules.only_runs_tests(s.text))
+    narrowed = [(x, kept) for x, kept in ((x, [s for s in segs if keep(s)]) for x, segs in verifying) if kept]
+    return None, narrowed or verifying
+
+
 def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
     """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last)."""
     if kinds is not None:
@@ -513,10 +650,12 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     verifying = [(x, rules.verifying_segments(x.text, hit.evidence_kinds)) for x in after if x.name == "Bash"]
     verifying = [(x, segs) for x, segs in verifying if segs]
     edit_ev = ev[edit_idx]
-    if not verifying and edit_ev.name == "Bash":
+    own_run = None
+    if edit_ev.name == "Bash":
         segs = rules.verifying_segments(edit_ev.text, hit.evidence_kinds, after_edit_only=True, moves_count=moves_count)
-        if segs:
-            verifying = [(edit_ev, segs)]
+        own_run = (edit_ev, segs) if segs else None
+    if own_run and (not verifying or (hit.category == "tests_pass" and all(s.text.lstrip().startswith("gh ") for _x, segs in verifying for s in segs))):
+        verifying.insert(0, own_run)   # the tests ran in the edit's own command, and a later read of CI that shows nothing does not undo them
     if not verifying and hit.category in ("tests_pass", "checks_pass", "fixed"):
         hooked = _hook_run(after)
         if hooked is not None:
@@ -544,16 +683,13 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         if any(x.running for x in after):
             return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
+    if hit.category == "checks_pass":
+        part, verifying = _named_checks(hit, ev, edit_idx, end, verifying, own_run)
+        if part:
+            return part[0], ("the edits after this check were in another project; " if elsewhere else "") + part[1], part[2], part[3]
     last, segs = verifying[-1]
     seg = segs[-1].text
-    verdict, reason = judge_output(hit.category, seg, last, hit.sentence)
-    if verdict != "backed":
-        pos = next((k for k, z in enumerate(ev) if z is last), len(ev))
-        read, base = _read_back(seg, last.text, ev[pos + 1:end])
-        if read is not None:
-            v2, r2 = judge_output(hit.category, seg, dataclasses.replace(last, result=read.result, is_error=read.is_error), hit.sentence)
-            if v2 in ("backed", "contradicted"):
-                verdict, reason = v2, f"{r2} (output read back from {base})"
+    verdict, reason = _judged_with_read_back(hit, seg, last, ev, end)
     if verdict == "unverifiable" or (verdict == "unbacked" and ("errored" in reason or "no pass/fail line" in reason)):
         # e.g. a CI-status read, or an unrelated command that crashed, after the real test run:
         # fall back to the latest check after the edit that gave a definite result

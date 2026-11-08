@@ -773,6 +773,7 @@ _VALUE_FLAGS = {
 _PLAIN_WRAPPERS = {"env", "command", "builtin", "exec", "time", "nice", "ionice", "nohup", "sudo", "doas", "stdbuf", "caffeinate", "chronic", "unbuffer", "timeout", "gtimeout", "xvfb-run", "xargs", "parallel", "npx", "bunx", "pnpx", "uvx", "ssh", "flock", "coverage-run", "nyc", "c8", "dotenvx-run"}
 _RUN_WRAPPERS = {"poetry": "run", "pipenv": "run", "pdm": "run", "hatch": "run", "rye": "run", "devbox": "run"}
 _SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
+_PINNED = re.compile(r"(?<=[\w-])@[\w.^~+-]+$")   # `uvx ruff@0.17.3`, `npx @biomejs/biome@1.9`: the version picks the package, the command is the same
 WIN_EXT = re.compile(r"\.(?:exe|cmd|bat|ps1)$", re.I)
 
 
@@ -831,10 +832,14 @@ def unwrap(argv: list, limit: int = 12) -> list:
             argv = rest[:rest.index(":::")] if ":::" in rest else rest
         elif h in _PLAIN_WRAPPERS:
             argv = argv[_skip_flags(argv, 1, _VALUE_FLAGS.get(h, set())):]
+            if h in ("npx", "bunx", "pnpx", "uvx") and argv:
+                argv[0] = _PINNED.sub("", argv[0])
         elif two == "uv run":
             argv = argv[_skip_flags(argv, 2, _VALUE_FLAGS["uv run"]):]
         elif two == "uv tool" and len(argv) > 2 and argv[2] == "run":
             argv = argv[_skip_flags(argv, 3, _VALUE_FLAGS["uvx"]):]
+            if argv:
+                argv[0] = _PINNED.sub("", argv[0])
         elif h in _RUN_WRAPPERS and len(argv) > 1 and argv[1] == _RUN_WRAPPERS[h]:
             rest = argv[_skip_flags(argv, 2, {"-e", "--env"}):]
             if h in ("hatch", "pdm", "devbox") and rest and not re.match(r"(?:python[\d.]*|pytest|tox|nox|mypy|ruff|coverage)$", rest[0]):
