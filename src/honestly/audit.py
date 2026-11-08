@@ -388,8 +388,23 @@ def _judge_named(tools: frozenset, seg: str, ev: Event, text: str):
     return "backed", f"verified by: {seg[:80]}"
 
 
+SIGPIPE_EXIT = re.compile(r"\A\s*Exit code 141\b")
+STOPS_READING = re.compile(r"\|&?\s*(?:g?head\b|grep\s+(?:-\w*[qm]\w*)\b|sed\s[^|]*\bq\b)")
+
+
+def _only_a_closed_pipe(seg: str, ev: Event) -> bool:
+    """`git commit -qm x && git log --oneline | head -1` under pipefail exits 141 because `head` stopped reading, after the commit went through.
+    A run cut off by its own `| head` is not this: it never finished."""
+    if not ev.is_error or not SIGPIPE_EXIT.search(ev.result or ""):
+        return False
+    parts = [s.text for s in rules.segments(ev.text or "")]
+    return seg in parts and any(STOPS_READING.search(p) for p in parts[parts.index(seg) + 1:])
+
+
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
+    if _only_a_closed_pipe(seg, ev):
+        ev = dataclasses.replace(ev, is_error=False)
     text = _without_echoes(verdicts.clean(ev.result or ""), ev.text or seg)
     if text.strip() == _NO_OUTPUT:
         text = ""
@@ -426,6 +441,7 @@ _BASE_VERIFIED = noncode.SPECS["verified"]
 
 def rebuild_verified_spec() -> None:
     """"verified" accepts any check: its own vocabulary, "checked" tools, and every test/build/render/run command (which the config can extend)."""
+    noncode.ONLY_LOOKS = rules.only_looks
     noncode.SPECS["verified"] = noncode.Spec(
         tool=re.compile(_BASE_VERIFIED.tool.pattern + "|" + noncode.SPECS["checked"].tool.pattern, re.I),
         bash=re.compile("|".join([p.pattern for k, p in rules.VERIFY.items() if k in ("test", "build", "render", "run")] + [noncode.SPECS["checked"].bash.pattern]), re.I),
@@ -629,8 +645,16 @@ def _named_checks(hit, ev: list, edit_idx: int, end: int, verifying: list, own_r
     return None, narrowed or verifying
 
 
-def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None):
-    """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last)."""
+def _handed_over(x, pos: int, end: int, reports: dict) -> bool:
+    """A background subagent's work counts once it has reported on it. What it does after a report, resumed or still at work, is not handed over yet."""
+    if not x.via.startswith("subagent-bg:"):
+        return True
+    return any(pos < r < end for r in reports.get(x.via.split(":", 1)[1], ()))
+
+
+def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set | None = None, reports: dict | None = None):
+    """Judge a code claim on the tool calls between the last edit before it and `end`. Returns (verdict, reason, seg, last).
+    reports: where each background subagent reported, so that work it has not handed over neither backs nor undoes a claim."""
     if kinds is not None:
         hit = dataclasses.replace(hit, evidence_kinds=kinds)
     moves_count = hit.category not in ("pushed", "committed")   # `git switch` after a push changes what a test would run against, not what was pushed
@@ -639,7 +663,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
             edit_idx -= 1
         if edit_idx < 0:
             edit_idx = 0
-    after = [x for x in ev[edit_idx + 1:end] if x.kind == "tool"]
+    after = [x for k, x in enumerate(ev[edit_idx + 1:end], edit_idx + 1) if x.kind == "tool" and _handed_over(x, k, end, reports or {})]
     seg, last = "", None
     if any(x.name in rules.OPAQUE_TOOLS and not x.running for x in after):   # a subagent known to be still running has reported nothing yet: it is judged on what has finished
         return "unverifiable", "a subagent/background/terminal tool ran after the last edit", seg, last
@@ -751,16 +775,17 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
     since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
     prompted_by_harness = automated
     own_notice = False
-    reported = set()   # background subagents that have said they are done. One still at work has handed over nothing, and its edits do not make a finished check stale.
+    reports = {}   # where each background subagent reported. One still at work has handed over nothing since, and its edits do not make a finished check stale.
+    for k, x in enumerate(ev):
+        task = TASK_ID.search(x.text) if x.kind == "mark" else None
+        if task:
+            reports.setdefault(task.group(1), []).append(k)
     # One prompt can have several replies when a notification brings the agent back. A hook judges the one going out: the earlier ones were judged at their own stop.
     judged_up_to = max((i for i, e in enumerate(ev) if e.kind == "mark" and e.name == "stopped"), default=-1) if latest_reply_only else -1
     for i, e in enumerate(ev):
         if e.kind == "mark" and e.name == "stopped":
             continue
         if e.kind == "mark":
-            task = TASK_ID.search(e.text)
-            if task:
-                reported.add(task.group(1))
             automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
             own_notice = not prompted_by_harness and not wall and (own_notice or e.name == "notice") and e.name != "report"
             if e.name == "report":
@@ -788,7 +813,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                 out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
                                    hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
                 continue
-            edit_idx = max((j for j in range(wall, i) if flags[j] and (not ev[j].via.startswith("subagent-bg:") or ev[j].via.split(":", 1)[1] in reported)), default=-1)
+            edit_idx = max((j for j in range(wall, i) if flags[j] and _handed_over(ev[j], j, i, reports)), default=-1)
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
             tools_after = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in after]
             last_edit = f"{ev[edit_idx].name}: {ev[edit_idx].text[:400]}" if edit_idx >= 0 else ""
@@ -802,12 +827,12 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                 if _never_in_session(hit, session_tools, automated and not own_notice):
                     verdict, reason = "unbacked", "nothing in this session ran what this claims"
             else:
-                verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i)
+                verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i, reports=reports)
                 if verdict in ("unbacked", "unverifiable") and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("Fixed. Re-taking the frames.") is backed by a real check that followed it in the turn.
                     # Only a check or a look counts there (not any script), a sentence that was false when written
                     # (contradicted) stays false, and a check that passed when it was written is never undone later.
-                    v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"})
+                    v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"}, reports)
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
                 if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev[wall:], answering):

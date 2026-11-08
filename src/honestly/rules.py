@@ -44,7 +44,7 @@ CODE_TXT = re.compile(r"(?:^|/)(?:CMakeLists\.txt|(?:[\w.-]*[-_.])?(?:requiremen
 DOC_DIRS = re.compile(
     r"(^docs?/|/docs?/|/memory/|/scratchpad/|/(?:reports?|notes?|research_notes)/[^/]*\.(?:md|txt|rst|csv|json|html|pdf)$|/\.claude/projects/"
     r"|(?:^|/)(?:README|CHANGELOG|HANDOFF|PROMPTS?)(?:[^/]*\.(?:md|txt|rst))?$|(?:^|/)(?:AGENTS|CLAUDE|GEMINI)\.md$|(?:^|/)\.env(?:\.[\w.-]+)?$|(?:^|/)\.gitignore$|(?:^|/)\.gitattributes$|(?:^|/)\.git/|(?:^|/)\.\w+ignore$|(?:^|/)LICENSE[^/]*$"
-    r"|(?:^|/)(?:data|datasets|live|runs|outputs?|results|logs|cache)/(?:[^/]+/)*[^/]+\.(?:json|csv|tsv|parquet|xml)$"   # data and state files a script writes, not code
+    r"|(?:^|/)(?:data|datasets|live|runs|outputs?|out|renders?|reports?|results|logs|cache)/(?:[^/]+/)*[^/]+\.(?:json|csv|tsv|parquet|xml)$"   # data and state files a script writes, not code
     r"|side-session-notes|Application Support/Claude|(^|/)\.agent/|(^|/)\.(?:claude|vscode|idea)/|state\.json$|progress\.md|日志|复盘|方案|笔记|文案|计划|清单|情报|记录|台账"
     r"|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude)", re.I)
 ALWAYS_SCRATCH = re.compile(r"/scratchpad/|/\.claude/projects/|^/tmp/|^/private/tmp/|^/var/tmp/|^/dev/shm/|^/var/folders/|AppData/Local/Temp/|/Temp/claude|^[A-Za-z]:/(?:Temp|tmp)/", re.I)
@@ -631,9 +631,10 @@ def _ps_write_target(args: str) -> str:
 
 
 def _target_counts(t, authored: bool, u, whole_cmd: str = "") -> bool:
-    """Does writing to this target change code? A target the text cannot name counts when the verb itself changes code."""
+    """Does writing to this target change code? A target the text cannot name counts when the verb itself changes code, unless it runs in a temp folder."""
     if t is None:
-        return True
+        cwd = u.cwd if u is not None else ""
+        return not (cwd and (TEMP_PATH.search(_sh.resolve(cwd, shell_env(whole_cmd) if whole_cmd else {})) or TMP_CWD.search("cd " + cwd)))
     env = dict(shell_env(whole_cmd)) if whole_cmd else {}
     if u is not None:
         env.update(u.env)
@@ -979,6 +980,36 @@ def bash_is_edit(cmd: str) -> bool:
     if not isinstance(cmd, str):
         return False
     return any(_unit_is_edit(u, cmd) for u in _sh.units(cmd))
+
+
+_LOOKS = {"ls", "ll", "la", "dir", "tree", "cat", "bat", "less", "more", "head", "tail", "ghead", "gtail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "find", "fd", "stat", "file", "du", "df",
+          "which", "where", "type", "command", "pwd", "cd", "pushd", "popd", "echo", "printf", "date", "whoami", "hostname", "uname", "env", "printenv", "sort", "uniq", "cut", "tr", "column", "nl",
+          "diff", "cmp", "sed", "awk", "jq", "yq", "basename", "dirname", "realpath", "readlink", "true", "sleep", "export", "set", "unset", "lsof", "ps", "pgrep", "open"}
+_GIT_LOOKS = {"status", "log", "show", "diff", "ls-files", "ls-tree", "branch", "remote", "rev-parse", "describe", "blame", "shortlog", "tag", "stash", "fetch", "cat-file", "merge-base", "reflog"}
+
+
+def only_looks(cmd) -> bool:
+    """Does every command here only read what is there: `ls`, `cat a | grep b`, `git status`? Running anything else is more than looking."""
+    if not isinstance(cmd, str) or not cmd.strip():
+        return False
+    units = _sh.units(cmd)
+    if not units:
+        return False
+    for u in units:
+        for c in u.pipeline.commands:
+            if c.kind != "simple":
+                return False
+            real = _sh.unwrap(c.argv) if c.words else []
+            if not real:
+                continue
+            head = _sh.head_name(real[0]).lower()
+            if head == "git":
+                sub = next((a for a, before in zip(real[1:], real) if not a.startswith("-") and before != "-C"), "")
+                if sub not in _GIT_LOOKS:
+                    return False
+            elif head not in _LOOKS:
+                return False
+    return True
 
 
 def too_big(cmd) -> bool:
