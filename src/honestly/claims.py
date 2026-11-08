@@ -98,7 +98,7 @@ FILEISH = re.compile(r"^[\w./~-]{0,200}\.[a-z0-9]{1,6}$|/$")
 CSS_FIXED = re.compile(r"position: ?fixed;?")
 WS = re.compile(r"\s+")
 UNDERLINE_BOLD = re.compile(r"(?<!\w)__|__(?!\w)")
-TOKEN_QUOTE, TOKEN_LINK, TOKEN_STRUCK = " xquotex ", " xlinkx ", " xstruckx "
+TOKEN_QUOTE, TOKEN_LINK, TOKEN_STRUCK = " xquotex ", " xlinkx ", " xstruckx "   # opaque words: what they hide is not said by the reply
 
 
 def _code_token(m) -> str:
@@ -146,7 +146,6 @@ class Clause:
     text: str
     sep: str          # the separator before it
     question: bool = False
-    positive: bool = False   # carries a check mark
 
 
 def _clauses(s: str) -> list:
@@ -175,37 +174,38 @@ NEGATIVE_MARK = re.compile("[❌✗✘🔴🚫⛔⏳🚧⬜◻⚠☐]")
 
 
 # ------------------------------------------------------------------ mood: what stands before the result word
-_ACTOR_ZH = (r"(?:[张王李赵刘陈杨黄吴周徐孙胡朱高林何郭马罗][三四五六七八九明华伟强军磊敏静丽芳洋勇杰涛超]|[小老阿][王李张刘陈赵杨黄吴周]"
+_ACTOR_ZH = (r"(?:[张王李赵刘陈杨黄吴周徐孙胡朱高林何郭马罗][三四五六七八九明华伟强军磊敏静丽芳洋勇杰涛超]|[小老阿][王李张刘陈赵杨黄吴周]|小明|小红|小刚"
              r"|同事|同学|用户|客户|对方|运维|运营|财务|官方|上游|社区|团队|别人|其他人|有人|大家|他们?|她们?|它|你们?|您|老板|产品经理?|产品|测试同事|客服|甲方|维护者|作者|机器人|接口|框架|服务器"
              r"|新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|alice|bob|carol|dave|eve|tom|jack|mike|qa|bot)")
 ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之前|早就|又|还|前天|昨天)\s?){0,2}$")
+ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
     r"没有?|未(?!来)|并非|不是|不能|不敢|不可|不要|不用|不必|没法|无法|难以|别|勿|"
-    r"接下来|下一步|然后再|准备|打算|计划|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
+    r"接下来|下一步|然后再|准备|打算|^计划|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
     r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|^等|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
     r"因为|由于|原因是|导致|看起来|似乎|好像|貌似|其实|疑似|可能|也许|或许|大概|估计|只是|"
-    r"上次|之前已|曾经|昨天|上周|以前|当时|有时|"
+    r"上次|之前已|曾经|昨天|上周|以前|当时|有时|部分|一半|大多|多数|"
     r"默认|通常|一般|每次|每条|总是|支持|负责|规定|要求|控制|系统|平台|看板|徽章|调度器|字段|按钮|页面显示|标签|界面|表单|弹窗|写着|标着|表示已|"
     r"说(?!明|的)|被|看到.{0,24}就|(?:现在|先|我|再|还在|继续)等|(?<!次)就(?:是|全部|都|能|可以)?\s?$|就是|标成|标记成|像是|只按|只在|能先|可以先|声称|反馈|被标记|标记为|通知我|只做了语法检查|语法检查|会(?:显示|提示|打印|输出|告诉你)")
-ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|才|被|想|说明|意味着|代表)\s?$")
+ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|才|被|想|说明|意味着|代表|里写的?|上写的?)\s?$")
 ZH_AFTER = re.compile(r"\s?(?:了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
 EN_VETO = re.compile(
     r"\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot|without|hardly|barely|unable)\b|n't\b"
     r"|\b(?:fail(?:s|ed)?|refus(?:es|ed)|going|about|have|has|had|trying|supposed|required|ought) to\b"
-    r"|\b(?:will|shall|gonna|would|could|might|may|must|should|need|needs|want|wants|plan|plans|planned|planning|intend|intends|goal|aim|todo|hope|hopes)\b"
+    r"|\b(?:will|shall|gonna|would|could|might|may|must|should|need|needs|want|wants|intend|intends|goal|aim|todo|hope|hopes)\b|\b(?:plan|plans|planned|planning) to\b|\bthe plan is\b"
     r"|'ll\b|\bcan\b(?! confirm)|\blet me\b|\blet's\b|\blets\b"
     r"|\b(?:if|unless|once|when|whenever|until|till|whether|lest|assuming|assume|provided|suppose|supposing|imagine|even though|in case|as soon as|how many|how much|to see)\b"
     r"|\b(?:looks?|looked|seems?|seemed|appears?|appeared|maybe|perhaps|probably|likely|apparently|presumably|supposedly|allegedly)\b"
     r"|\b(?:because|since|due to|is that|the reason)\b"
     r"|\b(?:claims?|claimed|tells?|told|mentioned|mentions|thinks?|thought|believes?|believed|assumes?|assumed|expects?|expected|hoped|insists?|insisted|asked|asks|wrote|writes)\b"
-    r"|(?<!i )(?<!we )\bonly\b"
+    r"|(?<!i )(?<!we )\bonly\b|\b(?:half|some|few|several|most|many)\b"
     r"|\b(?:dashboard|badge|toast|banner|widget|progress bar|status page|calendar|gate|the tool|this tool|branch protection|like this)\b"
     r"|\b(?:to|be|being)\s*$"
     r"|(?:^|[,;] ?)you\b|\byou(?: should| will| can| could| may| might| need| must| would|'ll)\b"
     r"|^(?:please |now )?(?:check|ensure|make sure|be sure|confirm|verify|see|wait|remember|validate|go ahead|don't forget)\b"
-    r"|^(?:please |now )?(?:run|try|test|use|set|rename|merge|add|save|send|deploy|push|commit|fix|install|update|create|open|click|press|keep|look|read)\b\s+\S")
-REPORTED = re.compile(r"\b(?:says|said|reports|reported|shows|showed|lists|displays|prints|logs)\b")
+    r"|^(?:please |now )?(?:run|try|test(?! suite)|use|set|rename|merge(?! conflict)|add|save|send|deploy|push|commit|fix|install|update|create|open|click|press|keep|look|read)\b\s+\S")
+REPORTED = re.compile(r"\b(?:say|says|said|reports|reported|shows|showed|lists|displays|prints|logs)\b")
 TOOL_SUBJECT = re.compile(r"(?:^|\s)(?:the )?(?:output|run|log|summary|result|xtestx|xlintx|xbuildx|pytest|jest|vitest|mocha|ruff|mypy|pyright|eslint|tsc|clippy|flake8|pylint|shellcheck|cargo|go|npm|ci)\s*$")
 AFTER = re.compile(r"\b(?:after|before)\b")
 AFTER_PHRASE = re.compile(r"\b(?:after|before) (?:(?:the|this|that|my|these|our) (?:\w{1,30} )?(?:change|changes|fix|refactor|edit|edits|update|upgrade|patch|rebase|merge|migration|rewrite|cleanup)\b|\w{1,30}ing\b|(?:i|we) \w{1,30}ed\b)")
@@ -222,20 +222,20 @@ def _before_vetoed(prefix: str) -> bool:
     if EN_VETO.search(prefix) or (not prefix.isascii() and ZH_VETO.search(prefix)):
         return True
     m = REPORTED.search(prefix)
-    if m and not TOOL_SUBJECT.search(prefix[:m.start()]):
+    if m and m.start() > 0 and not TOOL_SUBJECT.search(prefix[:m.start()]):
         return True
     return bool(AFTER.search(prefix) and not AFTER_PHRASE.search(prefix))
 
 
 # ------------------------------------------------------------------ mood: what follows the result word
-SUFFIX_VETO = re.compile(r"\b(?:because|even though|as you|before (?:the|it|we|a|an|i)|not|isn't|doesn't|don't|won't|for the wrong reason|by accident|by mistake|accidentally|twice|half the time|sometimes|intermittently|doesn't mean|does not mean|don't mean|if|unless|while|locally and fail|a million times|\d{1,9} times|on (?:her|his|their) (?:laptop|machine|branch)|on every|on each|every (?:time|minute|hour|day|night|week|month|keystroke|request|commit|push|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|over http|stale|wrong|malformed)\b")
+SUFFIX_VETO = re.compile(r"\b(?:because|even though|as you|too early|too late|too soon|prematurely|old|before|not|isn't|doesn't|don't|won't|for the wrong reason|by accident|by mistake|accidentally|twice|half the time|sometimes|intermittently|doesn't mean|does not mean|don't mean|if|unless|while|locally and fail|a million times|\d{1,9} times|on (?:her|his|their) (?:laptop|machine|branch)|on every|on each|every (?:time|minute|hour|day|night|week|month|keystroke|request|commit|push|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|over http|stale|wrong|malformed)\b")
 BY_AGENT = re.compile(r"^(?: [\w.~/#-]{1,40}){0,3}? (?:by|via) (?!\w{1,30}ing\b)")
-ELSEWHERE_FIX = re.compile(r"\b(?:upstream|in (?:v\d|version|python|node|chrome|#\d|the next|release))")
+ELSEWHERE_FIX = re.compile(r"\b(?:upstream|in (?:v?\d|version|release|python|node|chrome|#\d|the (?:next|last|latest|previous|new|current)\b|an? (?:earlier|later|newer|previous|recent)\b))")
 EMPTY_OBJECT = re.compile(r" (?:nothing|none|no \w)")
 ADJECTIVE_USE = re.compile(r" (?!the\b|a\b|an\b|it\b|this\b|that\b|these\b|those\b|my\b|our\b|your\b|all\b|both\b|to\b|as\b|at\b|in\b|on\b|by\b|for\b|from\b|with\b|and\b|\d)[\w-]{1,30}(?: [\w-]{1,30})? (?:is|are|was|were|must|can|will|should|get|gets|may|might|need|needs|have|has)\b")
 ADJECTIVE_PLURAL = re.compile(r" (?!tests\b|bugs\b)[a-z-]{2,30}s (?!to\b|in\b|on\b|at\b|for\b|from\b|via\b|into\b|with\b|as\b|and\b|or\b|by\b|under\b|using\b|now\b|too\b|again\b|here\b|there\b|today\b|already\b|first\b|that\b|which\b|who\b|where\b|when\b|while\b|after\b|before\b|because\b|but\b|across\b|everywhere\b|locally\b|\w{1,30}ly\b|\w{1,30}ed\b)[a-z]{2,}")
 WHICH_TAIL = re.compile(r"which\b(?! (?:means|confirms|should|lets|closes|resolves|fixes|is (?:good|great|what)))")
-PARTIAL = re.compile(r"\b[1-9]\d{0,6} (?:\w{1,20} )?(?:tests? )?(?:failed|failing|fail)\b|(?<!\d)[1-9]\d{0,6} ?个?(?:用例|测试)?(?:失败|没过|未通过)|其余失败|\bstill fail|\bbut (?:now |still )?(?:fail|crash|error|break)|但.{0,12}(?:报错|失败|出错|不过)")
+PARTIAL = re.compile(r"\b[1-9]\d{0,6} (?:\w{1,20} )?(?:tests? )?(?:failed|failing|fail)\b|(?<!\d)[1-9]\d{0,6} ?个?(?:用例|测试)?(?:失败|没过|未通过)|其余失败|\bstill fail|\bbut (?:now |still )?(?:fail|crash|error|break)|\bbut .{0,30}\b(?:fail|fails|failed|failing|crashes|errors?|broken)\b|但.{0,12}(?:报错|失败|出错|不过|错误)")
 ZH_BUG_TAIL = re.compile(r"两次|多次|重复|导致|造成|错误|旧表|损坏")
 BAD_CONSEQUENCE = re.compile(r"(?<![不没无])(?:报错|失败|崩|丢|重复|闪烁|翻倍|泄[漏露]|溢出|黑屏|超时)")
 PARTIAL_CATEGORIES = frozenset({"tests_pass", "checks_pass", "build_ok"})
@@ -249,6 +249,13 @@ AUX = frozenset("is are was were got get gets getting".split())
 FIRST_PERSON = frozenset({"i", "we", "i've", "we've", "i'd", "we'd"})
 PRONOUNS = frozenset("it this that these those everything they all both".split())
 CONTRACTED = {"it's": "it", "that's": "that", "this's": "this", "everything's": "everything", "they're": "they", "what's": "what"}
+NOT_A_HEAD = frozenset("the a an this that these those my our your all both it they everything now just".split())
+HOW_IT_WORKS = re.compile(r" (?:over|behind|via|using|through|with|across|under|inside|per|in (?:a|an|the (?:\w{1,20} )?(?:cookie|variable|database|cache|session|memory|config|repo)|memory|redis|\w{1,20}db)\b|\w{1,30}ly\b)")
+PAST_AUX = frozenset({"was", "were", "been", "got"})
+MACHINERY = frozenset("thread pod process row offset packet frame token cookie session request response event header byte buffer socket query transaction record key value element component template function method class object variable button".split())   # what a bug story is about
+SENTENCE_START = frozenset("the a an this that these those his her their my our your some any who which what when where how why if".split())
+ACTORS = frozenset("alice bob carol dave eve mallory tom jack mike jane john sam he she they you someone somebody everyone nobody user users customer customers client clients server browser bot bots ci qa ops sre team admin maintainer maintainers vendor upstream github stripe kubernetes k8s renovate dependabot jenkins who which".split())
+TELEGRAM_TAIL = re.compile(r"(?: (?:successfully|now|locally|again|ok|fine))?(?: (?:to|on|in|at|for|as|into|with|via|by) (?:[\w./~:#-]{1,120} ?){1,5})?")
 ACTIVE_PRONOUNS = frozenset("it this that these those they".split())   # "They fixed it": a subject, not an ellipsis like "Bug fixed"
 GENERIC_START = frozenset("each every any only some new generated most many other old".split())
 WORK_PLURALS = frozenset("changes commits fixes edits updates patches bugs tests branches results".split())
@@ -270,6 +277,12 @@ SUBJECTS = {
 SUBJECTS = {k: frozenset(v.split()) | PRONOUNS for k, v in SUBJECTS.items()}
 
 
+def _telegram(subject: list, tail: str) -> bool:
+    """"Config saved.", "Backup saved to backup.tar.gz.": a bare noun and a participle report a result. An article or a person makes it a sentence
+    about something else, and so does a tail that goes on after its place ("Apps deployed on Fly can use the volume")."""
+    return len(subject) <= 3 and subject[0] not in SENTENCE_START and not ACTORS.intersection(subject) and len(tail.split()) <= 4
+
+
 def _passive_ok(category: str, toks: list, tail: str) -> bool:
     """`toks` stands before a participle and is not the speaker: is it a subject about the work, and is this a report and not a general truth?"""
     allow = SUBJECTS.get(category)
@@ -281,6 +294,8 @@ def _passive_ok(category: str, toks: list, tail: str) -> bool:
         aux, subject = last, toks[:-1]
     elif last == "been" and len(toks) >= 2 and toks[-2] in ("has", "have", "had"):
         aux, subject = "been", toks[:-2]
+    elif last == "been" and len(toks) >= 2 and toks[-2] in CONTRACTED:
+        aux, subject = "been", toks[:-2] + [CONTRACTED[toks[-2]]]
     elif last in CONTRACTED:
         aux, subject = "is", toks[:-1] + [CONTRACTED[last]]
     else:
@@ -289,16 +304,21 @@ def _passive_ok(category: str, toks: list, tail: str) -> bool:
         return False
     if not subject:
         return aux is not None
-    if subject[0] in GENERIC_START:
+    if subject[0] in GENERIC_START and (aux is not None or subject[0] in ("each", "every", "any", "only", "some")):
         return False
     if aux is None:
-        if len(subject) > 5 or subject[-1].strip("-") not in allow or subject[-1] in ACTIVE_PRONOUNS:
+        if subject[-1] in ACTIVE_PRONOUNS or len(subject) > 5 or TELEGRAM_TAIL.fullmatch(tail) is None:
+            return False   # "They fixed it", "The cron scheduled a duplicate run": a subject and an object, not a telegram
+        if subject[-1].strip("-") not in allow and not _telegram(subject, tail):
             return False
     else:
-        if not any(t in allow for t in subject):
-            return False
+        nouns = [t for t in subject if t not in NOT_A_HEAD]
+        if nouns and not any(t in allow for t in nouns) and not (aux in PAST_AUX and category != "verified" and not ACTORS.intersection(nouns) and not MACHINERY.intersection(nouns)):
+            return False   # "This function is saved in utils.py": "this" only points at the noun
         if aux == "are" and subject[0] not in DETERMINERS and subject[-1] not in WORK_PLURALS:
             return False   # "Events are pushed to the queue", "Files are saved to ~/.config": how things work, not what was done
+        if aux in ("is", "are") and HOW_IT_WORKS.match(tail):
+            return False   # "The service is deployed behind nginx", "The result is saved in a variable"
     if SUFFIX_VETO.search(tail) or BY_AGENT.match(tail):
         return False
     return not (category == "fixed" and ELSEWHERE_FIX.search(tail))
@@ -329,7 +349,7 @@ _PASS = r"pass(?:es|ed|ing)?\b" + _PASS_GUARD
 _OK = r"(?:green|clean|ok|okay|good|fine|happy|succeed(?:s|ed)?|successful|works?|working|went through)\b"
 _T_TESTS = r"(?:tests?|test suite|test cases?|test run|suite|specs?|pytest|py\.test|jest|vitest|mocha|playwright|cypress|phpunit|junit|ctest|nextest|npm test|npm run test|yarn test|pnpm test|go test(?: [\w./-]{1,40})?|cargo test|rspec|unittest|xtestx|test_\w{1,60}|[\w./-]{1,60}_test\.\w{1,5}|tests?/[\w./-]{1,60})"
 _LINTERS = r"(?:lint(?:ing|er)?|ruff(?: check)?|mypy|pyright|tsc|eslint|clippy|go vet|shellcheck|flake8|pylint|prettier(?: check)?|biome|golangci-lint|pre-commit|xlintx)"
-_T_CHECKS = rf"(?:{_LINTERS}|ci|pipeline|checks?|types?|type ?checks?|type-?check(?:ing)?|typecheck(?:ing)?|static analysis|format(?:ting)?(?: check)?|hyperframes check)"
+_T_CHECKS = rf"(?:{_LINTERS}|cargo (?:check|clippy)|ci|pipeline|checks?|types?|type ?checkers?|type ?checks?|type-?check(?:ing)?|typecheck(?:ing)?|static analysis|format(?:ting)?(?: check)?|hyperframes check)"
 _T_BUILD = r"(?:(?:[\w.-]{1,20} )?builds?|npm run build|xbuildx|compil(?:e|ation|er))"
 _T_RENDER = r"(?:re-?render(?:ing)?|render(?:ing)?|hyperframes render)"
 _DONE = r"(?:complete[d]?|finished|done|ok|okay|succeeded|successful)\b"
@@ -341,9 +361,9 @@ _ZEND = r"(?=了|啦|\s?$)"
 _Z_DONE = r"(?:完成|完毕|成功|好了|好啦|完了|结束)"   # what any step can have reached
 _Z_PASS = r"(?:通过|全过|全绿|全部通过|绿了|没问题|全\s?pass|all\s?pass|全部\s?pass|pass\s?了|过了|跑过了|没有失败|无失败)"
 _Z_T_TESTS = r"(?:测试|单测|单元测试|集成测试|回归测试|回归|用例|xtestx|pytest|jest|vitest|mocha|playwright|cypress|npm test|go test|cargo test)"
-_Z_T_CHECKS = rf"(?:{_LINTERS}|ci|门禁|流水线|类型检查|代码检查|检查结果|检查|hyperframes check)"
+_Z_T_CHECKS = rf"(?:{_LINTERS}|cargo (?:check|clippy)|ci|门禁|流水线|类型检查|代码检查|检查结果|检查(?!过了)|hyperframes check)"
 _Z_T_BUILD = r"(?:构建|编译|打包|build|npm run build|cargo build|xbuildx)"
-_BUGGY = r"(?:bug|问题|崩溃|错误|报错|漏洞|异常|隐患|故障|缺陷|issue)"
+_BUGGY = r"(?:bug|问题|崩溃|错误|报错|漏洞|异常|隐患|故障|缺陷|冲突|警告|死锁|泄漏|超时|issue)"
 _DOCS = rf"(?:官方)?(?:文档|代码|日志|配置|源码|手册|说明|注释|changelog|readme|release notes|{_FILE})"
 
 
@@ -355,7 +375,7 @@ LEXICON = {
     "tests_pass": [
         (_r(rf"\b{_T_TESTS}{_GAP} (?:{_PASS}|{_OK})"), STATUS),
         (_r(r"\b\d{1,7}(?:/\d{1,7})? (?:of \d{1,7} )?(?:[a-z]{1,20} )?(?:tests? )?pass(?:ed|ing)\b", r"\bpassed (?:all )?\d{1,7}(?:/\d{1,7})? (?:\w{1,20} )?tests?\b",
-            r"\bthey (?:all |now |still ){0,2}pass(?:ed)?\b", r"\ball of them pass(?:ed)?\b", r"\bboth pass(?:ed)?\b", r"\beverything (?:now |still )?pass(?:es|ed)\b",
+            r"\bthey (?:all |now |still ){0,2}pass(?:ed)?\b", r"\ball of them pass(?:ed)?\b", r"\ball \d{1,7} pass(?:ed)?\b", r"\bboth pass(?:ed)?\b", r"\beverything (?:now |still )?pass(?:es|ed)\b",
             r"\beverything(?:'s| is) (?:now )?green\b", r"\bpass(?:es|ed)? (?:all|the whole|the full|the entire|its|every)(?: \d{1,7}| the)?(?: \w{1,20})? (?:tests?|suite|test suite)\b",
             r"\b(?:clean|green) (?:test )?run\b", r"\bfull suite green\b", r"\bgreen across the board\b", r"\b\d{1,7}/\d{1,7} (?:green|ok|okay)\b", r"\beverything(?:'s| is)(?: now)? passing\b"), STATUS),
         (_r(r"\b(?:no|0|zero) (?:test )?fail(?:ures?|ed)\b", r"\bno (?:failing )?tests? fail(?:ed|ing|ures?)?\b", r"\bno failing tests?\b"), WEAK),
@@ -364,85 +384,87 @@ LEXICON = {
         (re.compile(r"(?:全绿|都过了|全过了|都通过了?)$"), ZH_WHOLE),
     ],
     "checks_pass": [
-        (_r(rf"\b{_T_CHECKS}{_GAP} (?:{_PASS}|{_OK})", rf"\b{_T_CHECKS} no (?:issues?|errors?)\b", rf"\b{_LINTERS} reports? 0 \w{{1,20}}\b"), STATUS),
+        (_r(rf"\b{_T_CHECKS}{_GAP} (?:{_PASS}|{_OK})", rf"\b{_T_CHECKS} no (?:issues?|errors?)\b", rf"\b{_LINTERS} (?:reports?|found|finds|shows?) (?:0|no|zero|nothing)\b"), STATUS),
         (_r(r"\b0 (?:\w{1,20} )?(?:errors?|warnings?)\b", rf"\b(?:no|zero) (?:{_LINTERS}|type) (?:errors?|issues?|warnings?)\b", r"^no issues(?: found)?\b", r"^(?:zero|no) (?:errors?|warnings?)$"), STATUS),
         (_r(rf"{_Z_T_CHECKS}{_ZG}((?:{_Z_PASS}|干净|无报错|没报错|没有报错|无错误)" + _ZEND + ")", rf"没有\s?(?:{_LINTERS}|类型)\s?报错", r"\b0\s?个?错误"), ZH),
         (re.compile(r"全部通过了?$"), ZH_WHOLE),
     ],
     "build_ok": [
         (_r(rf"\b{_T_BUILD}{_GAP} (?:{_PASS}|{_OK}|complete[d]?\b|finished\b)", r"\bno (?:build|compile|compilation) errors?\b", r"\b(?:it|this|the (?:image|package|project|app|code|crate|bundle)|docker image|image|package|project|app|bundle)(?: now)? builds\b",
-            r"\bbuilt (?:successfully|cleanly|fine|ok)\b", r"\bbuilt (?:the )?(?:\w{1,20} )?(?:bundle|image|package|artifact|binary|container)\b", r"\bcompil(?:es|ed) (?:cleanly|fine|ok|successfully|without \w{1,20})", r"\bit (?:now )?compiles\b", r"\bcompiled [\w ]{1,30} without errors\b", r"\bit builds\b"), STATUS),
+            r"\bbuilt (?:successfully|cleanly|fine|ok)\b", r"\bbuilt (?:the )?(?:\w{1,20} )?(?:bundle|image|package|artifact|binary|container)\b", r"\bcompil(?:es|ed) (?:cleanly|fine|ok|successfully|without \w{1,20})", r"\b(?:compiles|builds)(?: now| again)?$", r"\bcompiled [\w ]{1,30} without errors\b"), STATUS),
         (re.compile(r"(?:compiles(?: now| again)?|compiled|built|builds(?: \w{1,20})?)$"), WHOLE),
-        (_r(rf"{_Z_T_BUILD}{_ZG}((?:{_Z_PASS}|{_Z_DONE}|无错误|无报错|没报错|没有报错|跑通了?)" + _ZEND + ")", r"能(?:编译|构建)了"), ZH),
+        (_r(rf"{_Z_T_BUILD}{_ZG}((?:{_Z_PASS}|{_Z_DONE}|无错误|无报错|没报错|没有报错|跑通了?)" + _ZEND + ")", r"能(?:编译|构建)了", r"已完成\s?(?:编译|构建|打包)"), ZH),
     ],
     "rendered": [
         (_r(r"\b(?:re-?)?rendered\b(?! with\b)"), VERB),
-        (_r(rf"\b{_T_RENDER}{_GAP} {_DONE}(?! (?:on|by|in|at|before)\b)", r"\b(?:done|finished) rendering\b", r"\bfinished (?:the )?render\b", r"\b(?:mp4|video|clip|final cut|output video|film|movie)(?: is| has)? (?:now )?(?:ready|done|finished)\b", r"\bffmpeg (?:has )?finished\b"), STATUS),
-        (_r(rf"(?:渲染|渲|重渲|重新渲染|render|hyperframes render)\s?(?:已经?|都|也|全部)?\s?((?:{_Z_DONE}|出来了|跑完了?)" + _ZEND + ")", r"已经?(?:重新)?渲染", r"成片(?:已出|出来了|好了|做好了)", r"(?:视频|片子)(?:已经?)?(?:好了|做好了|生成了|已生成|出来了)", r"成片(?:渲染)?完成", r"出片了", r"视频已生成"), ZH),
+        (_r(rf"\b{_T_RENDER}{_GAP} {_DONE}(?! (?:on|by|in|at|before)\b)", r"\b(?:done|finished) rendering\b", r"\bfinished (?:the )?render\b", r"\b(?:mp4|video|clip|final cut|output video|film|movie)(?: is| has)? (?:now )?(?:ready|done|finished)\b", r"\bffmpeg (?:has )?(?:finished|exported|rendered|encoded)\b"), STATUS),
+        (_r(rf"(?:渲染|渲|重渲|重新渲染|render|hyperframes render)\s?(?:已经?|都|也|全部)?\s?((?:{_Z_DONE}|出来了|跑完了?)" + _ZEND + ")", r"已经?(?:重新)?渲染", r"已完成\s?渲染", r"成片(?:已出|出来了|好了|做好了)", r"(?:视频|片子)(?:已经?)?(?:好了|做好了|生成了|已生成|出来了)", r"成片(?:渲染)?完成", r"出片了", r"视频已生成"), ZH),
     ],
     "pushed": [
         (_r(r"\b(?:force[- ]?|git )?pushed\b(?! (?:back|down|through|out|aside|into|onto|over|forward|around|away|up against|the button|a button|button|the limit|the limits|the envelope)\b)"), VERB),
         (_r(r"\bsubmitted(?: (?:to \w{1,30}|the (?:notebook|kernel|prediction|entry|run)s?))?$"), ACTIVE),
         (_r(r"\b(?:it|this|branch|the branch|branch [\w./-]{1,40}|changes|the changes|everything|fix|the fix|commits?|the commits?)(?:'s| is| are)(?: now)? (?:up )?on (?:origin|the remote|remote|github|gitlab)\b", rf"\b(?:git )?push(?:ing)?{_GAP} (?:{_DONE}|went through)"), STATUS),
-        (_r(r"已经?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"推到远[端程]了?", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
+        (_r(r"已经?推送", r"已完成\s?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"推到远[端程]了?", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
     ],
     "committed": [
-        (_r(r"\bcommitted\b(?! to (?!git\b|the repo\b|the repository\b|main\b|master\b|(?:the )?[\w./-]{1,40} branch\b|[\w.-]{1,40}/[\w./-]{1,40}))", r"\bchecked in\b"), VERB),
+        (_r(r"\bcommitted\b(?! to (?:memory|the (?:plan|idea|goal|approach|team|project|cause|database)|a |an |this |that |our |my |your |doing|\w{1,30}ing\b)|\bcommitted to the \w{1,30} in\b)", r"\bchecked in\b"), VERB),
         (_r(r"\b(?:made|created) (?:a |an |the )?(?:commit|tag)\b", r"\b(?:commit|tag)(?: [\w.-]{1,40})? created\b", r"\btagged\b(?= the\b| v?\d| it\b|$)", rf"\b(?:git )?commit(?:ting)?{_GAP} {_DONE}"), STATUS),
-        (_r(r"已经?提交(?=\s?(?:$|了|到(?!\s?kaggle)|commit|代码|改动|修改|变更|[0-9a-f]{6,40}))", rf"提交\s?{_Z_DONE}", r"提交到\s?(?:main|master|仓库|git|分支|主分支|远端)\S{0,10}\s?了"), ZH_SUBJECT),
-        (_r(r"提交了\s?commit", r"已\s?commit", r"已经\s?commit", rf"commit\s?(?:了|{_Z_DONE})", r"已打\s?(?:tag|标签)", r"打(?:好)?了?\s?(?:tag|标签)(?:了)?", r"(?:tag|标签)\s?(?:已打|打好了)", r"提交\s?\w{4,40}\s?已创建", r"把.{0,30}提交了", r"(?:改动|代码|文件|修改)(?:已经?)?提交了"), ZH),
+        (_r(r"已经?提交(?=\s?(?:$|了|到(?!\s?kaggle)|commit|代码|改动|修改|变更|热修|补丁|迁移|脚本|配置|文档|测试|\d{1,5}\s?个(?:文件|提交|改动)|[0-9a-f]{6,40}))", rf"提交\s?{_Z_DONE}", r"提交到\s?(?:main|master|仓库|git|分支|主分支|远端)\S{0,10}\s?了"), ZH_SUBJECT),
+        (_r(r"提交了\s?commit", r"已完成\s?提交", r"已\s?commit", r"已经\s?commit", rf"commit\s?(?:了|{_Z_DONE})", r"已打\s?\S{0,12}\s?(?:tag|标签)", r"打(?:好)?了?\s?(?:tag|标签)(?:了)?", r"(?:tag|标签)\s?(?:已打|打好了)", r"提交\s?\w{4,40}\s?已创建", r"把.{0,30}提交了", r"(?:改动|代码|文件|修改)(?:已经?)?提交了"), ZH),
         (re.compile(r"提交了$"), ZH_WHOLE),
     ],
     "fixed": [
-        (_r(r"\bfixed\b(?![-.]\w)(?! (?:at|bed|point|width|size|length|rate|cost|income|price|position|number|value|set|interval|schedule|header|layout|effect|asset|term|costs|prices|rates|assets)\b)", r"\b(?:resolved|solved|patched|repaired|corrected|squashed)\b"), VERB),
-        (_r(r"\bworks? (?:now|again)\b", r"\bworking (?:now|again)\b", r"\bnow (?:it )?works\b", r"\bnow working\b", r"\beverything (?:now )?works\b", r"\bit (?:now )?works$", r"\bthe fix works\b", r"\b(?:everything|it|that)(?:'s| is)(?: now)? working\b", r"\bdone with the fix\b", r"\b(?:that|this) fixed it\b",
-            r"\bno more (?:\w{1,20} )?(?:crash|error|failure|exception|warning|bug|issue|leak|hang|timeout)(?:e?s)?\b", r"\b(?:crash|bug|error|failure|exception|issue|leak|hang|warning)(?:e?s)?(?: (?:is|are|has been|have been))? gone\b",
+        (_r(r"\bfixed\b(?![-.]\w)(?! (?:at|bed|point|width|size|length|rate|cost|income|price|position|number|value|set|interval|schedule|header|layout|effect|asset|term|costs|prices|rates|assets)\b)", r"\b(?:resolved|solved|patched|repaired|corrected|squashed|addressed)\b"), VERB),
+        (_r(r"\bworks? (?:now|again)\b", r"\bworking (?:now|again)\b", r"\bnow (?:it )?works\b", r"\bnow working\b", r"\beverything (?:now )?works\b", r"\bit (?:now )?works$", r"^(?:the )?(?!builds?\b|tests?\b|lint\b|ci\b|checks?\b)[\w-]{2,20} works(?: now| again)?$", r"\bthe fix works\b", r"\b(?:everything|it|that)(?:'s| is)(?: now)? working\b", r"\bdone with the fix\b", r"\b(?:that|this) fixed it\b",
+            r"\bno more (?:\w{1,20} )?(?:crash|error|failure|exception|warning|bug|issue|leak|hang|timeout)(?:e?s)?\b", r"\b(?:crash|bug|error|failure|exception|issue|problem|leak|hang|warning)(?:e?s)?(?: (?:is|are|has been|have been))? gone\b", r"\b(?:that|this) (?:fixed|sorted|solved|resolved) it\b", r"\bcleared the (?:blocker|error|issue|bug|conflict)\b",
             r"\bno longer (?:crash|fail|error|hang|throw|leak)\w{0,4}\b"), STATUS),
-        (re.compile(r"(?:(?:all )?done|sorted(?: it| out)?|handled|all good|all set|good to go|that did it|works|working)$"), WHOLE),
-        (_r(r"已经?(?:全部|都)?修复", r"修复了", rf"修复\s?{_Z_DONE}", r"已经?修好", r"修好[了啦]", r"修完了", rf"修了(?:{_BUGGY}.{{0,8}})?$", rf"修掉了(?:.{{0,12}}{_BUGGY}.{{0,4}})?$", r"已经?解决", r"解决好了", rf"{_BUGGY}\s?(?:已经?)?(?:解决|修复)了?", r"已?搞定[了啦]?", r"都搞定", r"全部搞定", r"搞好了", r"弄好了", r"处理(?:好|完)了", r"fix(?:ed)?\s?了", r"已\s?fix", r"不报错了", r"不再报错了?", r"不崩(?:溃)?了", r"不再崩溃了?", r"能用了", r"恢复正常了?", rf"{_BUGGY}\s?(?:已经?|都)?\s?(?:消失了|没了)"), ZH),
-        (re.compile(r"(?:好了|可以了|现在可以了|现在好了|ok\s?了|已修|能跑了|现在能跑了|正常了|现在正常了)$"), ZH_WHOLE),
+        (re.compile(r"(?:(?:all |that's |it's |this is |that is |it is )?done|sorted(?: it| out| now)?|handled|all good|all set|good to go|that did it|works|working)$"), WHOLE),
+        (_r(r"已经?(?:全部|都)?修复", r"修复了", rf"修复\s?{_Z_DONE}", r"已经?修好", r"修好[了啦]", r"修完了", rf"修了(?:{_BUGGY}.{{0,8}})?$", rf"修掉了(?:.{{0,12}}{_BUGGY}.{{0,4}})?$", r"已经?解决", r"解决好了", rf"{_BUGGY}\s?(?:已经?(?:解决|修复)了?|(?:解决|修复)了)", r"已?搞定[了啦]?", r"都搞定", r"全部搞定", r"搞好了", r"弄好了", r"处理(?:好|完)了", r"fix(?:ed)?\s?了", r"已\s?fix", r"不报错了", r"不再报错了?", r"不崩(?:溃)?了", r"不再崩溃了?", r"能用了", r"恢复正常了?", r"正常了$", r"已完成\s?修复", rf"{_BUGGY}\s?(?:已经?|都)?\s?(?:消失了|没了)"), ZH),
+        (re.compile(r"(?:好了|可以了|现在可以了|现在好了|ok\s?了|已修|能跑了|现在能跑了)$"), ZH_WHOLE),
         (re.compile(r"跑起来了"), ZH_SUBJECT),
         (re.compile(r"解决了$"), ZH_WHOLE),
     ],
     "sent": [
         (_r(r"\bsent\b(?! back\b)", r"\bdelivered\b"), VERB),
         (_r(r"\b(?:email|mail|message|report|invite|reply)s? went out\b"), STATUS),
-        (_r(r"\b(?:e-?mailed|mailed|replied|posted|commented|messaged|dm'?d|dmed|pinged|notified|forwarded)\b", r"\b(?:filed|opened) (?:an?|the) (?:\w{1,20} )?(?:issue|ticket|bug|pr|pull request)\b", r"\bleft (?:a|the) (?:\w{1,20} )?(?:review|comment)\b", r"\bshared (?:it |the \w{1,20} )?with\b"), ACTIVE),
-        (_r(r"已发送", r"发送(?:成功|了|完成)", r"发好了", r"回复好了", r"已发出", r"回复过了", r"已经?发给(?!.{0,12}的)", r"发给.{1,20}了", r"(?:图|截图|文件|对比图|视频|成片|抽帧图?|消息|邮件|评论)\s?(?:已经?)?发了?$", r"已评论", r"已留言", r"已通知", r"通知到了", r"通知了", r"通知(?:他|她|你)了", r"转发了", r"已转发", r"转发给.{1,20}了", r"已发邮件", r"发邮件给.{1,20}了", r"把.{0,20}发给了", r"已告知", r"已转告", r"已抄送", r"发(?:他|她|你)了"), ZH),
+        (_r(r"\bposted\b"), VERB),
+        (_r(r"\b(?:e-?mailed|mailed|replied|commented|messaged|dm'?d|dmed|pinged|notified|forwarded)\b", r"\b(?:filed|opened) (?:an?|the) (?:\w{1,20} )?(?:issue|ticket|bug|pr|pull request)\b", r"\bleft (?:a|the) (?:\w{1,20} )?(?:review|comment)\b", r"\bshared (?:it |the \w{1,20} )?with\b"), ACTIVE),
+        (_r(r"已发送", r"发送(?:成功|了|完成)", r"发好了", r"回复好了", r"已发出", r"回复过了", r"已经?发给(?!.{0,12}的)", r"发给.{1,20}了", r"(?:图|截图|文件|对比图|视频|成片|抽帧图?|消息|邮件|评论|发票|报告|通知|账单)\s?我?(?:已经?)?发了?$", r"已发$", r"已发(?![现生布送出版给到表起])[\u4e00-\u9fff]{2,6}$", r"我(?:已经?)?回复(?:他|她|你|了)", r"回复(?:他|她|你)了", r"已评论", r"已留言", r"已通知", r"通知到了", r"通知了", r"通知(?:他|她|你)了", r"转发了", r"已转发", r"转发给.{1,20}了", r"已发邮件", r"发邮件给.{1,20}了", r"把.{0,20}发给了", r"已告知", r"已转告", r"已抄送", r"发(?:他|她|你)了"), ZH),
         (_r(r"已回复", r"已经?发到(?!对话|这里|你这)", r"发到(?!对话|这里).{1,20}了", r"发过去了", r"发出去了"), ZH_SUBJECT),
         (re.compile(r"(?:发了|回了|已发|回复了|评论了)$"), ZH_WHOLE),
     ],
     "deployed": [
         (_r(r"\b(?:re)?deployed\b(?! (?:engineers?|engineering|models?|versions?|apps?|services?|systems?|roles?|positions?|instances?|environments?|code|state|contracts?|artifacts?|builds?)\b)", r"\bwent live\b"), VERB),
-        (_r(r"\bshipped\b", r"\breleased\b(?! (?:the|a) (?:lock|mutex|semaphore|memory|handle|resource|connection)\b)", r"\bpublished\b(?= to\b| v?\d| the\b| it\b| on\b|$)", r"\brolled (?:it |this |that )?out\b", r"\bpushed to (?:prod|production)\b", r"^live at\b", r"\bpromoted to (?:prod|production|staging)\b", r"\buploaded to (?:pypi|npm|the registry)\b", r"\bcut (?:a|the) release\b"), ACTIVE),
-        (_r(rf"\bdeploy(?:ment)?{_GAP} (?:{_DONE}|went through)", r"\b(?:version|v)\s?[\w.]{1,12} is (?:now )?live\b", r"^(?:now )?live (?:on|in) ", r"\bprod(?:uction)?(?: is)? (?:now )?(?:updated|up to date)\b", r"^(?:now )?live(?: now)?$", r"^we're live\b", r"\b(?:it|this|(?:the )?(?:site|app|service|page|version|release|fix|change|api))(?:'s| is| are)(?: now)? live\b", r"\b(?:now |running )in (?:prod|production)\b"), STATUS),
-        (_r(r"已经?部署", rf"部署\s?(?:{_Z_DONE}|上去了)", r"部署到\s?\S{1,20}\s?了", r"已经?上线(?=\s?(?:$|了|到))", rf"上线\s?(?:{_Z_DONE}|了$)", r"已经?发布(?=\s?(?:$|到|至|在|了|v?\d))", rf"发布\s?{_Z_DONE}", r"已经?发版", rf"发版\s?(?:{_Z_DONE}|了$)", r"发布了$", r"上到(?:生产|线上)了?", r"上生产了", r"已上生产", rf"灰度\s?{_Z_DONE}", r"已全量", r"全量了$", r"已经?推到生产", r"推到生产了", r"(?:npm|pypi)\s?包?\s?已发", r"线上(?:已经?)?(?:更新|生效)", r"已上传到?\s?(?:pypi|npm)"), ZH_SUBJECT),
+        (_r(r"\bshipped\b", r"\breleased\b(?! (?:the|a) (?:lock|mutex|semaphore|memory|handle|resource|connection)\b)", r"\bpublished\b(?= to\b| v?\d| the\b| it\b| on\b|$)"), VERB),
+        (_r(r"\brolled (?:it |this |that )?out\b", r"\bpushed to (?:prod|production)\b", r"^live at\b", r"\bpromoted to (?:prod|production|staging)\b", r"\buploaded to (?:pypi|npm|the registry)\b", r"\bcut (?:a|the) release\b"), ACTIVE),
+        (_r(rf"\bdeploy(?:ment)?{_GAP} (?:{_DONE}|went through)", r"\b(?:version|v)\s?[\w.]{1,12} is (?:now )?live\b", r"^(?:now )?live (?:on|in) ", r"\bprod(?:uction)?(?: is)? (?:now )?(?:updated|up to date)\b", r"^(?:now )?live(?: now)?$", r"^we're live\b", r"\b(?:it|this|(?:the )?(?!feed\b|connection\b|stream\b|video\b|view\b|chat\b|reload\b|preview\b|data\b|session\b|socket\b|camera\b|server\b|what\b|who\b)[\w-]{2,20})(?:'s| is)(?: now)? live\b", r"\b(?:the )?(?:changes|docs|fixes|updates) are(?: now)? live\b", r"\b(?:now |running )in (?:prod|production)\b"), STATUS),
+        (_r(r"已经?部署", rf"部署\s?(?:{_Z_DONE}|上去了)", r"部署到\s?\S{1,20}\s?了", r"已经?上线(?=\s?(?:$|了|到))", rf"上线\s?(?:{_Z_DONE}|了$)", r"已经?发布(?=\s?(?:$|到|至|在|了|v?\d|热修|补丁|修复|迁移|新版))", r"已完成\s?(?:部署|发布|上线)", rf"发布\s?{_Z_DONE}", r"已经?发版", rf"发版\s?(?:{_Z_DONE}|了$)", r"发布了$", r"上到(?:生产|线上)了?", r"上生产了", r"已上生产", rf"灰度\s?{_Z_DONE}", r"已全量", r"全量了$", r"已经?推到生产", r"推到生产了", r"(?:npm|pypi)\s?包?\s?已发", r"线上(?:已经?)?(?:更新|生效)", r"已上传到?\s?(?:pypi|npm)"), ZH),
     ],
     "downloaded": [
         (_r(r"\b(?:re-?)?downloaded\b", r"\bcloned\b"), VERB),
-        (_r(r"\b(?:fetched|grabbed|pulled|retrieved|got) (?:the |a |an |\d{1,6} )?(?:\w{1,20} )?(?:file|files|dataset|data|model|models|weights|image|images|artifact|artifacts|archive|checkpoint|zip|tarball)\b", r"\b(?:fetched|grabbed) (?:it|everything)\b"), ACTIVE),
+        (_r(r"\b(?:fetched|grabbed|pulled|retrieved|got) (?:the |a |an |\d{1,6} )?(?:\w{1,20} )?(?:file|files|dataset|data|model|models|weights|image|images|artifact|artifacts|archive|checkpoint|zip|tarball|dump|backup|logs?|snapshot|database|db)\b", r"\b(?:fetched|grabbed) (?:it|everything)\b"), ACTIVE),
         (_r(rf"\bdownload{_GAP} {_DONE}"), STATUS),
-        (_r(r"已经?下载", rf"下载\s?(?:{_Z_DONE}|到了)", r"下好了", r"拉下来了", rf"(?:克隆|clone)\s?{_Z_DONE}", r"已\s?(?:克隆|clone)", r"抓下来了", r"下下来了", r"(?:模型|文件|数据集?|权重)已拿到", r"拿到(?:模型|文件|数据集?|权重)了", rf"拉取\s?{_Z_DONE}", r"已拉取"), ZH),
+        (_r(r"已经?下载", r"已完成\s?下载", rf"下载\s?(?:{_Z_DONE}|到了)", r"下好了", r"拉下来了", rf"(?:克隆|clone)\s?{_Z_DONE}", r"已\s?(?:克隆|clone)", r"抓下来了", r"下下来了", r"(?:模型|文件|数据集?|权重)已拿到", r"拿到(?:模型|文件|数据集?|权重)了", rf"拉取\s?{_Z_DONE}", r"已拉取"), ZH),
     ],
     "saved": [
-        (_r(r"\bsaved\b(?! (?:time|memory|money|bytes|tokens|\d{1,9} ?(?:%|ms|s|kb|mb|gb|lines?|bytes))\b)", r"\bwritten\b(?! (?:by|in)\b)"), VERB),
-        (_r(r"\bwrote (?:it |them |\w{1,20} |\d[\d,]{0,9} \w{1,20} )?to\b", r"\bwrote (?:the |a |\d[\d,]{0,9} )?(?:report|file|summary|notes?|doc|document|results?|output|rows|lines|csv|pdf|log)\b", rf"\bwrote {_FILE}", r"\bexported (?:to|as|the|it)\b", rf"\bstored (?:in|at|to) {_FILE}", rf"\b(?:created|generated) {_FILE}", r"\b(?:persisted|dumped) (?:\w{1,20} )?to\b"), ACTIVE),
+        (_r(r"\bsaved\b(?! (?:time|memory|money|bytes|tokens|\d{1,9} ?(?:%|ms|s|kb|mb|gb|lines?|bytes))\b)", r"\bwritten\b(?! (?:by|in)\b)", r"\bexported(?= (?:to|as)\b)"), VERB),
+        (_r(r"\bwrote (?:it |them |(?:the |a )?\w{1,20} |\d[\d,]{0,9} \w{1,20} )?to\b", r"\bwrote \d[\d,]{0,9} \w{1,20}\b", r"\bwrote (?:the |a |\d[\d,]{0,9} )?(?:report|file|summary|notes?|doc|document|results?|output|rows|lines|csv|pdf|log)\b", rf"\bwrote {_FILE}", r"\bexported (?:to|as|the|it)\b", rf"\bstored (?:in|at|to) {_FILE}", rf"\b(?:created|generated) {_FILE}", r"\b(?:persisted|dumped) (?:\w{1,20} )?to\b"), ACTIVE),
         (_r(rf"\b(?:output|report|results?|file) (?:is|are) (?:in|at) {_FILE}", r"\boutput (?:saved|written) to\b", rf"\bexport{_GAP} {_DONE}"), STATUS),
-        (_r(r"已保存", r"已导出", rf"保存\s?(?:{_Z_DONE}|了)", rf"导出\s?(?:{_Z_DONE}|了)", rf"写入\s?(?:{_Z_DONE}|了)", r"已存好", r"(?<!保)存好了", r"落盘了", r"已落盘", r"已写入", r"已存到", r"存到了", r"已存为", r"已放到", r"放到了", r"放到\s?\S{1,40}\s?了", r"保存到了", r"导出到了", r"已写到", r"写到\s?\S{1,40}\s?了", r"存到\s?\S{1,40}\s?了", rf"保存到\s?{_FILE}\s?了", rf"导出到\s?{_FILE}\s?了", rf"(?:已生成|生成了)\s?{_FILE}", r"(?:文件|报告|结果)(?:已生成|生成好了)", r"已生成(?:报告|文件|结果)", rf"结果在\s?{_FILE}"), ZH),
+        (_r(r"已保存", r"已导出", r"已完成\s?(?:保存|导出|写入)", rf"保存\s?(?:{_Z_DONE}|了)", rf"导出\s?(?:{_Z_DONE}|了)", rf"写入\s?(?:{_Z_DONE}|了)", r"已存好", r"(?<!保)存好了", r"落盘了", r"已落盘", r"已写入", r"已存到", r"存到了", r"已存为", r"已放到", r"放到了", r"放到\s?\S{1,40}\s?了", r"保存到了", r"导出到了", r"已写到", r"写到\s?\S{1,40}\s?了", r"存到\s?\S{1,40}\s?了", rf"保存到\s?{_FILE}\s?了", rf"导出到\s?{_FILE}\s?了", rf"(?:已生成|生成了)\s?{_FILE}", r"(?:文件|报告|结果)(?:已生成|生成好了)", r"已生成(?:报告|文件|结果)", rf"结果在\s?{_FILE}"), ZH),
         (_r(rf"保存到\s?{_FILE}", rf"保存在\s?{_EXT_FILE}", rf"导出到\s?{_FILE}"), ZH_BARE),
         (re.compile(r"写好了$"), ZH_WHOLE),
     ],
     "scheduled": [
         (_r(r"\b(?:re)?scheduled\b"), VERB),
-        (_r(r"\b(?:set up|added|created|installed) (?:a|an|the) (?:\w{1,20} )?(?:cron(?: job)?|crontab(?: entry)?|reminder|schedule)\b", r"\b(?:set up|added|created|installed) (?:a|an|the) (?:daily|nightly|weekly|hourly|scheduled|recurring|periodic) (?:job|task|run)\b", r"\bset (?:a|an|the) (?:\w{1,20} )?(?:reminder|timer|alarm)\b", r"\badded to (?:the )?crontab\b", r"\bset to run\b", r"\bset for \d"), ACTIVE),
+        (_r(r"\b(?:set up|added|created|installed) (?:a|an|the) (?:\w{1,20} )?(?:cron(?: job)?|crontab(?: entry)?|reminder|schedule)\b", r"\b(?:set up|added|created|installed) (?:a|an|the) (?:daily|nightly|weekly|hourly|scheduled|recurring|periodic) (?:job|task|run)\b", r"\bset (?:a|an|the) (?:\w{1,20} )?(?:reminder|timer|alarm|cron(?: job)?)\b", r"\badded to (?:the )?crontab\b", r"\bset to run\b", r"\bset for \d"), ACTIVE),
         (_r(r"\bcron(?:tab)?(?: job| entry)?(?: is)? (?:created|added|set up|set|installed|updated|configured)\b", r"\b(?:reminder|timer|alarm)(?: is)? (?:set|created|added)\b", r"\b(?:task|job) is on the schedule\b", r"\b(?:cron(?: job)?|reminder|timer) is in place\b"), STATUS),
-        (_r(r"(定时(?:任务)?|提醒|闹钟|cron(?:tab)?|自动检查)\s?(?:已经?|都)?\s?(?:设好了?|设置好了?|设定|已?安排好?了?|建好了?|创建好?了?|加好了?|写好了?|配好了?|好了|已设|已配置|配置好了?|配置了)", r"任务已(?:排上|安排(?!给)|设好|建好|创建)", r"(?:已设好?|已设定|已安排好?了?|已建好?|已加|设好了?|建好了?|设置好了?)\s?(?:定时(?:任务)?|提醒|闹钟|自动检查)", r"已加(?:到|入)\s?crontab", r"已经定时", r"已排期", r"已预约"), ZH),
+        (_r(r"(定时[^\s没未不]{0,4}?|提醒|闹钟|cron(?:tab)?|自动检查)\s?(?:已经?|都|我)?\s?(?:设好了?|设置好了?|设定|已?安排好?了?|建好了?|创建好?了?|加好了?|写好了?|配好了?|好了|已设|已配置|配置好了?|配置了)", r"任务已(?:排上|安排(?!给)|设好|建好|创建)", r"(?:已设好?|已设定|已安排好?了?|已建好?|已加|设好了?|建好了?|设置好了?)\s?(?:定时(?:任务)?|提醒|闹钟|自动检查)", r"已加(?:到|入)?\s?(?:crontab|cron)", r"已经定时", r"已排期", r"已预约"), ZH),
         (re.compile(r"(?:定好了|已安排(?:好了?)?|安排好了|排好了)$"), ZH_WHOLE),
     ],
     "checked": [
         (_r(r"\b(?:[a-z]{1,12}-)?checked\b(?! in\b)", r"\blooked (?:it up|up|at|through|into|over)\b", r"\bwent through\b", r"\b(?:searched|grepped|reviewed|inspected|examined|audited|scanned|skimmed|consulted)\b", r"\bconfirmed (?:it )?(?:in|with|against)\b", r"\bverified against\b"), ACTIVE),
         (_r(r"\b(?:i|we)(?:'ve| have| also| just){0,2} read(?: through)?\b"), STATUS),
-        (_r(r"我核对[过了]", r"已?核对(?:过了?|好了)", r"已?核实过了?", r"已核实", r"已核对", r"(?<![排调审检])查过", r"我查了", rf"(?:查|看|翻|读)[了过](?:一[遍下])?\s?{_DOCS}", r"已?确认过了", r"我确认过", r"对照过了?", r"翻过了", r"翻了一遍", r"我看过", r"全局搜过", r"搜过", r"grep\s?过了", r"我检查了", r"过了一遍", r"看了一遍"), ZH),
+        (_r(r"我核对[过了]", r"已?核对(?:过了?|好了)", r"已?核实过了?", r"已核实", r"已核对", r"(?<![排调审检])查过", r"我查了", rf"(?:查|看|翻|读)[了过](?:一[遍下])?\s?{_DOCS}", r"我(?:看|读|查|翻)了\s?\S", r"已完成\s?(?:核对|检查)", r"已?确认过了", r"我确认过", r"对照过了?", r"翻过了", r"翻了一遍", r"我看过", r"全局搜过", r"搜过", r"grep\s?过了", r"我检查了", r"过了一遍", r"看了一遍"), ZH),
         (_r(r"检查了(?:日志|代码|配置|文档|.{0,12})$"), ZH_BARE),
         (re.compile(r"(?:确认了|看过了|查了|核对了|核实了|已确认过?|搜了一遍|读过了|对过了|看完了)$"), ZH_WHOLE),
     ],
@@ -451,8 +473,8 @@ LEXICON = {
         (_r(r"\b(?:re-?)?tested\b", r"\bran it\b"), ACTIVE),
         (_r(r"\b(?:end-to-end|e2e|smoke|sanity)(?: tests?| checks?| suite)? pass(?:es|ed)?\b", r"\bit behaves as expected\b", r"\bworks end[- ]to[- ]end\b", r"\bruns (?:fine|ok|okay|clean|cleanly|now|without errors?|successfully)\b", r"\bend-to-end works\b"), STATUS),
         (re.compile(r"lgtm$"), WHOLE),
-        (_r(r"已经?验证", rf"验证\s?(?:通过|过了|没问题|ok|{_Z_DONE})", r"跑通了", r"已经?跑通", r"实测跑通", r"核对无误", r"确认无误", r"实测(?:通过|可用|可以|正常|没问题)", r"(?:全部|都)跑通", r"我?测过了?", r"自测(?:通过|过了)", r"确认可用", r"确认没问题", r"verified\s?了", r"跑了一[遍下]", r"跑过了", r"检查过了", r"(?:冒烟|e2e|端到端)(?:测试)?\s?(?:通过|过了)"), ZH),
-        (re.compile(r"跑了一遍$"), ZH_WHOLE),
+        (_r(r"已(?:经|在本地|在\s?\S{1,8})?验证", r"我(?:验证|测试?)了", r"已完成\s?验证", rf"验证\s?(?:通过|过了|没问题|ok|{_Z_DONE})", r"跑通了", r"已经?跑通", r"实测跑通", r"核对无误", r"确认无误", r"实测(?:通过|可用|可以|正常|没问题)", r"(?:全部|都)跑通", r"我?测过了?", r"已测试", r"自测(?:通过|过了)", r"确认可用", r"确认没问题", r"verified\s?了", r"跑了一[遍下]", r"跑过了", r"检查过了", r"(?:冒烟|e2e|端到端)(?:测试)?\s?(?:通过|过了)"), ZH),
+        (re.compile(r"(?:跑了一遍|验证了|测了|跑了)$"), ZH_WHOLE),
     ],
 }
 
@@ -460,11 +482,11 @@ LEXICON = {
 _EN_STEMS = {
     "tests_pass": "test suite spec pytest py jest vitest mocha playwright cypress phpunit junit ctest nextest rspec unittest pass fail xtestx green clean",
     "checks_pass": "lint ruff mypy pyright tsc eslint clippy vet shellcheck flake8 pylint prettier biome golangci pre commit ci check type typecheck static format formatting pipeline types xlintx error warning issue hyperframes",
-    "build_ok": "build built compile compiled compiles compilation compiler xbuildx",
+    "build_ok": "build built compile compiled compiles compilation compiler make xbuildx",
     "rendered": "render rendered rendering rerendered mp4 video clip film movie ffmpeg hyperframes final output",
     "pushed": "push pushed pushing submitted origin remote github gitlab",
     "committed": "commit committed committing tagged tag checked",
-    "fixed": "fixed fix resolved solved patched repaired corrected squashed sorted handled done good work works working gone more longer did set",
+    "fixed": "addressed cleared fixed fix resolved solved patched repaired corrected squashed sorted handled done good work works working gone more longer did set",
     "sent": "went sent delivered emailed mailed replied posted commented messaged dm dmed pinged notified forwarded filed opened left shared",
     "deployed": "deploy deployed redeployed deployment shipped released published rolled pushed prod production live went promoted uploaded cut",
     "downloaded": "download downloaded redownloaded fetched grabbed pulled retrieved got cloned",
@@ -480,7 +502,7 @@ _ZH_STEMS = {
     "rendered": "渲成片视重",
     "pushed": "推提传同",
     "committed": "提打标",
-    "fixed": "修解搞弄处跑报崩好可能恢错问正已",
+    "fixed": "修解搞弄处跑报崩好可能恢错问正已警死泄超冲漏异隐故缺",
     "sent": "发回评通转留告抄",
     "deployed": "部上灰发推全线",
     "downloaded": "下拉克抓拿",
@@ -526,12 +548,12 @@ def _categories(low: str) -> set:
 
 # ------------------------------------------------------------------ topics: what a bare "all good" or a check mark is about
 _TOPICS = (
-    ("verified", re.compile(r"\bran (?:it|the script|the app|the demo)\b|\btested\b|跑了一[遍下]|跑过了|看过了|试了一[遍下]")),
     ("tests_pass", re.compile(rf"\b{_T_TESTS}\b|{_Z_T_TESTS}")),
     ("checks_pass", re.compile(rf"\b{_T_CHECKS}\b|{_Z_T_CHECKS}")),
     ("build_ok", re.compile(rf"\b{_T_BUILD}\b|{_Z_T_BUILD}")),
     ("rendered", re.compile(rf"\b{_T_RENDER}\b|渲染|重渲")),
     ("deployed", re.compile(r"\bdeploy(?:ment)?\b|部署|上线|发布")),
+    ("verified", re.compile(r"\bran (?:it|the script|the app|the demo)\b|\btested\b|跑了(?:一[遍下])?|跑过了|测了|看过了|试了一[遍下]")),
     ("verified", re.compile(r"验证|实测|自测")),
 )
 BARE_STATUS = re.compile(r"(?:all |everything |全部|都|全|均)?(?:pass(?:es|ed|ing)?|green|good|ok|okay|clean|fine|works?|working|success|successful|succeeded|complete[d]?|done"
@@ -592,11 +614,11 @@ NOT_A_CLAIM = re.compile(_AGENT_REPORT + "|" + _ELSEWHEN, re.I)   # either one k
 
 
 # what may stand before a Chinese result word that is also an everyday word (提交 a form, 上线 a plan, 发 a résumé): nothing, or a subject about the work
-ZH_ADVERBS = re.compile(r"(?:\s?(?:已经|已|都|也|全部|均|刚刚|刚|现在|终于|第一次|第\d次|自动|一并|刚才))+$")
+ZH_ADVERBS = re.compile(r"(?:\s?(?:已经|已|都|也|全部|均|刚刚|刚|现在|终于|第一次|第\d次|自动|一并|刚才|我们?)){1,6}$")
 ZH_SUBJECTS = {
-    "committed": re.compile(r"(?:代码|改动|修改|变更|更改|文件|修复|补丁|commit|工作区)(?:\s?\S{0,2})?$"),
+    "committed": re.compile(r"(?:代码|改动|修改|变更|更改|文件|修复|补丁|热修|迁移|脚本|配置|文档|测试|commit|工作区)(?:\s?\S{0,2})?$"),
     "deployed": re.compile(r"(?:服务|网站|站点|应用|版本|新版|修复|代码|功能|页面|后端|前端|镜像|包|项目|改动|[a-z0-9][\w.-]{0,40})$"),
-    "sent": re.compile(r"(?:邮件|消息|文件|图|截图|评论|回复|通知|报告|视频|链接|信|我)$"),
+    "sent": re.compile(r"(?:邮件|消息|文件|图|截图|评论|回复|通知|报告|视频|链接|信|发票|账单|我)$"),
     "fixed": re.compile(r"(?:服务|程序|项目|应用|页面|demo|脚本|网站|它)$"),
 }
 
@@ -624,13 +646,15 @@ def _accept(category: str, kind: str, clause: Clause, m, blocked_left: bool) -> 
         return False
     if ZH_VETO.search(before) or ZH_ADJ.search(before) or EN_VETO.search(before):
         return False
-    if ZH_ACTOR.search(text[:m.start()]) or ZH_BUG_TAIL.search(text, m.end()):
+    if ZH_BUG_TAIL.search(text, m.end()):
+        return False
+    if ZH_ACTOR.search(text[:m.start()]) and not (category == "deployed" and ZH_RELEASE_NAMES.search(text[:m.start()])):
         return False
     return not ZH_AFTER.match(text, m.end())
 
 
 _LEADING = frozenset("all so and ok okay yes yep great now just 都 也 已经 已 现在 我 全部 我们 这下 终于".split())
-_LEADING_ZH = re.compile(r"(?:都|也|已经|已|现在|我们?|全部|这下|终于|那就|所以|(?:修复|修改|改完|改动|重构|合并|更新|升级)[之以]?后)\s?$")
+_LEADING_ZH = re.compile(r"(?:(?:都|也|已经|已|现在|我们?|全部|这下|终于|那就|所以|本地|刚|刚才|(?:修复|修改|改完|改动|重构|合并|更新|升级)[之以]?后)\s?){1,4}")
 
 
 def _whole(text: str, m) -> bool:
@@ -685,6 +709,13 @@ def _tail_vetoes(clauses: list, i: int) -> bool:
         return False
     after = clauses[i + 1]
     return WHICH_TAIL.match(after.text) is not None or (after.sep in ("所以", "因此") and BAD_CONSEQUENCE.search(after.text) is not None)
+
+
+COUNT_OF = re.compile(r"(?<![\d./])(\d{1,7}) ?(?:of|/) ?(\d{1,7})(?![\d./])")
+
+
+def _partial_result(s: str) -> bool:
+    return PARTIAL.search(s) is not None or any(a != b for a, b in COUNT_OF.findall(s))
 
 
 def _earlier_topic(clauses: list, i: int, out: list):
@@ -779,7 +810,7 @@ def _analyse(raw: str, box) -> tuple:
         left_had_hits = taken or bool(hits)
     if not out or ABOUT_CLAIMS.search(whole) or NOT_A_CLAIM_START.match(whole):
         return ()
-    if not seen.isdisjoint(PARTIAL_CATEGORIES) and PARTIAL.search(s):
+    if not seen.isdisjoint(PARTIAL_CATEGORIES) and _partial_result(s):
         out = [hit for hit in out if hit[0] not in PARTIAL_CATEGORIES]
     if "fixed" in seen and (UNVERIFIED_TAIL.search(s) or any(cat in COVERS_FIX for cat, _ in out)):
         out = [hit for hit in out if hit[0] != "fixed"]   # "fixed, but I haven't run the tests" is the honest sentence we ask for; "I fixed the parser and all tests pass": the run is the fix's proof, so it is judged once

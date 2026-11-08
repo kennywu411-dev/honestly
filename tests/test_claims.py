@@ -359,3 +359,13 @@ def test_the_word_lookup_loses_nothing(monkeypatch):
             assert tuple(h.category for h in rules.find_claims(s)) == seen[s], s
     finally:
         claims._analyse.cache_clear()
+
+
+@pytest.mark.parametrize("text", ["PR #8 is merged and the GIFs are live on main.", "The video feed is live."])
+def test_live_about_something_that_was_not_deployed(text):
+    assert "deployed" not in cats(text), text
+
+
+@pytest.mark.parametrize("text,cat", [("Migration is live.", "deployed"), ("迁移计划已保存", "saved"), ("Migration plan saved.", "saved"), ("✅ 迁移已完成部署", "deployed"), ("Rows exported to rows.csv.", "saved")])
+def test_a_plan_and_an_open_list_of_subjects(text, cat):
+    assert cat in cats(text), text
