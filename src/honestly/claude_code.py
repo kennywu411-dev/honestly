@@ -1,6 +1,7 @@
 """Parse Claude Code session logs (~/.claude/projects/**/*.jsonl) into turns.
 
-A turn = everything the assistant did between two human prompts.
+A turn = everything the assistant did between two prompts a person wrote. A task notification, a compaction summary or
+another session's message arrives as a `user` record too, and stays inside the turn as a "mark" event.
 Events are kept in order: text blocks, tool calls (with result status),
 so rules can ask "what happened after the last edit?".
 """
@@ -17,7 +18,7 @@ from .hookline import claude_dir
 
 @dataclass
 class Event:
-    kind: str            # text | tool
+    kind: str            # text | tool | mark (something arrived mid-turn: see _mark)
     name: str = ""       # tool name for kind=tool
     text: str = ""       # text block, or command/path summary for tools
     tool_use_id: str = ""
@@ -25,6 +26,8 @@ class Event:
     ts: str = ""
     result: str = ""
     via: str = ""       # 'subagent:<id>' when the event ran inside a subagent and was merged into the parent turn
+    task: str = ""      # the id a background command or a subagent runs under, when it has one
+    running: bool = False   # it had not finished when the reply was written, so nobody has seen its result
 
 
 @dataclass
@@ -160,6 +163,28 @@ def _background_output(m, tool_input, project: str):
     return _task_file_tail(path)
 
 
+BG_EXIT = re.compile(r"\[exited with code (\d+)\]\s*$")
+AGENT_ID = re.compile(r"\bagentId: ([\w-]+)")
+
+
+def _raw_result(b: dict) -> str:
+    rc = b.get("content")
+    if isinstance(rc, list):
+        rc = " ".join(str(x.get("text") or "") for x in rc if isinstance(x, dict))
+    return rc if isinstance(rc, str) else ""
+
+
+def _task_of(tool: str, raw: str) -> str:
+    """The id a background command or a launched subagent runs under, from the harness's own note."""
+    if tool == "Bash":
+        m = background_notice(raw)
+        return (m.group("asked") or m.group("moved")) if m else ""
+    if tool in ("Agent", "Task"):
+        m = AGENT_ID.search(raw[:600])
+        return m.group(1) if m else ""
+    return ""
+
+
 def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "") -> str:
     rc = b.get("content")
     if isinstance(rc, list):
@@ -171,6 +196,40 @@ def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "
         if out and out.strip():
             rc = out[-3000:]
     return clip_output(rc)
+
+
+# Records in a `user` row that no person typed, for transcripts too old to carry promptSource or turnOrigin.
+NOT_TYPED = re.compile(r"\s*(?:<task-notification>|<local-command-|<command-(?:name|message|args)>|<bash-(?:input|stdout|stderr)>|This session is being continued from a previous conversation|Caveat: The messages below)")
+# Someone else's report: a reply to it is about their work, and is not judged on what this session edited.
+OUTSIDE_REPORT = re.compile(r"^\s*(?:<side-sessions-event>|<ci-monitor-event>|<agent-message|Another Claude session sent a message)|\bThe session\b.{0,200}\byou started\b|\bfinished a turn\b", re.S)
+OWN_TASK = re.compile(r"<tool-use-id>([\w-]+)</tool-use-id>")
+TASK_ID = re.compile(r"<task-id>([\w-]+)</task-id>")
+
+
+def _is_prompt(r: dict, content, origin: dict) -> bool:
+    """A request a person made: what a turn starts with. Everything else that arrives as a `user` row (a tool's result, a task notification,
+    a compaction summary, a skill's text, another session's message) happens inside the turn that person's request began."""
+    if r.get("isMeta") and r.get("turnOrigin") != "scheduled":
+        return False
+    if r.get("isCompactSummary") or r.get("isVisibleInTranscriptOnly"):
+        return False
+    if origin.get("kind"):
+        return origin["kind"] == "human" or r.get("turnOrigin") == "scheduled"   # a scheduled task carries a request of its own
+    if r.get("promptSource") or r.get("turnOrigin"):
+        return r.get("promptSource") != "system" or r.get("turnOrigin") == "scheduled"
+    return isinstance(content, str) and not NOT_TYPED.match(content)   # an older transcript: a list held only tool results and skill text
+
+
+def _mark(text: str, seen_calls: dict, peer: bool, compact: bool, ts: str, listed: bool = False) -> Event:
+    """What a record that is not a prompt leaves in the turn. "report": someone else's work, a wall for what follows. "notice": this session's own
+    background task ended. "compact": its context was compacted. "aside": the harness said something, a reminder or a command's echo. In these three a reply may
+    sum up earlier work. "meta": text that is part of the work itself, a skill's body."""
+    head = text[:1500]
+    task = head.lstrip().startswith("<task-notification>")
+    own = OWN_TASK.search(head)
+    if peer or OUTSIDE_REPORT.search(head) or (task and not (own and own.group(1) in seen_calls)):
+        return Event("mark", name="report", text=head, ts=ts)
+    return Event("mark", name="notice" if task else "compact" if compact else "meta" if listed else "aside", text=head, ts=ts)
 
 
 def _parse(path: str, sidechain: bool = False, start: int = 0):
@@ -193,20 +252,25 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
         ts = str(r.get("timestamp") or "")
         content = msg.get("content")
         if t == "user":
-            human = origin.get("kind") == "human" or isinstance(content, str)
             if isinstance(content, list):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
                         name, inp = calls.get(b.get("tool_use_id", ""), ("", None))
-                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b, name, inp, project))
-                if any(isinstance(b, dict) and b.get("type") == "text" for b in content) and origin.get("kind") == "human":
-                    human = True
-            if human:
-                prompt = content if isinstance(content, str) else " ".join(
-                    str(b.get("text") or "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+                        out, task = _tool_result_text(b, name, inp, project), _task_of(name, _raw_result(b))
+                        ended = BG_EXIT.search(out[-200:]) if name == "Bash" and task else None   # a background command's exit code is the last line of its file
+                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")) or (ended is not None and int(ended.group(1)) != 0), out, task)
+            text = content if isinstance(content, str) else " ".join(str(b.get("text") or "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text")
+            if not text.strip():
+                continue
+            if FEEDBACK.match(text) or _is_prompt(r, content, origin):
                 if cur is not None:
                     turns.append(cur)
-                cur = Turn(session=session, index=len(turns), version=version, prompt=prompt[:2000], ts=ts, project=project)
+                cur = Turn(session=session, index=len(turns), version=version, prompt=text[:2000], ts=ts, project=project)
+            else:
+                if cur is None:   # a transcript that starts here: a tail read drops it, a whole one judges it as before
+                    cur = Turn(session=session, index=len(turns), version=version, prompt=text[:2000] if start == 0 else "", ts=ts, project=project)
+                else:
+                    cur.events.append(_mark(text, calls, origin.get("kind") == "peer", bool(r.get("isCompactSummary")) or text.lstrip().startswith("This session is being continued"), ts, isinstance(content, list)))
         elif t == "assistant" and isinstance(content, list):
             if cur is None:
                 cur = Turn(session=session, index=0, version=version, prompt="", ts=ts)
@@ -226,7 +290,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
     for turn in turns:
         for e in turn.events:
             if e.kind == "tool" and e.tool_use_id in results:
-                e.is_error, e.result = results[e.tool_use_id]
+                e.is_error, e.result, e.task = results[e.tool_use_id]
     return turns
 
 
@@ -261,15 +325,26 @@ def _merged_by_time(events: list, incoming: list) -> list:
     return out
 
 
-def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
-    """Put every tool call a subagent made into the parent turn, in timestamp order, so a test the subagent ran counts and an
-    edit it made is seen. The Agent call that spawned it is then no longer opaque. Returns the number of merged events."""
-    merged = 0
-    by_tool_use = {}
-    since = _iso_epoch(since_ts) - 120 if since_ts else 0.0
+def merge_into_turns(turns: list, events: list) -> int:
+    """Place tool calls from elsewhere (a subagent's own record) into the turn they happened in, in timestamp order. Returns how many found a place."""
     starts = sorted((t.ts, i) for i, t in enumerate(turns) if t.ts)
     keys = [ts for ts, _ in starts]
     arriving: dict[int, list] = {}
+    for e in events:
+        at = bisect.bisect_right(keys, e.ts) - 1
+        if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
+            arriving.setdefault(starts[at][1], []).append(e)
+    for i, incoming in arriving.items():
+        turns[i].events = _merged_by_time(turns[i].events, incoming)
+    return sum(len(v) for v in arriving.values())
+
+
+def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
+    """Put every tool call a subagent made into the parent turn, in timestamp order, so a test the subagent ran counts and an
+    edit it made is seen. The Agent call that spawned it is then no longer opaque. Returns the number of merged events."""
+    by_tool_use = {}
+    since = _iso_epoch(since_ts) - 120 if since_ts else 0.0
+    all_events = []
     for f in subagent_files(path):
         try:
             if since and os.path.getmtime(f) < since:
@@ -286,22 +361,21 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
             pass
         if not events:
             continue
-        bg = str(meta.get("requestShape") or "") == "background"
         by_tool_use[str(meta.get("toolUseId") or "")] = len(events)
+        bg = str(meta.get("requestShape") or "") == "background"
         for e in events:
-            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
-            at = bisect.bisect_right(keys, e.ts) - 1
-            if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
-                arriving.setdefault(starts[at][1], []).append(e)
-                merged += 1
-    for i, incoming in arriving.items():
-        turns[i].events = _merged_by_time(turns[i].events, incoming)
+            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent's edits count once it is known to be done: see audit_turn
+        all_events.extend(events)
+    merged = merge_into_turns(turns, all_events)
     if by_tool_use:
         for t in turns:
             for e in t.events:
                 if e.kind == "tool" and e.name in ("Agent", "Task") and by_tool_use.get(e.tool_use_id):
                     e.name = e.name + ":read"   # its transcript was read and merged: not opaque any more
     return merged
+
+
+FEEDBACK = re.compile(r"\s*(?:Stop hook feedback|⚠️ honestly)")   # a Stop hook sending the agent back: judged with the turn it answers, by hooks.stop_hook
 
 
 TAIL_THRESHOLD = 8 * 1024 * 1024
@@ -395,7 +469,7 @@ def parse_session(path: str, subagents: bool = True, tail: bool = False, min_tur
         while True:
             start = tail_start(path, _claude_prompt_row, want)
             turns = _parse(path, start=start)
-            if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
+            if start == 0 or sum(1 for t in turns if t.prompt and not FEEDBACK.match(t.prompt)) >= min_turns:
                 break
             want *= 4   # some user rows are not prompts: read further back
         if start > 0 and turns and not turns[0].prompt:

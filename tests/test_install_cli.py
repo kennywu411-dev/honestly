@@ -807,9 +807,9 @@ def test_doctor_with_only_another_assistant_is_happy(tmp_path, monkeypatch):
     home = _doctor_home(tmp_path, monkeypatch)
     exe = _script(tmp_path / "bin" / "honestly")
     monkeypatch.setattr(sys, "argv", [str(exe)])
-    hooks.guard("install", agent="codex")
+    hooks.guard("install", agent="gemini")   # Codex needs one more step, and doctor says so: test_doctor_codex.py
     text, problems = _doctor()
-    assert not problems and "FAIL" not in text and "Codex" in text
+    assert not problems and "FAIL" not in text and "Gemini" in text
     assert home
 
 

@@ -172,11 +172,14 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     failed = f.verdict == "contradicted"
     errored = not failed and "errored" in (f.reason or "")
     image_only = f.verdict == "weak"
+    running = "still running" in (f.reason or "")
     if zh:
         who = who or "AI"
         if not f.last_edit:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
         where = f"改完 {edited} 之后" if edited else "改完代码之后"
+        if running:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}还在运行（still running），结果还没出来。已要求其等到结果再回复。"
         if failed:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}结果显示失败。已要求其修复，或如实报告失败。"
         if errored:
@@ -190,6 +193,8 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     if not f.last_edit:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
     where = f"after editing {edited}" if edited else "after editing the code"
+    if running:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} was still running, so nobody has seen its result. It has been asked to wait for it.'
     if failed:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} reported a failure. It has been asked to fix it or report the failure.'
     if errored:
@@ -462,11 +467,44 @@ def _session_tools(agent: str, path: str):
         return None
 
 
+def _turn_to_judge(turns: list) -> tuple:
+    """(the turn to judge, the one before it, whether honestly already held a reply to this prompt). A hook's feedback comes back as a message of its own.
+    The work it answers is in the turns before it, back to the person's prompt; only the newest reply is judged, with all that work as context."""
+    import dataclasses
+    from .claude_code import FEEDBACK
+    last = len(turns) - 1
+    first = last
+    while first >= 0 and FEEDBACK.match(turns[first].prompt or ""):
+        first -= 1
+    if first == last:
+        return turns[last], turns[last - 1] if last else None, False
+    held = any("honestly" in (t.prompt or "")[:400] for t in turns[first + 1:last + 1])
+    if first < 0:
+        return turns[last], None, held
+    work = [e for t in turns[first:last] for e in t.events if e.kind != "text"]
+    return dataclasses.replace(turns[first], events=work + list(turns[last].events)), turns[first - 1] if first else None, held
+
+
+def _note_running(turn, tasks) -> None:
+    """Claude Code lists what is still running when it stops. A command or subagent on that list has no result yet, whatever its record says so far,
+    and a background subagent not on it is done, so its work counts in full."""
+    if not isinstance(tasks, list):
+        return   # an older host: nothing is known
+    ids = {str(t.get("id")) for t in tasks if isinstance(t, dict) and t.get("status") == "running"}
+    for e in turn.events:
+        if e.kind != "tool":
+            continue
+        agent = e.via.split(":", 1)[1] if ":" in e.via else ""
+        e.running = e.running or (e.task != "" and e.task in ids) or (agent in ids and not e.result)
+        if e.via.startswith("subagent-bg:") and agent not in ids:
+            e.via = f"subagent:{agent}"
+
+
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     from .audit import audit_turn
     from .claude_code import Event, Turn
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
-    second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
+    second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice. Gemini CLI resets this after a tool call, so the transcript is read as well
     cfg = config.load(data.get("cwd") or None)
     config.apply(cfg)
     final = data.get("last_assistant_message") or ""
@@ -480,19 +518,15 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
             _note("stop", f"transcript could not be parsed, only the final message was checked: {path} ({e.__class__.__name__}: {e})")
             turns = []
         if turns:
-            turn = turns[-1]
-            prev = turns[-2] if len(turns) > 1 else None
-            if prev is not None and (turn.prompt or "").lstrip().startswith(("Stop hook feedback", "⚠️ honestly")):
-                # Claude Code and Gemini CLI feed the block back as a new message; the work it answers is the turn before it
-                import dataclasses
-                turn = dataclasses.replace(prev, events=[e for e in prev.events if e.kind != "text"] + list(turn.events))   # judge only the new reply, with the earlier edits as context
-                prev = turns[-3] if len(turns) > 2 else None
+            turn, prev, held_already = _turn_to_judge(turns)
+            second_pass = second_pass or held_already
         elif os.path.getsize(path) == 0:
             _note("stop", f"transcript is empty, only the final message was checked: {path}")
     elif path:
         _note("stop", f"transcript_path does not exist, only the final message was checked: {path}")
     if turn is None:
         turn = Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or ""))
+    _note_running(turn, data.get("background_tasks"))
     if agent == "gemini" and second_pass and any(e.kind == "text" for e in turn.events):
         final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
@@ -504,8 +538,14 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
             known["tools"] = _session_tools(agent, path)
         return known["tools"]
 
-    bad = [f for f in audit_turn(turn, prev, session_tools if path else None) if f.verdict in config.blocked_verdicts(cfg)]
+    findings = audit_turn(turn, prev, session_tools if path else None)
+    bad = [f for f in findings if f.verdict in config.blocked_verdicts(cfg)]
     if not bad:
+        if findings and path and not os.path.exists(path) and not second_pass:   # no record of what it did (--no-session-persistence): nothing to hold it on, and the person should know
+            claim = _untrusted(findings[0].claim.strip().rstrip("。．.!！;；"), 60)
+            zh = _lang_zh(cfg, findings[0].claim)
+            return agents.warn(agent, f"⚠️ honestly 无法核实「{claim}」（could not check）：这个会话没有保存记录，请把它当作未经验证。" if zh else
+                               f'⚠️ honestly could not check "{claim}": this session keeps no transcript, so there is nothing to check it against. Treat it as unverified.')
         return None
     zh = _lang_zh(cfg, bad[0].claim)
     if second_pass:

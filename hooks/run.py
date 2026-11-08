@@ -38,8 +38,10 @@ def _guard_installed(which: str) -> bool:
 
 def main() -> int:
     args = sys.argv[1:]
-    if sys.version_info < (3, 9):
-        return 0   # never block the assistant because of an old interpreter
+    if sys.version_info < (3, 9):   # never block the assistant because of an old interpreter, but say so: nothing is being checked
+        if args[:2] == ["hook", "stop"]:
+            print('{"systemMessage": "honestly is not checking this session: it needs Python 3.9 or newer on the PATH as python3 or python."}')
+        return 0
     if args[:1] == ["hook"] and _guard_installed(args[1] if len(args) > 1 else ""):
         return 0
     from honestly.cli import main as cli_main

@@ -9,3 +9,4 @@ ignore = ["B008"]
 
 [lint.per-file-ignores]
 "tests/*" = ["B011", "F841"]
+"tests/e2e/*" = ["B011", "F841", "F403", "F405"]   # scenario tables and runners share one `from common import *`

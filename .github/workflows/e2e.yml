@@ -1,0 +1,25 @@
+name: e2e
+# The real CLIs against a local stand-in for the model: no account and no key. Slow, and it installs the newest Claude Code, so it runs when asked and weekly, not on every push.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 2"
+permissions: {}
+jobs:
+  e2e:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: pip install -e . pexpect pyte
+      - run: tests/e2e/setup.sh
+      - run: PYTHON=$(which python) tests/e2e/run_all.sh
+      - if: always()
+        run: cat ~/.cache/honestly-e2e/results/summary.md >> "$GITHUB_STEP_SUMMARY"

@@ -26,6 +26,8 @@ If you have honestly's guard installed, it will refuse a test run whose result a
 | `src/honestly/prnote.py` | `honestly pr-note` |
 | `src/honestly/claude_code.py`, `codex.py`, `agents.py` | transcript parsers for each assistant |
 
+`tests/e2e/` runs the real assistants against a stand-in model (no key, macOS, not part of `pytest`). Run it when a parser or a hook contract changes: see its README.
+
 ## Fixing a misjudged case
 
 1. Write the case as a test first. Pre-hook cases call `hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}})`; output cases call `audit.judge_output`. The `tests/test_v06*.py` files are short examples.

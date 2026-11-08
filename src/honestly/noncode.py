@@ -101,14 +101,17 @@ DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\b
                            r"|\b(?:permission|access) denied\b|\bHTTP(?:/\S+)? ?[45]\d\d\b|\bERROR [45]\d\d\b|\breturned error\b|\b404 not found\b", re.I | re.M)
 
 
-def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False, session_tools=None) -> tuple[str, str, str, str]:
+def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False, session_tools=None, own_notice: bool = False) -> tuple[str, str, str, str]:
     """Return (verdict, reason, verified_by, output) for a non-code claim given the tool events earlier in the turn
     (and the previous turn's tools: a reply often opens by summarising what the previous turn did).
     `automated`: the turn answers a task notification or another session's message, and such a reply
-    usually summarises work from several turns back, so a missing action there is unverifiable, not unbacked."""
+    usually summarises work from several turns back, so a missing action there is unverifiable, not unbacked.
+    `own_notice`: all it answers is this session's own background task, so what the session never did is still a claim about nothing."""
     verdict = _judge(category, sentence, tools, opaque, prev_tools, remote)
-    if verdict[0] == "not_this_turn" and session_tools is not None and not automated:
-        verdict = _judge_recap(category, sentence, session_tools(), opaque, remote) or verdict
+    if verdict[0] == "not_this_turn" and session_tools is not None and (not automated or own_notice):
+        recap = _judge_recap(category, sentence, session_tools(), opaque, remote)
+        if recap:
+            return recap
     if automated and verdict[0] == "unbacked":
         return "unverifiable", "a reply to an automated message summarises earlier turns; " + verdict[1], verdict[2], verdict[3]
     return verdict

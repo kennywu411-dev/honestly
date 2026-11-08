@@ -1,6 +1,6 @@
 """0.5.0: config knobs, doctor/feedback, subagent transcripts, background task output."""
 import json, os
-from honestly import config, rules, hooks, support
+from honestly import agents, config, rules, hooks, support
 from honestly.claude_code import Event, Turn, parse_session
 from honestly.audit import audit_turn
 
@@ -82,6 +82,7 @@ def test_project_config_merges_on_top_of_user_config_once_trusted(tmp_path, monk
 # ---------------------------------------------------------- doctor / feedback
 def test_doctor_self_test_blocks_and_report_lists_problems(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "settings_path", lambda: str(tmp_path / "settings.json"))
+    monkeypatch.setattr(agents, "installed", lambda agent: [])   # the developer's own guard for another assistant
     results = support.self_test()
     assert [n for n, ok, _ in results if ok] == ["code", "non-code"]
     text = support.doctor()

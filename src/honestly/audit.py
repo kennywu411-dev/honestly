@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from . import rules, noncode, verdicts
-from .claude_code import NOT_ALL_HERE, Turn, Event, background_notice
+from .claude_code import NOT_ALL_HERE, TASK_ID, Turn, Event, background_notice
 
 
 @dataclass
@@ -36,12 +36,35 @@ LABELS = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could
           "weak": "weak", "not_this_turn": "no edit this turn", "out_of_scope": "not audited"}
 
 
-def _is_edit(e: Event) -> bool:
-    if e.kind != "tool" or e.via.startswith("subagent-bg"):
+TEMP_TOP = re.compile(r"^(?:/private)?/tmp/?$|^(?:/private)?/var/folders/[^/]+/[^/]+/T/?$|^/var/folders/?$|AppData/Local/Temp/?$", re.I)
+AGENT_SCRATCH = re.compile(r"(?:^|/)scratchpad(?:/|$)|/claude-\d+(?:/|$)|/Temp/claude", re.I)
+
+
+def _temp_project(project: str) -> list:
+    """The names of the folder a session runs in, when that folder lives under a temp directory: /tmp/demo is someone's project, and a new user trying
+    honestly there must see it work. The temp directory itself, and an agent's own scratch space, are not projects."""
+    root = (project or "").rstrip("/")
+    if not root or not rules.TEMP_PATH.search(root + "/") or TEMP_TOP.search(root) or AGENT_SCRATCH.search(root):
+        return []
+    plain = root[len("/private"):] if root.startswith("/private/") else root
+    return [plain, "/private" + plain] if plain.startswith(("/tmp/", "/var/")) else [root]
+
+
+def _inside(text: str, names: list) -> str:
+    """`text` with a project's temp path taken off, so that what is left is judged like any project's own path."""
+    for name in names:
+        text = re.sub(re.escape(name) + r"(?=[/\s\"';&|)]|$)", ".", text)
+    return text
+
+
+def _is_edit(e: Event, names: list = ()) -> bool:
+    """names: _temp_project() of the session this ran in."""
+    if e.kind != "tool":
         return False
+    text = _inside(e.text, names) if names else e.text
     if e.name in rules.EDIT_TOOLS:
-        return bool(e.text.strip()) and not rules.path_is_doc(e.text)   # an Edit with no path is not evidence of a code edit
-    return e.name == "Bash" and rules.bash_is_edit(e.text)
+        return bool(text.strip()) and not rules.path_is_doc(text)   # an Edit with no path is not evidence of a code edit
+    return e.name == "Bash" and rules.bash_is_edit(text)
 
 
 # What a run printed is read by verdicts.py, one table per runner.
@@ -467,7 +490,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         hit = dataclasses.replace(hit, evidence_kinds=kinds)
     after = [x for x in ev[edit_idx + 1:end] if x.kind == "tool"]
     seg, last = "", None
-    if any(x.name in rules.OPAQUE_TOOLS for x in after):
+    if any(x.name in rules.OPAQUE_TOOLS and not x.running for x in after):   # a subagent known to be still running has reported nothing yet: it is judged on what has finished
         return "unverifiable", "a subagent/background/terminal tool ran after the last edit", seg, last
     if any(x.name == "Bash" and rules.too_big(x.text) for x in after):
         return "unverifiable", "a shell command after the last edit was too long to read", seg, last
@@ -504,6 +527,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     if not verifying and any(TASK_OUTPUT_READ.search(x.text or "") for x in after):
         return "unverifiable", "a background task's output was read after the edit; when that run happened is not on the transcript", seg, last
     if not verifying:
+        if any(x.running for x in after):
+            return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
     last, segs = verifying[-1]
     seg = segs[-1].text
@@ -523,6 +548,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
             if v2 == "backed" or (v2 == "contradicted" and verdict == "unverifiable"):
                 last, seg, verdict, reason = cand, csegs[-1].text, v2, r2
                 break
+    if verdict == "unverifiable" and last.running:
+        verdict, reason = "unbacked", "the check was still running when this was written, so nobody has seen its result"
     if verdict == "contradicted" and FAILS_BEFORE.search(hit.sentence):
         if _clean_pass(last.result):   # one command ran the new code (passed) and the old code (failed)
             verdict, reason = "backed", "the output has a passing run; the failing run was on the old code, as the claim says"
@@ -568,18 +595,35 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     out = []
     ev = turn.events
     automated = automated_prompt(turn.prompt or "")
-    flags = [_is_edit(x) for x in ev]
+    names = _temp_project(getattr(turn, "project", ""))
+    flags = [_is_edit(x, names) for x in ev]
+    wall, answering = 0, turn.prompt or ""   # another session's report starts a stretch of its own: a reply to it is about that work
+    since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
+    prompted_by_harness = automated
+    own_notice = False
+    reported = set()   # background subagents that have said they are done. One still at work has handed over nothing, and its edits do not make a finished check stale.
     for i, e in enumerate(ev):
+        if e.kind == "mark":
+            task = TASK_ID.search(e.text)
+            if task:
+                reported.add(task.group(1))
+            automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
+            own_notice = not prompted_by_harness and not wall and (own_notice or e.name == "notice") and e.name != "report"
+            if e.name == "report":
+                wall, answering = i + 1, e.text
+            if e.name != "meta":
+                since = i + 1
+            continue
         if e.kind != "text":
             continue
         for hit in rules.find_claims(e.text):
-            before = ev[:i]
+            before = ev[since:i]
             if hit.category in noncode.SPECS:
-                prev_ev = prev.events if prev is not None else None
-                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools)
+                prev_ev = ev[:since] if since else (prev.events if prev is not None else None)
+                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools, own_notice)
                 if verdict == "unbacked" and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("saved, now checking") is judged on everything the turn did before it ended
-                    v2 = noncode.judge(hit.category, hit.sentence, ev, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
+                    v2 = noncode.judge(hit.category, hit.sentence, ev[since:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
                     if v2[0] != "unbacked":
                         verdict, reason, vb, out_snip = v2
                 tools_in_turn = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in before if x.kind == "tool"]
@@ -588,7 +632,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                 out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
                                    hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
                 continue
-            edit_idx = max((j for j in range(i) if flags[j]), default=-1)
+            edit_idx = max((j for j in range(wall, i) if flags[j] and (not ev[j].via.startswith("subagent-bg:") or ev[j].via.split(":", 1)[1] in reported)), default=-1)
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
             tools_after = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in after]
             last_edit = f"{ev[edit_idx].name}: {ev[edit_idx].text[:400]}" if edit_idx >= 0 else ""
@@ -599,7 +643,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                 verdict, reason = "out_of_scope", "fuzzy category not audited in v1"
             elif edit_idx < 0:
                 verdict, reason = "not_this_turn", "no code edit in this turn before the claim"
-                if _never_in_session(hit, session_tools, automated):
+                if _never_in_session(hit, session_tools, automated and not own_notice):
                     verdict, reason = "unbacked", "nothing in this session ran what this claims"
             else:
                 verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i)
@@ -610,7 +654,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
                     v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"})
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
-                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev, turn.prompt):
+                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev[wall:], answering):
                     verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
                 if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
                     verdict, reason = "unverifiable", "a recap of work already committed; a later edit is not part of it"
@@ -627,7 +671,7 @@ def audit_turns(turns):
     seen = []
     continued = False
     for t in turns:
-        continued = continued or any(mark in (t.prompt or "") for mark in NOT_ALL_HERE)
+        continued = continued or any(mark in text for text in [t.prompt or ""] + [e.text for e in t.events if e.kind == "mark"] for mark in NOT_ALL_HERE)
         seen.extend(e for e in t.events if e.kind == "tool")
         findings.extend(audit_turn(t, prev, None if continued else (lambda: seen)))
         prev = t

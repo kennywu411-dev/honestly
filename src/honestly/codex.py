@@ -9,12 +9,16 @@ import glob
 import json
 import os
 import re
-from .claude_code import Event, Turn, clip_output
+from .claude_code import Event, Turn, clip_output, merge_into_turns
 
 CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
-USER_MESSAGE = re.compile(rb'"type":\s*"UserMessage"')
+USER_MESSAGE = re.compile(rb'"type":\s*"(?:UserMessage|user_message)"')   # user_message: rollouts of Codex before about 0.150
+STILL_RUNNING = re.compile(r"Process running with session ID (\d+)")
+EXITED = re.compile(r"Process exited with code (\d+)")
+SPAWNED = re.compile(r'"agent_id"\s*:\s*"([\w-]+)"')
 HEADER_LINES = 32
+HOOK_PROMPT = re.compile(r"</?hook_prompt\b[^>]*>")
 
 
 def is_prompt_row(line: bytes) -> bool:
@@ -43,7 +47,9 @@ def _dig(d, *keys):
 def _command_from_call(name: str, payload: dict) -> tuple[str, str]:
     """Return (tool_kind, text) where tool_kind is Bash / Edit / other."""
     inp0 = payload.get("input")
-    if isinstance(inp0, str) and CMD_IN_INPUT.search(inp0):
+    if name in ("spawn_agent", "agent_spawn"):
+        return "Agent", ""   # work this record cannot see, until its own rollout is read: see _merge_subagents
+    if name != "apply_patch" and isinstance(inp0, str) and not inp0.lstrip().startswith("*** Begin Patch") and CMD_IN_INPUT.search(inp0):
         name = "exec"   # the desktop app wraps shell calls in a JS runner; the cmd is what matters
     if name in ("exec", "shell", "shell_command", "exec_command", "container.exec", "local_shell"):   # desktop app + Codex CLI names
         inp = payload.get("input")
@@ -77,6 +83,14 @@ def _command_from_call(name: str, payload: dict) -> tuple[str, str]:
     return name or "tool", ""
 
 
+def _session_id(arguments) -> str:
+    try:
+        value = json.loads(arguments).get("session_id") if isinstance(arguments, str) else None
+    except (ValueError, AttributeError):
+        return ""
+    return str(value) if isinstance(value, (int, str)) else ""
+
+
 def _header(path: str) -> tuple:
     """(project, model) from the first lines, for a parse that starts further on."""
     project = model = ""
@@ -92,12 +106,36 @@ def _header(path: str) -> tuple:
     return project, model
 
 
-def parse_session(path: str, start: int = 0):
+def _merge_subagents(path: str, turns: list, depth: int = 3) -> None:
+    """A spawned agent records its work in a rollout of its own, named by its id, usually next to this one. Its tool calls are placed in the turn they
+    happened in, so a test it ran counts and an edit it made is seen. A spawn whose rollout cannot be found stays opaque."""
+    day = os.path.dirname(path)
+    sessions = os.path.dirname(os.path.dirname(os.path.dirname(day)))
+    for t in turns:
+        for e in t.events:
+            if e.kind != "tool" or e.name != "Agent":
+                continue
+            m = SPAWNED.search(e.result or "")
+            if not m or depth <= 0:
+                continue
+            found = glob.glob(os.path.join(glob.escape(day), f"rollout-*-{m.group(1)}.jsonl")) or glob.glob(os.path.join(glob.escape(sessions), "*", "*", "*", f"rollout-*-{m.group(1)}.jsonl"))
+            if not found:
+                continue
+            events = [x for c in parse_session(found[0], depth=depth - 1) for x in c.events if x.kind == "tool" and x.ts]
+            for x in events:
+                x.via = x.via or f"subagent:{m.group(1)}"
+            merge_into_turns(turns, events)
+            e.name = "Agent:read"
+
+
+def parse_session(path: str, start: int = 0, depth: int = 3):
     session = os.path.splitext(os.path.basename(path))[0].replace("rollout-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
     project, model = _header(path) if start > 0 else ("", "")
     pending: dict[str, Event] = {}   # call_id -> event, to attach outputs
+    sessions: dict[str, Event] = {}  # a long command's session id -> the command, whose result arrives through write_stdin
+    polls: dict[str, str] = {}       # write_stdin's call_id -> session id
     with open(path, encoding="utf-8", errors="ignore") as fh:
         if start > 0:
             fh.seek(start)
@@ -128,11 +166,25 @@ def parse_session(path: str, start: int = 0):
                     turns.append(cur)
                 cur = Turn(session=session, index=len(turns), version=model, prompt=text[:200], ts=ts, agent="codex", model=model, project=project)
                 continue
+            if t == "event_msg" and p.get("type") == "user_message" and isinstance(p.get("message"), str):
+                if cur is not None and not cur.events and cur.prompt == p["message"][:200]:
+                    continue
+                if cur is not None:
+                    turns.append(cur)
+                cur = Turn(session=session, index=len(turns), version=model, prompt=p["message"][:200], ts=ts, agent="codex", model=model, project=project)
+                continue
             if t != "response_item":
                 continue
             kind = p.get("type")
             if cur is None:
                 cur = Turn(session=session, index=0, version=model, prompt="", ts=ts, agent="codex", model=model)
+            if kind == "message" and p.get("role") == "user":
+                said = " ".join(str(c.get("text") or "") for c in (p.get("content") or []) if isinstance(c, dict))
+                if said.startswith("<hook_prompt"):   # a Stop hook sent the agent back: judged with the turn it answers, by hooks.stop_hook
+                    if cur is not None:
+                        turns.append(cur)
+                    cur = Turn(session=session, index=len(turns), version=model, prompt=HOOK_PROMPT.sub("", said)[:2000], ts=ts, agent="codex", model=model, project=project)
+                continue
             if kind == "message" and p.get("role") == "assistant":
                 text = " ".join(str(c.get("text") or "") for c in (p.get("content") or []) if isinstance(c, dict))
                 if text.strip():
@@ -143,6 +195,10 @@ def parse_session(path: str, start: int = 0):
                 cur.events.append(ev)
                 if ev.tool_use_id:
                     pending[ev.tool_use_id] = ev
+                if p.get("name") == "write_stdin":
+                    polled = _session_id(p.get("arguments"))
+                    if polled:
+                        polls[ev.tool_use_id] = polled
             elif kind in ("custom_tool_call_output", "function_call_output"):
                 out = p.get("output")
                 if isinstance(out, list):
@@ -151,7 +207,20 @@ def parse_session(path: str, start: int = 0):
                 ev = pending.get(str(p.get("call_id") or ""))
                 if ev is not None:
                     ev.result = clip_output(out)
-                    ev.is_error = bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
+                    ended = EXITED.search(out[:500])
+                    # the exit code is the answer when the tool states it: a passing run can log `No such file`. Otherwise this is a guess from what it printed.
+                    ev.is_error = int(ended.group(1)) != 0 if ended else bool(re.search(r"(exit(?:ed with)? code:? [1-9]|\"exit_code\":\s*[1-9]|Traceback|command not found|No such file|^Script failed|Command blocked by)", out[:500], re.I | re.M))
+                    started = STILL_RUNNING.search(out[:500])
+                    if started and ev.name == "Bash":
+                        sessions[started.group(1)] = ev
+                        ev.task, ev.running = started.group(1), True
+                    command = sessions.get(polls.get(ev.tool_use_id, ""))
+                    if command is not None:   # the command's own output, after however many polls
+                        command.result = clip_output((command.result or "") + "\n" + out)
+                        if ended:
+                            command.running, command.is_error = False, int(ended.group(1)) != 0
     if cur is not None:
         turns.append(cur)
+    if depth > 0:
+        _merge_subagents(path, turns, depth)
     return turns

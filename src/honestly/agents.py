@@ -45,6 +45,9 @@ def _tool_event(name: str, inp, ts: str = ""):
     return Event("tool", name=name or "tool", text=str(path or inp.get("query") or inp.get("prompt") or ""), ts=ts)
 
 
+# `user` records of Gemini CLI that no person wrote: its preamble, a compression summary, its loop warning, a hook's feedback
+GEMINI_INJECTED = ("<session_context>", "<state_snapshot>", "System: Potential loop detected")
+NOT_GEMINI_PROMPT = tuple(m.encode() for m in GEMINI_INJECTED) + ("⚠️ honestly".encode("utf-8"), b"\\u26a0\\ufe0f honestly")
 CURSOR_USER = re.compile(rb'"role":\s*"user"')
 GEMINI_USER = re.compile(rb'"type":\s*"user"')
 
@@ -54,7 +57,7 @@ def _cursor_prompt_row(line: bytes) -> bool:
 
 
 def _gemini_prompt_row(line: bytes) -> bool:
-    return GEMINI_USER.search(line) is not None and b"functionResponse" not in line and b"<session_context>" not in line
+    return GEMINI_USER.search(line) is not None and b"functionResponse" not in line and not any(mark in line for mark in NOT_GEMINI_PROMPT)
 
 
 def cursor_parse(path: str, start: int = 0):
@@ -189,7 +192,35 @@ def _gemini_project(path: str) -> str:
         return ""
 
 
-def gemini_parse(path: str, start: int = 0):
+MOVED_TO_BACKGROUND = re.compile(r"moved to background \(PID: (\d+)\)")
+
+
+def _merge_gemini_subagents(path: str, turns: list) -> None:
+    """A subagent records its work in chats/<the session's id>/<its id>.jsonl (header `kind: subagent`). Its tool calls are placed in the turn they happened in."""
+    import glob
+    from .claude_code import merge_into_turns
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            sid = json.loads(fh.readline()).get("sessionId")
+    except (OSError, ValueError, AttributeError):
+        return
+    if not isinstance(sid, str) or not sid:
+        return
+    events = []
+    for f in sorted(glob.glob(os.path.join(glob.escape(os.path.dirname(path)), glob.escape(sid), "*.jsonl"))):
+        agent_id = os.path.splitext(os.path.basename(f))[0]
+        found = [e for t in gemini_parse(f, subagents=False) for e in t.events if e.kind == "tool" and e.ts]
+        for e in found:
+            e.via = f"subagent:{agent_id}"
+        events.extend(found)
+    if events and merge_into_turns(turns, events):
+        for t in turns:
+            for e in t.events:
+                if e.kind == "tool" and e.name == "Agent":
+                    e.name = "Agent:read"
+
+
+def gemini_parse(path: str, start: int = 0, subagents: bool = True):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
     from .claude_code import Event, Turn, clip_output
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
@@ -197,6 +228,8 @@ def gemini_parse(path: str, start: int = 0):
     cur: Turn | None = None
     model = ""
     project = _gemini_project(path)
+    compressed = False
+    background: dict[str, Event] = {}   # the PID of a command moved to the background -> the command
     records = list(_gemini_records(path, start))
     latest = {r["id"]: i for i, r in enumerate(records) if isinstance(r.get("id"), str)}   # a record is updated by appending it again under the same id
     for i, r in enumerate(records):
@@ -212,11 +245,21 @@ def gemini_parse(path: str, start: int = 0):
             content = r.get("content")
             if isinstance(content, list) and any(isinstance(p, dict) and "functionResponse" in p for p in content):
                 continue   # a tool's result is sent back as a `user` record: the same turn goes on
-            if _parts_text(content).lstrip().startswith("<session_context>"):
+            text = _parts_text(content).lstrip()
+            if text.startswith("<session_context>"):
                 continue   # the CLI's own preamble, not a prompt
+            if text.startswith(GEMINI_INJECTED):   # a compression or a loop warning happens inside the turn
+                compressed = compressed or text.startswith("<state_snapshot>")
+                if cur is not None:
+                    cur.events.append(Event("mark", name="compact" if text.startswith("<state_snapshot>") else "aside", text=text[:1500], ts=ts))
+                continue
+            if compressed and cur is not None and _parts_text(content)[:200] == cur.prompt:
+                compressed = False   # compression records the prompt it is answering again
+                continue
             if cur is not None:
                 turns.append(cur)
-            cur = Turn(session=session, index=len(turns), version=model, prompt=_parts_text(r.get("content"))[:200], ts=ts, agent="gemini", model=model, project=project)
+            compressed = False
+            cur = Turn(session=session, index=len(turns), version=model, prompt=_parts_text(content)[:200], ts=ts, agent="gemini", model=model, project=project)
         elif t == "gemini":
             if cur is None:
                 cur = Turn(session=session, index=0, version=model, prompt="", ts=ts, agent="gemini", project=project)
@@ -233,12 +276,24 @@ def gemini_parse(path: str, start: int = 0):
                 ev.is_error = True if st in ("error", "failed", "cancelled") else (False if st in ("success", "ok", "done") else None)
                 if code is not None:
                     ev.is_error = code != 0   # the call itself is "success" when the command ran and failed
+                if ev.name == "invoke_agent":
+                    ev.name = "Agent"   # work this record cannot see, until the subagent's own record is read
+                moved = MOVED_TO_BACKGROUND.search(res[:300])
+                if moved and ev.name == "Bash":
+                    background[moved.group(1)] = ev
+                    ev.task, ev.running = moved.group(1), True
+                args = call.get("args") if isinstance(call.get("args"), dict) else {}
+                command = background.get(str(args.get("pid"))) if ev.name == "read_background_output" else None
+                if command is not None and res.strip():   # the command's own output, whenever it was asked for
+                    command.result, command.running = clip_output(re.sub(r"^Full Log Output:\n?", "", res)), False
                 cur.events.append(ev)
             text = _parts_text(r.get("content"))
             if text.strip():
                 cur.events.append(Event("text", text=text, ts=ts))
     if cur is not None:
         turns.append(cur)
+    if subagents and turns:
+        _merge_gemini_subagents(path, turns)
     return turns
 
 
@@ -272,10 +327,17 @@ def normalize(agent: str, which: str, data: dict) -> dict:
             cmd = ti.get("command") or ti.get("cmd") or ""
             if isinstance(cmd, list):
                 cmd = " ".join(str(x) for x in cmd)
+            if str(d.get("tool_name") or "") in EDIT_TOOLS or str(cmd).lstrip().startswith("*** Begin Patch"):
+                return d   # an edit's text is what it writes, never a command: apply_patch hands its whole patch over as `command`
             if str(d.get("tool_name") or "") in SHELL_TOOLS or cmd:
                 d["tool_name"] = "Bash"
                 d["tool_input"] = {"command": str(cmd)}
     return d
+
+
+def _hook_error_note(plain: str) -> str:
+    """Claude Code (2.1.319) words a held reply as "Stop hook error occurred" and a refused command as "hook error". The person should not go looking for a fault."""
+    return "（Claude Code 会把这显示成 hook error，这不是故障：是 honestly 有意拦下的。）" if re.search(r"[\u4e00-\u9fff]", plain) else " (Claude Code calls this a \"hook error\". Nothing is broken: honestly held it on purpose.)"
 
 
 def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
@@ -287,9 +349,10 @@ def emit(agent: str, which: str, plain: str, instruction: str) -> dict:
     if agent == "gemini":
         return {"decision": "deny", "reason": plain + "\n" + instruction, "systemMessage": plain}
     # claude-code and codex share the contract
+    shown = plain + (_hook_error_note(plain) if agent == "claude-code" else "")
     if which == "stop":
-        return {"decision": "block", "reason": plain + "\n" + instruction, "systemMessage": plain}
-    return {"systemMessage": plain, "hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+        return {"decision": "block", "reason": plain + "\n" + instruction, "systemMessage": shown}
+    return {"systemMessage": shown, "hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                                            "permissionDecisionReason": plain + "\n" + instruction}}
 
 
@@ -322,7 +385,57 @@ def config_path(agent: str) -> str:
     if agent == "claude-code":
         from .hooks import settings_path
         return settings_path()
-    return os.path.join(os.path.expanduser("~"), *{"codex": (".codex", "hooks.json"), "cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
+    if agent == "codex":
+        return os.path.join(_codex_home(), "hooks.json")
+    return os.path.join(os.path.expanduser("~"), *{"cursor": (".cursor", "hooks.json"), "gemini": (".gemini", "settings.json")}[agent])
+
+
+def _codex_home() -> str:
+    return os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
+
+
+def codex_hook_hash(group: dict, event: str) -> str:
+    """The hash Codex (0.167) stores for a hook someone trusted, in `[hooks.state."<hooks.json>:<event>:<group>:<hook>"]` of its config.toml.
+    A hook whose line changed, say after installing honestly somewhere else, no longer matches, and Codex stops running it until it is reviewed again."""
+    import hashlib
+    hook = next(h for h in group.get("hooks") or [] if _is_ours(h))
+    identity = {"event_name": event, "hooks": [{"async": False, "command": hook.get("command"), "timeout": hook.get("timeout"), "type": "command"}]}
+    if event != "stop":   # Codex does not match on Stop
+        identity["matcher"] = group.get("matcher", "")
+    return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def codex_trust() -> tuple:
+    """(state, detail) of honestly's hooks in Codex: "trusted"; "untrusted", never reviewed; "changed", reviewed but the hook line is different now; "unknown", could not read.
+    Codex silently skips a hook in the last two states, and `codex exec` never asks."""
+    try:
+        with open(config_path("codex"), encoding="utf-8") as fh:
+            hooks = (json.load(fh).get("hooks") or {})
+    except (OSError, ValueError, AttributeError):
+        return "unknown", ""
+    try:
+        with open(os.path.join(_codex_home(), "config.toml"), encoding="utf-8", errors="replace") as fh:
+            config = fh.read()
+    except FileNotFoundError:
+        config = ""
+    except OSError:
+        return "unknown", ""
+    state = "trusted"
+    for event, key in (("Stop", "stop"), ("PreToolUse", "pre_tool_use")):
+        groups = hooks.get(event) if isinstance(hooks.get(event), list) else []
+        at = next((i for i, g in enumerate(groups) if isinstance(g, dict) and any(_is_ours(h) for h in g.get("hooks") or [])), None)
+        if at is None:
+            continue
+        hook_at = next(i for i, h in enumerate(groups[at]["hooks"]) if _is_ours(h))
+        m = re.search(r'\[hooks\.state\."[^"\n]*hooks\.json:' + key + f":{at}:{hook_at}" + r'"\]\s*\n\s*trusted_hash\s*=\s*"sha256:([0-9a-f]+)"', config)
+        if not m:
+            return "untrusted", key
+        if m.group(1) != codex_hook_hash(groups[at], key):
+            state = "changed"
+    return state, ""
+
+
+CODEX_REVIEW = "open `codex` once and choose \"Trust all and continue\" (or run /hooks inside it)"
 
 
 def _is_ours(h) -> bool:
@@ -360,7 +473,10 @@ def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     name = NAMES[agent]
     flat = agent == "cursor"
     if action == "status":
-        return _hooks._status_line(name, path, flat)
+        line = _hooks._status_line(name, path, flat)
+        if agent == "codex" and installed(agent) and codex_trust()[0] in ("untrusted", "changed"):
+            line += f"; Codex will not run them until you {CODEX_REVIEW}"
+        return line
     top = {"version": 1} if flat else None
     result, after = _hooks._guard_edit(name, path, action, entries(agent, exe) if action == "install" else {}, dry_run, flat, top)
     if dry_run:
@@ -368,7 +484,7 @@ def guard(agent: str, action: str, exe: str, dry_run: bool = False) -> str:
     if result == "unchanged":
         return (f"honestly guard ({name}): already installed, nothing changed ({path})" if action == "install"
                 else f"honestly guard ({name}): not installed, nothing to remove ({path})")
-    note = {"codex": "  Codex asks you to review new hooks once: run /hooks inside Codex.",
+    note = {"codex": f"  Codex does not run a new or changed hook until you trust it, and `codex exec` skips it without a word: {CODEX_REVIEW}.",
             "cursor": "  Cursor shows hook-visible transcripts only when they are enabled; the stop hook needs them to see what was said.",
             "gemini": ""}[agent]
     return f"honestly guard ({name}): {action}ed → {path}" + ("\n" + note if note and action == "install" else "")
