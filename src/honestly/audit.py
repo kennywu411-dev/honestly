@@ -46,9 +46,22 @@ def _is_edit(e: Event) -> bool:
 
 TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)?\b|✓|全部通过|fail(ed|ures)?[: ]+0\b|\b0 failed|\bpass \d+"
                        r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b"
-                       r"|\b[1-9]\d* examples?,\s*0 failures\b", re.I | re.M)  # rspec: 5 examples, 0 failures
+                       r"|\b[1-9]\d* (?:examples?|tests?),\s*(?:with\s+)?0 failures\b"  # rspec: 5 examples, 0 failures; ExUnit: 9 tests, 0 failures; XCTest: Executed 9 tests, with 0 failures
+                       r"|\bwith \d+ failures? \(0 unexpected\)", re.I | re.M)  # XCTest: expected failures (XCTExpectFailure) are not failures
 TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
                        r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
+# a non-zero failure count, which no pass marker on the same summary can outweigh. Each shape is one a runner prints, so that a log line ("retried after 2 failures", "connection failed: 3 retries") does not overrule a passing run.
+FAIL_COUNT = re.compile(r"\b[1-9]\d* (?:tests? )?failed\b"                                       # pytest: 2 failed; CTest: 2 tests failed
+                        r"|(?:^|[,;|(-])\s*(?:fail(?:ed|ures?)|errors)\s*[:=]\s*[1-9]"           # dotnet, NUnit: Failed: 2; Maven: Errors: 2; unittest: (failures=2)
+                        r"|\b(?:examples?|tests?|assertions?),\s*(?:with\s+)?[1-9]\d* failures?\b(?!\s*\(0 unexpected\))"   # RSpec, ExUnit, XCTest, minitest
+                        r"|\b(?:passed|failures?|assertions?),\s*[1-9]\d* errors?\b"             # pytest: 7 passed, 2 errors; minitest: 0 failures, 2 errors
+                        r"|^\s*[1-9]\d* failures?,\s*\d+ errors?\b"                              # clojure.test: 2 failures, 0 errors
+                        r"|^\s*[1-9]\d* fail\s*$|^\s*#?\s*fail\s+[1-9]"                          # bun:  2 fail; TAP: # fail 2
+                        r"|\[\s*FAILED\s*\]\s*[1-9]\d* tests?\b", re.I | re.M)                   # GoogleTest: [  FAILED  ] 2 tests
+# runners that print one result per package or project: a failing one is not cancelled by the next one passing
+TARGET_FAIL = ((re.compile(r"\bgo test\b"), re.compile(r"^(FAIL\b|--- FAIL:)", re.M), "go test output shows FAIL"),   # `ok pkg/a` lines do not cancel a failing package
+               (re.compile(r"\bdotnet test\b"), re.compile(r"^\s*Failed!\s+-", re.M), "dotnet test output shows a failed project"),
+               (re.compile(r"\bcargo test\b"), re.compile(r"^test result: FAILED", re.M), "cargo test output shows a failed target"))
 SUMMARY_LINE = re.compile(r"((?<!Found )\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
 IMAGE_READ = re.compile(r"\.(png|jpe?g|gif|webp)$", re.I)
 VISUAL_CMD = re.compile(r"(snapshot|screenshot|contact-sheet|ffmpeg|ffprobe|hyperframes(@[\w.]+)? (render|build)|blender |--screenshot|--dump-dom)", re.I)
@@ -87,15 +100,17 @@ def _last_summary(out: str) -> str:
     hits = [m.group(0) for m in SUMMARY_LINE.finditer(out)]
     if not hits:
         return out
-    # a pytest summary like "2 failed, 17 passed" spans one line: take everything from the last summary start
-    tail = out[out.rfind(hits[-1]):]
+    # a summary spans its whole line: in "9 runs, 2 failures, 0 errors" the hit is only "0 errors", and the failures come before it
+    start = out.rfind(hits[-1])
+    tail = out[out.rfind("\n", 0, start) + 1:]
     return tail[:400]
 # a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet, PHPUnit, Deno, RSpec
 ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
                         r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
                         r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))"
                         r"|\bNo tests executed\b"  # phpunit: No tests executed!
-                        r"|\bNo test is available\b"  # dotnet test: No test is available in ...
+                        r"|\bNo test is available\b|\bNo test matches\b"  # dotnet test: No test is available in ...; No test matches the given testcase filter ...
+                        r"|\b0 tests?,\s*(?:with\s+)?0 failures\b|\b0 runs, 0 assertions\b"  # ExUnit, XCTest, minitest
                         r"|\bok\s*\|\s*0 passed\s*\|\s*0 failed\b"  # deno test: ok | 0 passed | 0 failed
                         r"|\b0 examples,\s*0 failures\b", re.I | re.M)  # rspec: 0 examples, 0 failures
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
@@ -116,13 +131,14 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         return "unverifiable", "only a status read ran after the fix"
     if category in ("tests_pass", "checks_pass") or rules.VERIFY["test"].search(seg):   # a later `git push` failing in the same command does not undo `26 passed`
         summ = _last_summary(out)
-        if re.search(r"\bgo test\b", seg) and re.search(r"(?m)^(FAIL\b|--- FAIL:)", out):
-            return "contradicted", "go test output shows FAIL"   # `ok pkg/a` lines do not cancel a failing package
+        for runner, failed, why in TARGET_FAIL:
+            if runner.search(seg) and failed.search(out):
+                return "contradicted", why
         if TEST_FAIL.search(summ) and not TEST_PASS.search(summ):
             return "contradicted", "last test summary shows failures"
-        if TEST_FAIL.search(summ) and TEST_PASS.search(summ) and re.search(r"\b[1-9]\d* failed", summ):
-            return "contradicted", "last test summary shows failures alongside passes"
-        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
+        if FAIL_COUNT.search(summ):
+            return "contradicted", "last test summary counts failures"
+        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|\bPassed:\s*[1-9]|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
             return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
         if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out) and not re.search(r"(?m)^ok\s+\S+(?![^\n]*\[no tests to run\])|^OK \(\d+ tests?", out):
             return "unbacked", "test command errored and printed no pass/fail summary"
