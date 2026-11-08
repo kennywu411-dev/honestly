@@ -23,7 +23,9 @@ SHELL = set(_ag.SHELL_TOOLS) | {"Bash"}
 
 # ------------------------------------------------------------------ git
 def _git(args: list, cwd: str) -> str:
-    r = subprocess.run([program("git"), *args], cwd=cwd, capture_output=True, text=True)
+    # settings in the repository's own .git/config that would run a program: a downloaded repository can come with one
+    safe = ["-c", "log.showSignature=false", "-c", "core.fsmonitor=false", "-c", "core.sshCommand=", "-c", "diff.external="]
+    r = subprocess.run([program("git"), *safe, *args], cwd=cwd, capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
@@ -36,9 +38,11 @@ def repo_root(cwd: str) -> str:
 
 def base_ref(root: str, base: str | None) -> str:
     if base:
+        if base.startswith("-"):
+            raise SystemExit(f"honestly pr-note: --base takes a branch, not {base!r}")
         return base
     head = _git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], root)   # origin/main
-    if head:
+    if head and not head.startswith("-"):   # a ref can be named like an option, and this name goes on a git command line
         return head
     for cand in ("origin/main", "origin/master", "main", "master"):
         if _git(["rev-parse", "--verify", "--quiet", cand], root):
