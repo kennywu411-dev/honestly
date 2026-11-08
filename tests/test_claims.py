@@ -440,3 +440,9 @@ def test_word_families(text, cat):
 ])
 def test_word_families_do_not_reach_these(text):
     assert cats(text) == [], text
+
+
+def test_a_terminal_escape_does_not_hide_a_claim():
+    text = "All \x1b[2Jtests pass."
+    hits = rules.find_claims(text)
+    assert [h.category for h in hits] == ["tests_pass"] and text.find(hits[0].sentence) >= 0

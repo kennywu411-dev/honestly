@@ -7,10 +7,10 @@ import sys
 
 import pytest
 
-from honestly import cli, config, hooks, noncode, support
+from honestly import claims, cli, config, hooks, support
 
 CLAIM = "All tests pass."
-EVERY_CATEGORY = ["tests_pass", "checks_pass", "build_ok", "rendered", "pushed", "committed", "fixed", "verified"] + [n for n, _ in noncode.CLAIMS]
+EVERY_CATEGORY = list(claims.EVIDENCE)
 LOOSENING = {"off": {"off": EVERY_CATEGORY}, "ignore": {"ignore": ["tests pass"]}, "lenient": {"strictness": "lenient"}, "verify": {"verify_commands": ["foo"]}}
 
 

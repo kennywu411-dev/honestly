@@ -99,6 +99,7 @@ FILEISH = re.compile(r"^[\w./~-]{0,200}\.[a-z0-9]{1,6}$|/$")
 CSS_FIXED = re.compile(r"position: ?fixed;?")
 WS = re.compile(r"\s+")
 CJK_LATIN = re.compile(r"(?<=[\u4e00-\u9fff])(?=[a-z0-9])|(?<=[a-z0-9])(?=[\u4e00-\u9fff])")
+TERMINAL_ESCAPE = re.compile(r"\x1b\[[0-9;?]{0,20}[ -/]{0,4}[@-~]|\x1b[@-_]?")   # what a terminal hides, the words around it still say
 UNDERLINE_BOLD = re.compile(r"(?<!\w)__|__(?!\w)")
 TOKEN_QUOTE, TOKEN_LINK, TOKEN_STRUCK = " xquotex ", " xlinkx ", " xstruckx "   # opaque words: what they hide is not said by the reply
 
@@ -116,7 +117,7 @@ def _code_token(m) -> str:
 
 
 def _normalise(raw: str) -> str:
-    s = raw
+    s = TERMINAL_ESCAPE.sub("", raw) if "\x1b" in raw else raw
     if "`" in s:
         s = CODE.sub(_code_token, s)
     if "](" in s:
@@ -861,7 +862,7 @@ def find_claims(text: str, ignore: tuple = (), disabled=frozenset()) -> list:
     """One ClaimHit per claim. `ignore`: a sentence containing one of these phrases is never a claim; `disabled`: categories switched off."""
     pieces = []
     for line, box in _lines(text):
-        if _categories(line.lower()) or box is not None or POSITIVE_MARK.search(line):
+        if _categories((TERMINAL_ESCAPE.sub("", line) if "\x1b" in line else line).lower()) or box is not None or POSITIVE_MARK.search(line):
             pieces.extend((raw, box) for raw in _pieces(line))
     if len(text) > MAX_JUDGED:
         pieces = _within_budget(pieces)
