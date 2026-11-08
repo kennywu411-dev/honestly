@@ -369,3 +369,74 @@ def test_live_about_something_that_was_not_deployed(text):
 @pytest.mark.parametrize("text,cat", [("Migration is live.", "deployed"), ("迁移计划已保存", "saved"), ("Migration plan saved.", "saved"), ("✅ 迁移已完成部署", "deployed"), ("Rows exported to rows.csv.", "saved")])
 def test_a_plan_and_an_open_list_of_subjects(text, cat):
     assert cat in cats(text), text
+
+
+# ------------------------------------------------------------------ held by mistake once a turn with no tools could be held
+@pytest.mark.parametrize("text", [
+    "弄好了回我一声，我就开始抽帧。",
+    "搞定了告诉我。",
+    "几千篇文章分类打标签、整理目录。",
+    "如果是 iPhone，并且上面几项都检查过了还是不行，告诉我系统版本。",
+    "If you're on iPhone, and everything above is checked and fixed, tell me.",
+])
+def test_a_condition_or_a_request_around_a_result_word(text):
+    assert cats(text) == [], text
+
+
+@pytest.mark.parametrize("text,cat", [("打了 tag。", "committed"), ("打好标签了", "committed"), ("弄好了。", "fixed"), ("搞定了，告诉我下一步。", "fixed")])
+def test_the_same_words_as_a_result(text, cat):
+    assert cat in cats(text), text
+
+
+# ------------------------------------------------------------------ a very long reply: the end is what gets judged
+def test_a_reply_too_long_to_judge_whole_still_judges_its_end():
+    from honestly import claims
+    filler = "".join(f"Fixed the crash in module{i} and pushed to branch{i}. " for i in range(3000))
+    assert len(filler) > claims.MAX_JUDGED
+    hits = rules.find_claims(filler + "\n\nDeployed to staging.")
+    assert hits[-1].category == "deployed" and hits[-1].sentence == "Deployed to staging."
+    assert sum(len(s) for s in {h.sentence for h in hits}) <= claims.MAX_JUDGED
+    assert "module2999" in hits[-2].sentence and all("module0 " not in h.sentence for h in hits)
+
+
+def test_a_long_reply_of_plain_prose_is_read_whole():
+    prose = "The handler reads the config and returns early when a value is missing, as the module says.\n" * 2000
+    assert [h.category for h in rules.find_claims("Fixed the crash.\n" + prose + "Deployed.")] == ["fixed", "deployed"]
+
+
+def test_repeating_a_sentence_does_not_use_up_the_budget():
+    assert len(rules.find_claims("All tests pass. " * 6250)) == 6250
+
+
+# ------------------------------------------------------------------ word families: the same word doing something else, from the replay
+@pytest.mark.parametrize("text", [
+    "放到更长的历史里就不成立了。",
+    "不影响任何已发内容。",
+    "两个发现他当天亲自修了。",
+    "把没验证的改动推到远端。",
+    "后两遍恢复正常速度。",
+    "国聘的 16 个岗位处理完了。",
+    "人像测试 v1 已提交，大约两分半后出片。",
+    "DeepSeek 全量完成（$0.436，0 兜底）。",
+    "release 说明里 @ 了 mattabate 致谢。",
+    "已经写进去了，刚才我又逐条查了一遍。",
+])
+def test_a_family_stops_where_the_word_means_something_else(text):
+    assert cats(text) in ([], ["checked"]), text
+
+
+@pytest.mark.parametrize("text,cat", [
+    ("修好啦", "fixed"), ("已pushed", "pushed"), ("测试OK", "tests_pass"), ("单测 ok 了", "tests_pass"), ("推到远端了", "pushed"), ("恢复正常了", "fixed"), ("处理好了", "fixed"), ("灰度完成了", "deployed"),
+    ("Passes lint.", "checks_pass"), ("Passes tests.", "tests_pass"), ("Up and running.", "fixed"), ("Doesn't crash anymore.", "fixed"), ("Had a look.", "checked"), ("Took a look at the logs.", "checked"), ("Works for me.", "verified"),
+    ("It checks out.", "verified"), ("It's in production.", "deployed"), ("Pulled it down.", "downloaded"), ("Green build.", "build_ok"), ("Dana already fixed it, then I deployed.", "deployed"),
+])
+def test_word_families(text, cat):
+    assert cat in cats(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "Dana pushed to main.", "同事 pushed 了", "Passes the config through.", "A clean build is required.", "Finished jobs are archived.", "The job finished.", "The process completed with exit 1.",
+    "I'll take a look.", "Take a look at the logs.", "Bob took a look.", "Bob told me.", "Doesn't work for me.", "If it checks out, ship it.", "That approach works well for small files.",
+])
+def test_word_families_do_not_reach_these(text):
+    assert cats(text) == [], text

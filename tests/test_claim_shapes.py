@@ -53,6 +53,7 @@ CLAIMS = """\
 0 test failures.
 1) Deployed to prod
 1.2.3 已发布。
+100% passing.
 112 of 112 tests passed.
 112 passed in 4.1s.
 112 passed.
@@ -100,12 +101,14 @@ All CI checks are green.
 All changes committed.
 All checks are green.
 All checks passed.
+All clear.
 All commits are pushed.
 All committed.
 All done, tests pass.
 All files downloaded.
 All fixed.
 All green.
+All pass.
 All pushed.
 All saved.
 All scheduled.
@@ -124,7 +127,9 @@ All unit tests pass.
 All working now.
 All working.
 Alright, it's fixed now.
+Amended the commit.
 Archive downloaded.
+Back to normal.
 Backup saved to backup.tar.gz.
 Backup scheduled.
 Both tests pass.
@@ -147,11 +152,13 @@ Builds fine.
 Builds now.
 Built OK, want a tag?
 Built fine.
+CC'd Bob.
 CI green.
 CI is all green.
 CI is green now.
 CI is green on the PR.
 CI is passing on main.
+CI ok
 CI passed on the branch.
 CI passes now.
 CI passes on the PR.
@@ -160,13 +167,18 @@ CI 也绿了
 CI 全绿了
 CI 全过了
 CI 已通过
+CI 没问题
 CI 绿了。
+CI 绿灯
 CI 过了
 CI 过了。
+CI 过啦
 CI 通过
+Can't reproduce it anymore.
 Changelog sent.
 Changes are committed.
 Changes are pushed.
+Changes are up.
 Changes saved.
 Checked `config.py`.
 Checked and it's fine.
@@ -183,6 +195,8 @@ Checked the schema.
 Checked the source.
 Checked: no other callers.
 Checkout works again.
+Checks out.
+Clean build.
 Cleared the blocker.
 Clip rendered.
 Cloned it.
@@ -195,6 +209,7 @@ Commit created.
 Commit is done.
 Commit pushed.
 Commit succeeded.
+Commit's in.
 Commits pushed.
 Committed 2 files.
 Committed all changes.
@@ -225,9 +240,12 @@ Compile succeeded.
 Compiled OK.
 Compiled fine.
 Compiled without errors.
+Compiles clean.
 Compiles fine.
 Compiles now.
+Completed.
 Config saved.
+Confirmed OK.
 Confirmed in the changelog.
 Confirmed in the source.
 Confirmed it works.
@@ -280,11 +298,13 @@ Deployment successful.
 Digest scheduled.
 Docs are live.
 Docs published.
+Doesn't crash anymore.
 Done with the fix.
 Done — all green.
 Done!
 Done, pushed to main.
 Done: tests pass and the branch is pushed.
+Double checked.
 Double-checked the numbers.
 Download done.
 Download is complete.
@@ -306,6 +326,11 @@ Downloaded the repo.
 Downloaded the weights.
 Downloaded the zip.
 Downloaded to models/.
+Dropped a note in Slack.
+Dry run passed.
+Dry-run passes.
+Dug into the code.
+Dug through the logs.
 Dump downloaded.
 E2E tests passed.
 ESLint found no problems.
@@ -315,8 +340,10 @@ Email went out.
 Emailed Bob.
 Emailed the report to Bob.
 Emailed the team.
+Encoded the video.
 Errors are gone.
 Every test passes.
+Everything green.
 Everything is fixed.
 Everything is passing.
 Everything is saved.
@@ -337,6 +364,7 @@ Exported the data.
 Exported the report.
 Exported the rows to rows.csv.
 Exported the table to table.csv.
+Exported the video.
 Exported to CSV.
 Exported to out.xlsx.
 Fetched everything.
@@ -351,6 +379,8 @@ Final cut rendered.
 Finally fixed.
 Finished rendering.
 Finished the render.
+Finished.
+Fired off the email.
 Fix pushed.
 Fixed `auth.py` so the token refreshes.
 Fixed a race in the scheduler.
@@ -392,15 +422,20 @@ Formatting passes.
 Forwarded it to Bob.
 Full suite green.
 Full test suite passes.
+Gave it a spin.
 Generated `chart.png`.
 Generated out.pdf.
 Git commit succeeded.
 Git push succeeded.
 Good news: the crash is fixed.
+Good to merge.
 Grabbed the model.
 Gradle build succeeded.
+Green CI.
+Green build.
 Grepped for it.
 Grepped the code.
+Had a look.
 Hotfix committed.
 Hotfix is live.
 Hotfix pushed.
@@ -471,24 +506,31 @@ I've sent the invite.
 I've verified it.
 I've verified the numbers.
 I've written the report to `report.md`.
+In prod now.
 Integration tests passed.
 Invite sent.
 Invoice sent.
 Issue is resolved now.
 It builds now.
 It builds.
+It checks out.
 It compiles and runs.
 It compiles now.
 It compiles without warnings.
 It is deployed.
 It still compiles.
 It works again.
+It's all working.
 It's been committed.
 It's been pushed.
 It's deployed to prod.
+It's in production.
 It's live now.
+It's on prod.
 It's saved.
 It's scheduled for 8am.
+It's up and running.
+It's up on GitHub.
 It's working now.
 It's working.
 Jest is green.
@@ -497,6 +539,8 @@ Job is scheduled.
 Just fixed it.
 Just pushed.
 Just sent it.
+Landed on main.
+Landed the fix.
 Landing page is live.
 Leak fixed.
 Left a comment on the PR.
@@ -510,7 +554,9 @@ Lint passes now.
 Lint ✅
 Lint's clean.
 Lint, types and tests are green.
+Lint-free.
 Lint: OK
+Lints clean.
 Live at https://example.com/app.
 Live now.
 Live on staging.
@@ -523,6 +569,7 @@ Looked into it.
 Looked over the migration.
 Looked through the code.
 Looked up the docs.
+Looped in Bob.
 Made the commit.
 Mail sent.
 Mailed it.
@@ -537,11 +584,13 @@ Migration pushed.
 Migration scheduled for 2am.
 Mocha passes.
 Model downloaded.
+Nailed it.
 New version deployed.
 No compile errors.
 No failing tests.
 No lint issues.
 No linter warnings.
+No longer reproduces.
 No more errors.
 No more timeouts.
 No more warnings.
@@ -553,8 +602,10 @@ Notified the reviewer.
 Now fixed.
 Now live on prod.
 Now working.
+OK 了
 OK, that's fixed.
 Okay, fixed.
+On the schedule.
 Opened a ticket.
 Output is at out/a.csv.
 Output saved to out.csv.
@@ -563,9 +614,17 @@ PR 的检查都过了
 PR 评论发了
 Package published.
 Pagination works now.
+Passes CI.
+Passes all checks.
+Passes lint.
+Passes mypy.
+Passes tests.
+Passes type checks.
 Patch released.
 Patched it.
 Patched the bug.
+Persisted to disk.
+Persisted.
 Pinged the team.
 Pipeline passed.
 Playwright tests pass.
@@ -591,6 +650,8 @@ Published to PyPI.
 Published to the registry.
 Published v2.
 Published.
+Pulled down the data.
+Pulled it down.
 Pulled the Docker image.
 Pulled the dataset.
 Pulled the dump.
@@ -603,6 +664,7 @@ Pushed and opened a PR.
 Pushed everything to GitHub.
 Pushed feature/x.
 Pushed it up.
+Pushed live.
 Pushed my branch.
 Pushed my changes.
 Pushed the branch and opened a PR.
@@ -626,6 +688,8 @@ Pushed to the remote.
 Pushed up the branch.
 Pushed, you can pull now.
 Pushed.
+Put it in out/.
+Queued it for 8am.
 Ran 12 tests in 0.3s, OK.
 Ran 40 tests: OK.
 Ran the script and it works.
@@ -688,6 +752,7 @@ Reviewed the migration.
 Rolled it out.
 Rolled out the fix.
 Rolled out to all users.
+Rolled to prod.
 Rows exported to rows.csv.
 Ruff and mypy pass.
 Ruff found nothing.
@@ -742,6 +807,7 @@ Sent a follow-up.
 Sent a message to Bob.
 Sent it over.
 Sent it to the team.
+Sent off.
 Sent out the invite.
 Sent over the report.
 Sent the PR link.
@@ -761,6 +827,7 @@ Service deployed.
 Set a cron job for 9am.
 Set a timer.
 Set an alarm for 8am.
+Set it up to run nightly.
 Set up a nightly job.
 Shipped it to staging.
 Shipped the fix.
@@ -773,7 +840,10 @@ Sign-in works.
 Site is live.
 Slack message sent.
 Smoke test passed.
+Smoke tested it.
 Smoke tests pass.
+Smoke-tested.
+Snagged the file.
 Solved it.
 Solved the issue.
 Sorry about that, fixed now.
@@ -782,16 +852,20 @@ Still builds.
 Still compiles.
 Stored in out.csv.
 Submitted the kernel.
+Successful build.
 Successfully deployed to staging.
 Suite passes.
 Sync scheduled.
+Synced to origin.
 Tag created.
 Tagged it.
 Tagged the release.
 Tagged v2.0.
 Tagged v3.
+Taken care of.
 Teaser rendered.
 Test passes now.
+Test suite is clean.
 Tested end-to-end.
 Tested in the browser.
 Tested it locally.
@@ -806,6 +880,7 @@ Tested.
 Tests OK.
 Tests all pass.
 Tests and lint pass.
+Tests are all good.
 Tests are all green.
 Tests are passing now.
 Tests came back green.
@@ -824,6 +899,7 @@ That fixed it.
 That sorted it.
 That works now.
 That's done.
+That's handled.
 That's resolved.
 The Docker build succeeded.
 The Docker image builds.
@@ -905,17 +981,29 @@ They all passed.
 They pass.
 This is resolved.
 Timeout fixed.
+Timer's set.
+Told Bob.
+Took a look at the logs.
+Took a look.
+Took care of it.
 Trailer rendered.
+Tried it and it works.
+Tried it, works.
+Triple-checked.
 Type checks pass.
 Type-check passes.
+Type-checks cleanly.
 Typecheck OK.
 Typecheck is clean.
 Typecheck passes.
+Typechecks.
 Types are clean.
 Typo fixed.
 Unit and integration tests pass.
 Unit tests green.
 Unit tests pass.
+Up and running.
+Up on origin.
 Validated it.
 Validated the fix.
 Validated the schema.
@@ -947,17 +1035,29 @@ We pushed the branch.
 We pushed to staging.
 We sent the email.
 We verified the fix.
+We're good.
 We're live.
 Webpack build passes.
 Webpack compiled successfully.
 Weights downloaded.
+Went over the docs.
 Went through the docs.
 Work committed.
 Worker deployed.
+Working as expected.
+Works as expected.
 Works end to end.
+Works fine.
+Works for me.
+Works great.
+Works locally.
+Works on my end.
+Wrapped up.
+Written out.
 Written to disk.
 Written to out.md.
 Wrote 3 files.
+Wrote it out.
 Wrote it to disk.
 Wrote out.csv.
 Wrote plan.md.
@@ -967,6 +1067,7 @@ Wrote the patch to fix.patch.
 Wrote the summary to out.md.
 Wrote to out.csv.
 Yep, fixed.
+You're good to go.
 Zero failures.
 [x] tests
 __Fixed__
@@ -981,22 +1082,34 @@ __Fixed__
 `tsc` compiles cleanly.
 biome is clean.
 bug 修复了
+bug 干掉了
+bug 清了
 bug 解决了
+build ok 了
 build 好了
+build 绿了
 build 通过
 cargo check passes.
 cargo check 通过
 cargo test passes.
+clone 下来了
 clone 好了
 commit 了。
+commit 啦
 commit 好了
+commit 完啦
 commit 完成
+cron 好了
 cron 配好了
+cron 配好了。
 docker build succeeded.
 e2e 通过
 eslint is clean.
 eslint 通过
 ffmpeg exported the video.
+fix 好了
+fix 完了
+fixed 啦
 flake8 is clean.
 flake8 passes.
 flake8 没问题
@@ -1006,40 +1119,53 @@ go test is green.
 go test passes.
 go test 通过
 golangci-lint passes.
+grep 了
 jest passes.
 jest 全绿
+jest 没问题
 jest 通过了
+lint OK 了
+lint ok
 lint 也过了
 lint 全过
 lint 和测试都过了。
 lint 干净
+lint 没毛病
 lint 没问题，测试也过了。
 lint 绿了
 lint 过了
 mypy OK.
 mypy found no errors.
 mypy is happy.
+mypy ok
 mypy passes now.
 mypy reports no issues.
 mypy ✅
 mypy 全过
 mypy 无报错
+mypy 绿了
 mypy 过了
 npm run build 通过
 npm test 通过
+ok 啦
+pass 了
 pdflatex compiled it without errors.
 pre-commit is clean.
 pre-commit 过了
 pre-commit 通过
 prettier check passes.
+push 啦
 push 好了
+push 好啦
 push 完了
 push 成功
+pushed 了
 pylint is clean.
 pyright is clean.
 pyright passes now.
 pyright passes.
 pyright 通过
+pytest OK
 pytest OK.
 pytest is green.
 pytest is happy.
@@ -1049,6 +1175,8 @@ pytest ✅
 pytest 全绿
 pytest 全过了
 pytest 全部通过
+pytest 没问题
+pytest 绿了
 pytest 过了
 pytest 过了。
 pytest 通过了
@@ -1056,6 +1184,7 @@ pytest: all passed.
 rspec is green.
 ruff is clean now.
 ruff is happy.
+ruff ok
 ruff passes now.
 ruff passes.
 ruff 全过
@@ -1064,6 +1193,7 @@ ruff 没报错
 ruff 没问题
 ruff 通过了
 ruff: clean
+tag 打了
 tag 打好了
 test_parser passes.
 tests/test_api.py passed.
@@ -1095,27 +1225,44 @@ worker 已部署
 ✅ 部署
 ✓ Saved to out.csv
 ✔️ Deployed
+一个都没挂
+上了生产
 上到线上了
 上线了！
 上线了，你验证一下
+上线啦
+上线好了
 上线完成
 上线成功了
+下完了
+下完啦
+下载下来了
 下载好了
 下载好了！
 下载好了，接下来训练
 下载完了。
+下载完啦
 下载完成并保存到 data/。
 下载完毕
 不再报错
+不再挂了
+不卡了
 不崩溃了
 不报错了
+不报错啦
+不挂了
+不闪退了
+亲测可用
+亲测有效
 仓库克隆好了
+代码上去了
 代码已推送
 代码已经推上去了
 代码已经提交
 代码提交了
 代码提交好了
 代码检查通过
+保存下来了
 保存到 plan.md 了
 保存好了
 保存好了。
@@ -1123,6 +1270,7 @@ worker 已部署
 保存完了
 保存完成
 保存成功
+修啦
 修复了 `auth.py` 的问题。
 修复了内存泄漏
 修复了分页 bug。
@@ -1138,12 +1286,18 @@ worker 已部署
 修好了！
 修好了，我再跑一遍看看
 修好啦
+修好啦。
 修完了
+修完啦
 修掉了
 修改已提交
+克隆下来了
 克隆完了
+全 pass
+全绿灯
 全部 300 个测试通过
 全部 96 个测试通过
+全部 pass 了
 全部修好了
 全部测试通过
 全部测试通过，已提交。
@@ -1151,14 +1305,18 @@ worker 已部署
 全部用例都过了
 全部跑通
 全部跑通了
+全量了
 内存泄漏修好了
 内存泄漏已修复
+冒烟过了
 冒烟通过
+写入好了
 写入完成
 写入成功
 写到 `out.csv` 了。
 写好了
 写好了。
+写完了
 冲突已解决
 冲突解决了
 分支上测试全过
@@ -1167,23 +1325,34 @@ worker 已部署
 分页 bug 已修复
 分页好了，能用了
 分页问题解决了
+切流完成
 刚验证过，没问题。
 包已发布
 单元测试都通过了
 单测 47 个全过。
+单测 ok
 单测也过了
+单测全 OK
 单测全绿
 单测全部通过
 单测绿了
 单测过了
 单测都过了
+发上去了
+发出了
+发出去啦
 发到 PyPI 了。
 发到群里了
 发到频道了
+发包了
+发啦
+发完了
 发布了
 发布好了
 发布完成
 发版了
+发版啦
+发版好了
 发版完成
 发票发了
 发票已发
@@ -1193,22 +1362,35 @@ worker 已部署
 发给卡罗尔了
 发过去了
 发送成功
+取下来了
 同步任务已安排
 嗯，搞定了。
+回啦
 回复好了
 回归测试通过
+回过了
+处理了
 处理好了
 处理完了
 备份下好了
 备份下载好了
 备份任务已设好
+好使了
+好啦
+好嘞，搞定
 好的，修好了。
 好，已修复。
+妥了
+存下来了
+存了
+存啦
 存好了
 存好了。
 安排好了
+完事了
 官网上线了
 官网已上线
+定好时间了
 定时任务创建好了
 定时任务好了
 定时任务已加好
@@ -1218,9 +1400,11 @@ worker 已部署
 定时任务我设好了。
 定时任务设好了
 定时任务配好了
+定时加好了
 定时备份已设好
 定时设置好了
 定时迁移已设好
+实测 OK
 实测可以
 实测可用
 实测没问题
@@ -1231,12 +1415,18 @@ worker 已部署
 导出好了。
 导出完了
 导出成功
+导出来了
 导出的备份已下载
+导好了
+导完了
 崩溃修好了
 崩溃的问题解决了。
 已 clone
 已 commit
+已 committed
 已 push 到 main
+已 pushed
+已上
 已上线了
 已下载到 `data/`。
 已下载到 data/
@@ -1287,10 +1477,12 @@ worker 已部署
 已回复评审
 已回复邮件。
 已在本地验证。
+已存
 已存到 out.csv
 已存好
 已安排好
 已安排好了
+已定时
 已导出 rows.csv
 已导出到 Excel
 已导出到 `out.pdf`。
@@ -1300,6 +1492,8 @@ worker 已部署
 已导出表格
 已打 v3 标签
 已拉取
+已挂定时
+已推
 已推到 GitHub
 已推到 dev
 已推到 origin
@@ -1324,6 +1518,7 @@ worker 已部署
 已留言
 已确认
 已确认过
+已私信
 已经 commit
 已经 commit 并 push 了。
 已经 push
@@ -1358,6 +1553,7 @@ worker 已部署
 已评论 PR
 已评论了
 已跑通
+已转
 已转发
 已转发给他
 已通知
@@ -1372,9 +1568,12 @@ worker 已部署
 已验证热修
 已验证迁移
 已验证过
+干掉了
+弄完了
 强推了
 归档已下载
 恢复正常了
+成片 ok
 成片渲好了
 我下载好了。
 我保存好了。
@@ -1426,54 +1625,80 @@ worker 已部署
 所有测试都过了
 所有用例通过。
 所有用例都通过了
+打 tag 了
 打了 tag
+打包 ok
 打包好了
 打包完成
 打包成功了
 打包没问题
+打包过了
 打好 tag 了
+打通了
+扫了一遍
+扫过了
+抄送了
 报告已保存。
 报告生成好了。
 报错没了
 报错消失了
+报错清零
 拉下来了
 拉下来了。
+拉取好了
+拉好了
+拉完了
 拿到文件了
+捋了一遍
+排上了
 排好了
 接口已部署
+推上去啦
+推了
 推到 dev 了
 推到 feature/x 了
 推到 main 了
 推到远程了
+推好了
+推完啦
 推送到 `main` 了。
 推送到远端了
 推送好了
 推送完了
 推送成功了
 提交了
+提交啦
 提交好了。
 提交完了
 提交并推送好了。
 提交成功了
+提交过了
+提醒加好了
 提醒已设
 提醒我设好了。
 提醒设好了
+搜了
 搜了一遍
 搜索修好了
 搜过代码了
 搜过用法了
 搞好了
+搞完了
 搞定了！
 搞定啦
+摆平了
+收工
 改动已推送
 改动提交了
 改好了，测试全过。
 改完之后我重新跑了一遍测试，全部通过。
 放到 out/ 了
+放量完成
 数据下好了
 数据下载完了
 数据集下好了
 数据集已下载。
+整好了
 文件下好了
 文件已下载。
 文件已生成
@@ -1487,12 +1712,14 @@ worker 已部署
 更新日志已发
 服务已上线。
 服务部署好了
+本地没问题
 本地测过了
 本地跑了，没问题。
 本地跑过了
 本地验证过了
 权重下好了
 权重拉下来了
+构建 ok
 构建也成功了
 构建全绿
 构建和测试都通过了。
@@ -1507,6 +1734,8 @@ worker 已部署
 查了
 查了文档
 查了日志
+查好了
+查完了
 查过
 查过了
 查过文档了
@@ -1517,6 +1746,7 @@ worker 已部署
 核对了
 核对好了
 核对过了。
+核过了
 检查也通过了
 检查全过了
 模型下好了
@@ -1524,31 +1754,43 @@ worker 已部署
 模型已经下载好了。
 正常了
 死锁修掉了
+没事了
 流水线绿了
 流水线通过了
 流程跑通了
+测试 OK
+测试 ok 了
 测试也通过了。
 测试全过了
+测试全过啦
 测试全都通过了。
 测试和 lint 都通过了。
 测试已全部通过
+测试没挂
+测试没毛病
 测试过了，没问题
 测试通过了
 测试通过，准备合并
 测试通过，已推送。
+测试都 OK
 测试都绿了
 测试都跑过了，没问题
 测试都过了
 测试都过了。
+测试都过啦
 测试：全绿
 测过了
 测过热修了
 测过迁移了
+测通了
 消息发了
 消息发出去了
 消息已发送
 渲好了
+渲好啦
 渲完了
+渲完啦
+渲染 ok
 渲染也完成了
 渲染好了。
 渲染完成了
@@ -1559,6 +1801,7 @@ worker 已部署
 热修已推送
 热修已提交
 热修推上去了
+片子 ok
 片子出来了
 片子渲染完了
 状态：已部署
@@ -1571,36 +1814,53 @@ worker 已部署
 用例都过了
 登录的 bug 修好了。
 登录能用了
+看了
 看了代码
 看了文档
 看了日志
+看完了。
 看过代码
 看过文档了
 看过日志了
+确认 OK
 确认过了
 确认过了。
+确认过没问题
+私信了
 端到端测试通过
+类型检查 ok
 类型检查全过
 类型检查没报错
 类型检查过了
 类型检查通过，lint 通过。
 结果已保存到 `out.csv`。
+绿灯
+编译 ok
 编译也通过了
 编译好了
 编译成功了
 编译没问题
 编译过了，没有报错
+编译过啦
 编译通过了
+编过了
+翻了
 翻了文档
+能 build 了
 能用了
+能跑 build 了
 能跑了
+自测 ok
 自测过了
 自测过了。
 自测通过了
+落库了
 落盘了
 补丁已写入
 补丁已发布
 表格已导出
+视频出来了
+视频好了
 视频已渲染
 视频渲好了
 视频渲染好了
@@ -1611,13 +1871,18 @@ worker 已部署
 设好了定时任务
 设好提醒
 评论了
+试了，没问题
+试过了
 读了代码
+读完了
 读过了
 读过代码了
 超时问题已解决
 超时问题解决了
 跑了 pytest，全过
+跑了，ok
 跑通了。
+转了
 转发给他了
 迁移上线了
 迁移已上线
@@ -1632,8 +1897,10 @@ worker 已部署
 这个 bug 修好了
 这个 bug 已修复
 这个问题修好了
+通了
 通知了张三
 通知他了
+通知过了
 邮件发了
 邮件发出去了
 邮件发好了
@@ -1641,15 +1908,20 @@ worker 已部署
 邮件已发送
 邮件已经发了。
 邮件我发了。
+部署上了
+部署了
 部署到 staging 了。
 部署到prod了
 部署到生产了
 部署到线上了
+部署啦
 部署好了
 部署好了。
 部署完了
+部署完啦
 部署成功了
 部署：完成
+都 pass 了
 都修好了
 都推上去了
 都改好了，测试也过了。
@@ -1660,11 +1932,14 @@ worker 已部署
 重试修好了
 重试逻辑修好了
 错误消失了
+错误清零
+门禁过了
 门禁通过
 问题修复了
 问题修复好了
 问题已修复
 问题解决了
+闹钟定好了
 闹钟已设好
 闹钟设好了。
 集成测试过了
@@ -1673,6 +1948,7 @@ worker 已部署
 预告渲染好了
 预告片已渲染
 预告片渲染好了
+验了
 验证了，没问题。
 验证好了
 验证完成
@@ -1682,6 +1958,8 @@ worker 已部署
 验证过了，没问题
 验证过热修了
 验证通过了
+验过了
+齐活
 🎉 Deployed!
 🚀 Shipped
 """.splitlines()
@@ -1698,14 +1976,17 @@ NOT_CLAIMS = """\
 90 passed, 6 failed.
 90 个通过，6 个失败
 96 个测试过了 90 个
+A clean build is required.
 A few tests failed.
 A few tests pass.
 A fixed delay is used between retries.
 A green CI does not mean it works.
 A green CI doesn't mean it's safe.
+A green build is required.
 A green build means nothing here.
 A passing build isn't proof.
 A passing test proves little.
+A successful build triggers the deploy.
 About to push.
 According to Bob, it's fixed.
 Added a retry.
@@ -1716,7 +1997,9 @@ After the archive is downloaded, unpack it.
 After the build succeeds, deploy.
 After the dump is downloaded, restore it.
 After the sync is scheduled, tell me.
+Alice had a look.
 Alice says all tests pass.
+Alice took care of it.
 Alice 修好了。
 Alice's PR fixed it.
 Alice's team shipped it.
@@ -1735,6 +2018,8 @@ Bob deployed it.
 Bob pushed the fix.
 Bob said it's fixed.
 Bob told me tests pass.
+Bob told me.
+Bob took a look.
 Bob 已推送。
 Bob's commit fixed that.
 Bob's fix was deployed by ops.
@@ -1755,6 +2040,7 @@ CI says tests pass on her branch.
 CI 挂了
 CI 没绿
 CI 没过
+CI 红了
 CI 绿了吗？
 Call `save()` to save the file.
 Can we ship?
@@ -1782,12 +2068,14 @@ Check the build passes.
 Check whether it's live.
 Checking the config now.
 Checkout is still broken.
+Clean builds are slower.
 Code is deployed on merge.
 Commits trigger CI.
 Committed offsets are stored in Kafka.
 Committing now.
 Compare the verified total.
 Compilation failed.
+Completed tasks are hidden.
 Configs are saved in Redis.
 Confirm it's pushed.
 Confirm that the email was sent.
@@ -1798,6 +2086,7 @@ Confirm the sync is scheduled.
 Could it be fixed?
 Could not push.
 Could not save the file.
+Couldn't pull it down.
 Cron isn't set up.
 Dana committed the migration.
 Dana deployed the migration.
@@ -1820,26 +2109,38 @@ Deploying to `staging` next.
 Deployment failed.
 Deploys happen on merge.
 Did CI pass?
+Did it check out?
 Did it work?
 Did not commit.
 Did pytest pass?
 Did the build pass?
 Did the deploy finish?
 Did you push?
+Did you take a look?
 Did you test the upload?
 Didn't check.
+Didn't compile clean.
+Didn't export the video.
+Didn't persist.
 Didn't push.
+Didn't take a look.
+Didn't write it out.
+Dig into the code.
 Digests are sent by the scheduler.
 Do you want me to commit?
 Do you want me to deploy?
+Does it work for you?
 Does pytest pass?
 Doesn't compile yet.
+Doesn't pass lint.
+Doesn't work fine.
 Don't forget to push.
 Download failed.
 Downloaded files go to the cache.
 Downloading the file next.
 Downloading the model now.
 Drafts are saved automatically.
+Dry run failed.
 Each service is deployed separately.
 Emails are sent nightly.
 Ensure all tests pass.
@@ -1854,7 +2155,11 @@ Even if the migration is deployed, watch it.
 Even if the tests pass, check the logs.
 Even when the build passes, the app can crash.
 Failed to save.
+Fails CI.
+Fails mypy.
 Files are downloaded to the cache.
+Finish the docs.
+Finished jobs are archived.
 Fixed costs are high.
 Fixed elements stay put.
 Fixed headers are hard on mobile.
@@ -1865,17 +2170,22 @@ Fixing the null pointer next.
 Fixing the pagination bug now.
 GitHub Actions pushed the tag.
 Go ahead and push.
+Go over the docs.
 Going to commit this.
 Going to deploy the worker.
 Going to fix the leak.
+Green CI is required to merge.
 Green tests don't mean it works.
 Had it been pushed, CI would run.
 Half the tests pass.
 Has it been fixed?
 Has the migration been pushed?
+Have a look.
 Have the tests passed?
 Have you pushed?
 Haven't committed.
+Haven't double checked.
+Haven't had a look.
 He pushed it.
 He wrote 'all tests pass'.
 Hotfixes are pushed to a branch.
@@ -1948,11 +2258,14 @@ I'll commit the migration.
 I'll deploy the fix.
 I'll deploy the migration.
 I'll deploy the worker.
+I'll dig through the logs.
 I'll download the archive.
 I'll download the model.
 I'll fetch the dump.
 I'll fix the leak.
 I'll fix the pagination bug.
+I'll have a look.
+I'll let Bob know.
 I'll push it.
 I'll push the hotfix.
 I'll push the migration.
@@ -1970,6 +2283,8 @@ I'll schedule the sync.
 I'll send the changelog.
 I'll send the invoice.
 I'll send you the file.
+I'll take a look.
+I'll tell Bob.
 I'll test it by hand.
 I'll test the upload.
 I'll verify the hotfix.
@@ -1982,9 +2297,12 @@ I'm going to run the tests.
 I'm pushing now.
 I'm saving it now.
 If CI is green, merge.
+If it checks out, ship it.
 If it compiles, ship it.
 If it was sent, let me know.
+If it works for you, merge.
 If it's deployed, tell me.
+If it's in production, roll back.
 If pytest passes, merge.
 If pytest passes, push.
 If ruff passes, commit.
@@ -2003,8 +2321,11 @@ Input is checked on the server.
 Invoices are sent monthly.
 Is CI green?
 Is everything working?
+Is it all working?
 Is it done?
+Is it in production?
 Is it live?
+Is it up on GitHub?
 Is the build green?
 Is the config saved?
 Is the hotfix pushed?
@@ -2021,7 +2342,9 @@ It could be fixed by a retry.
 It didn't work.
 It does not work.
 It doesn't build.
+It doesn't check out.
 It doesn't compile without warnings.
+It doesn't work on my end.
 It failed because tests passed with a mock.
 It fails to compile.
 It hasn't been pushed.
@@ -2038,6 +2361,7 @@ It passes because the assertion is wrong.
 It passes when run alone.
 It printed "Deployed to prod".
 It should be saved to disk.
+It still crashes.
 It still doesn't work.
 It stopped compiling.
 It was committed by Alice.
@@ -2049,18 +2373,26 @@ It was pushed by the release bot.
 It was sent by the scheduler.
 It won't compile.
 It would have been fixed by the patch.
+It's not all working.
 It's not deployed yet.
+It's not in production.
+It's not on GitHub.
+It's not on prod.
+It's not up yet.
 It's still broken.
 It's still failing.
 Jane committed that.
 Jenkins deployed the build.
 Jobs are scheduled by cron.
 Let me fix that.
+Let me know when it's done.
+Let me know.
 Let me post the summary.
 Let me read the docs.
 Let me reply to the PR comment.
 Let me save the config.
 Let me search the repo.
+Let me take a look.
 Let me test the upload.
 Let me verify.
 Lint fails.
@@ -2105,13 +2437,20 @@ Nobody tested it.
 None of it is deployed.
 None of this is committed.
 None of this is pushed.
+Not a clean build.
 Not all 8 tests pass.
+Not back to normal.
 Not checked.
+Not clear yet.
 Not committed to `main`.
 Not committed yet.
+Not completed.
 Not done with the fix.
 Not done yet.
 Not done.
+Not finished.
+Not green.
+Not in prod yet.
 Not live yet.
 Not merged or deployed.
 Not published yet.
@@ -2119,7 +2458,9 @@ Not pushed to `main`.
 Not pushed yet.
 Not released.
 Not verified yet.
+Not working as expected.
 Not working.
+Not wrapped up.
 Not yet deployed.
 Not yet pushed.
 Nothing has been sent.
@@ -2133,8 +2474,10 @@ Nothing to push.
 Nothing was pushed.
 Nothing was saved.
 Now I'll save the file.
+OK 了吗
 Once CI is green, merge the PR.
 Once CI is green, merge.
+Once completed, the job exits.
 Once it's committed, push.
 Once it's pushed, CI runs.
 Once tests are green, I'll merge.
@@ -2154,6 +2497,10 @@ Our QA verified it.
 PR 的检查没过
 Pages are rendered on the server.
 Pagination is still broken.
+Passes a mock client.
+Passes the config.
+Passes the value through.
+Passes through the proxy.
 Passing tests are not proof.
 Passing tests don't prove correctness.
 Passwords are verified on login.
@@ -2161,7 +2508,9 @@ Per Alice, it's deployed.
 Plans are saved in the wiki.
 Please check that it's deployed.
 Please confirm it's fixed.
+Please let Bob know.
 Please make sure it's committed.
+Please take a look.
 Please verify it works.
 Please verify the migration.
 Print the sent count.
@@ -2227,16 +2576,20 @@ Someone committed this.
 Someone sent it.
 Still broken.
 Still need to deploy.
+Still reproduces.
 Suppose it's pushed.
 Suppose the digest is scheduled.
 Suppose the worker is deployed; then what?
 Supposing the build passes, what next?
 Syncs are scheduled hourly.
 TODO: fix the crash.
+Take a look at the logs.
 Tasks are checked every hour.
+Tell Bob.
 Tests are failing.
 Tests are red.
 Tests are running.
+Tests aren't all good.
 Tests did not run.
 Tests don't pass yet.
 Tests fail locally.
@@ -2261,6 +2614,7 @@ The SRE deployed the worker.
 The UI says "Saved".
 The UI shows Deployed.
 The app crashed because the config was saved as empty.
+The app is up and running on port 3000 by default.
 The app isn't deployed.
 The app saves drafts automatically.
 The archive didn't download.
@@ -2269,6 +2623,7 @@ The banner says "Saved".
 The binary is checked into git.
 The binary is downloaded at startup.
 The bot deployed it.
+The bot took care of it.
 The browser saved a stale copy.
 The bug isn't fixed yet.
 The build didn't finish.
@@ -2331,6 +2686,7 @@ The fix isn't deployed.
 The fix isn't finished.
 The fixture is committed in the repo.
 The flag `verified` is true.
+The form is completed by the user.
 The frame was sent too early.
 The function returns fixed-size chunks.
 The header is sent with each request.
@@ -2342,6 +2698,7 @@ The intern fixed it.
 The invoice hasn't gone out.
 The issue is still open.
 The issue remains.
+The job finished.
 The job hasn't been scheduled.
 The job is pushed onto the queue.
 The job is scheduled on the wrong node.
@@ -2353,6 +2710,7 @@ The label reads "Saved".
 The layout is fixed.
 The leak is still there.
 The leak was caused by the cache and fixed by Carol.
+The lint-free claim is wrong.
 The linter complains.
 The live view updates in real time.
 The lockfile should be checked in.
@@ -2388,6 +2746,7 @@ The plan isn't saved.
 The plan was saved to the wrong folder.
 The port is fixed in the config.
 The price is fixed.
+The process finished with exit 1.
 The production build fails.
 The project doesn't compile.
 The queue message is sent over AMQP.
@@ -2398,6 +2757,7 @@ The render crashed.
 The render didn't finish.
 The render failed halfway.
 The render isn't done.
+The request completed in 3 ms.
 The request was verified against a stale key.
 The response is sent as JSON.
 The result is saved in a variable.
@@ -2461,6 +2821,7 @@ The video isn't ready.
 The widget is saved to the database.
 The width is fixed.
 The window size is fixed.
+The worker completed the task.
 The worker fixed the wrong record.
 The worker is deployed on every merge.
 The worker isn't deployed.
@@ -2513,6 +2874,7 @@ We'll push after review.
 What if it's deployed already?
 What if the tests pass but it's still wrong?
 When CI passes, it merges.
+When finished, tell me.
 When it's fixed, close the ticket.
 When the email is sent, mark it.
 When the file is saved, it syncs.
@@ -2522,9 +2884,11 @@ When the tests pass, merge.
 When the worker is deployed, test it.
 Whenever a file is saved, the watcher runs.
 Will fix it next.
+Will take care of it.
 Workers are deployed by Helm.
 Working on the fix.
 Would you like me to commit?
+Wrap it up.
 You can check that it's live.
 You can deploy it now.
 You can run it to confirm it works.
@@ -2555,9 +2919,14 @@ You'll see 12 passed.
 `sent_at = now()`
 `status == 'sent'`
 `已部署`
+bug 还在
+build 红了
+clone 不下来
 echo 'tests passed'
+fix 不了
 if deployed: return
 jest fails.
+lint 不 ok
 lint 有问题，测试也没过。
 lint 没过
 lint 还有报错
@@ -2566,12 +2935,16 @@ mypy fails.
 mypy found 3 errors.
 mypy reports 3 errors.
 mypy 没过
+pass 不了
 print("saved")
+push 不上去
 pyright reports 2 errors.
 pytest fails on the branch.
 pytest fails.
 pytest 挂了
+pytest 没绿
 pytest 没过
+pytest 红了
 pytest 过了吗
 return "fixed"
 ruff doesn't pass.
@@ -2589,14 +2962,19 @@ worker 部署好了吗
 一半测试通过。
 万一已发送，也撤不回
 万一没修好就回滚
+上不了线
 上传由校验和验证
 上游修好了
+上线之后再说
 上线之后观察一下
 上线了没
 上线失败
 下一步推送
 下一步部署
+下不下来
 下周发布
+下完了吗
+下完以后解压
 下载中
 下载中断
 下载后再解压
@@ -2608,7 +2986,9 @@ worker 部署好了吗
 今晚部署
 他们已上线
 他们已部署
+他修了
 他已提交
+他推了
 他说"已修复"。
 他说修好了
 代码合并后自动部署。
@@ -2638,6 +3018,7 @@ worker 部署好了吗
 保存后自动刷新
 保存失败
 保存时会校验。
+修不了
 修不好
 修复了吗？
 修复失败
@@ -2645,6 +3026,7 @@ worker 部署好了吗
 修好之后告诉我
 修好了吗
 修好了没？
+修好以后告诉我
 修好后再发版
 假如已上线，就要回滚
 假如已提交，就可以推
@@ -2654,6 +3036,7 @@ worker 部署好了吗
 内存泄漏修好了吗
 内存泄漏没修好
 内存泄漏还在
+写不进去
 写入失败
 准备下载
 准备发送
@@ -2679,7 +3062,10 @@ worker 部署好了吗
 即使内存泄漏修好了也要观察
 即使已部署也要观察
 即使构建成功也要看日志
+发不了
+发不了版
 发不出去
+发了吗
 发了吗？
 发了没
 发布说明里写已修复。
@@ -2700,8 +3086,10 @@ worker 部署好了吗
 只过了 5 个
 合并后会自动部署。
 同事修好了
+同事发了
 同事已提交
 同事已部署迁移
+同事推了
 同事说已经修好了
 同事说迁移已上线
 同步任务没安排
@@ -2713,8 +3101,12 @@ worker 部署好了吗
 备份每晚下载
 备份没下载
 大部分测试通过。
+她发了
 她发了邮件
 她已提交
+好了吗
+好了没
+如果 CI ok 就合
 如果 pytest 通过就合并
 如果 pytest 通过就推送
 如果 ruff 通过就提交
@@ -2724,6 +3116,7 @@ worker 部署好了吗
 如果发票发了就标记
 如果已提交就推送
 如果推上去了告诉我
+如果搞定了告诉我
 如果迁移部署好了就告诉我
 如果通过就合并
 如果部署好了告诉我
@@ -2731,6 +3124,9 @@ worker 部署好了吗
 如果配置保存了就重载
 字段 `saved` 表示已保存
 字段 `已发送` 表示状态。
+存下来以后再传
+存不了
+存了吗
 官方修复了
 官方文档说已修复。
 官网还没上线
@@ -2739,8 +3135,10 @@ worker 部署好了吗
 定时任务设好了吗
 定时迁移没设
 客户已确认
+客户看了
 客户说收到了
 对方已回复
+导不出来
 小李已部署
 小王修好了
 小王已修复
@@ -2762,7 +3160,11 @@ worker 部署好了吗
 已部署的服务可以回滚
 已部署的迁移会记录
 已验证的账号有徽章。
+帮我发一下
+帮我存一下
+帮我查一下
 张三修好了分页 bug
+张三推了
 张三说 pytest 通过了
 归档下载后解压
 归档在启动时下载
@@ -2831,6 +3233,7 @@ worker 部署好了吗
 我这就修
 我这就发
 截图没存
+打包不过
 打包失败
 打算明天发
 打算部署
@@ -2838,6 +3241,7 @@ worker 部署好了吗
 报告没保存。
 报告还没生成。
 报错是因为已部署的版本太旧。
+拉不下来
 按钮显示已保存
 接下来保存
 接下来修内存泄漏
@@ -2845,11 +3249,15 @@ worker 部署好了吗
 接下来部署 worker
 接下来验证
 推上去了吗
+推上去以后告诉我
+推不上去
+推了吗
 推了吗？
 推送之后会触发 CI
 推送后 CI 会跑。
 推送被拒绝
 推送还没完成
+提交不了
 提交了吗？
 提交了没
 提交后会跑 CI。
@@ -2859,6 +3267,8 @@ worker 部署好了吗
 提示"已保存"。
 提示「发票已发」
 提醒我还没设。
+搞定了吗
+搞定以后告诉我
 摘要每天早上发送
 支持定时发送。
 数据会写入磁盘
@@ -2897,6 +3307,8 @@ worker 部署好了吗
 李四已保存计划
 李四已推送
 李四提交了
+李四部署了
+构建不 ok
 构建失败
 构建成功不代表能用
 构建成功不等于能跑
@@ -2917,7 +3329,11 @@ worker 部署好了吗
 每天定时发布
 每次提交都会触发 CI。
 每次部署都会重启
+没 grep
+没 pass
+没上线
 没下好
+没下完
 没下载。
 没下载完
 没保存
@@ -2926,34 +3342,61 @@ worker 部署好了吗
 没修内存泄漏
 没修复
 没写入
+没写完
+没加提醒
 没发
 没发出去
 没发布到 PyPI。
 没发给你。
+没回
 没回复。
 没回复卡罗尔
+没处理
+没存
+没存下来
+没完事
+没定时
 没导出
 没导出。
+没干掉
+没弄好
+没打 tag
+没扫
 没推
 没推上去
 没提交
+没提交上
 没提交也没推送。
+没搞完
+没搞定
+没摆平
 没有修
 没有全部通过
 没有测过
 没有跑通
 没查
+没查完
 没查表结构
 没核对
+没核过
 没测
 没测热修
 没测迁移
+没测通
+没渲好
 没渲染完
+没看
+没看完
 没看文档
 没看迁移脚本
+没私信
+没翻
 没能修好
 没解决
 没设提醒
+没试
+没试过
+没读完
 没跑
 没跑过测试
 没跑通
@@ -2963,9 +3406,13 @@ worker 部署好了吗
 没验证
 没验证热修
 没验证迁移
+没验过
+测试不 OK
+测试全挂了
 测试全绿不代表没问题
 测试同事说通过了
 测试挂了
+测试没 OK
 测试没过
 测试没通过，还没推送。
 测试说修好了
@@ -2977,6 +3424,7 @@ worker 部署好了吗
 消息发送了两次导致重复
 消息每天定时发送。
 消息由 worker 发送。
+渲染不了
 渲染中
 渲染没好
 渲染还没完
@@ -2985,12 +3433,15 @@ worker 部署好了吗
 热修没发布
 热修没推送
 热修还没提交
+片子还没好
 王五已发更新日志
 王五已验证
 王五部署了
+用户下完了
 用户说修好了
 界面显示「已保存」
 登录的 bug 没修好。
+看了吗
 看板显示已部署的版本。
 确认一下是否推送成功
 社区修复了
@@ -2998,11 +3449,13 @@ worker 部署好了吗
 稍后部署
 等 CI 绿了再合并
 等 CI 绿了再合并 PR
+等 CI 绿灯再合
 等 worker 部署好再测试
 等一下再推
 等下发给你
 等你确认后我再推送。
 等内存泄漏修好再发版
+等推上去再说
 等构建好了再部署
 等测试通过再合并
 等迁移上线再通知
@@ -3014,7 +3467,10 @@ worker 部署好了吗
 组件渲染了两次造成闪烁
 结果没写入。
 维护者已修复。
+绿了吗
 缓存保存到了错误路径
+编不过
+编译不过
 编译失败
 编译报错
 编译过了吗
@@ -3028,22 +3484,31 @@ worker 部署好了吗
 要不要推送？
 要修一下
 要先验证
+要存吗
 要我推送吗。
+要推吗
 要提交
+要是修啦就关单
 要是编译通过就发布
 要是部署失败就回滚
 要部署
+要部署吗
 计划上线
 计划下周上线
 计划没保存
 记得保存
+记得存
+记得推
 记得推送
 记得提交
 记得验证
+试过了吗
 该字段保存在 Redis 里。
+请你部署
 请保存
 请修复
 请帮我查一下
+请推一下
 请推送
 请提交
 请核对
@@ -3078,13 +3543,19 @@ worker 部署好了吗
 迁移没提交
 迁移没部署
 迁移还没上线
+运维上线了
 运维已上线
 运维已推送迁移
 运维说部署成功了
 运维部署好了
+还卡
+还在报错
 还得验证
+还报错
+还挂
 还有失败
 还没 commit
+还没 push
 还没上线
 还没上线。
 还没下载
@@ -3112,6 +3583,7 @@ worker 部署好了吗
 这个接口负责发送邮件。
 这个服务部署在 k8s 上。
 这就部署
+通了吗
 通过不代表没问题
 通过后再合并
 邮件我没发。
@@ -3119,13 +3591,18 @@ worker 部署好了吗
 邮件还没发。
 部分测试没过
 部分测试通过。
+部署上去之后验证
+部署不上去
+部署不了
 部署中
+部署了吗
 部署了吗？
 部署后再验证
 部署好了吗
 部署成功不代表没 bug
 部署没成功
 部署还没好
+都没 pass
 配置保存了吗
 配置保存在 `config.yaml`。
 配置每次改动都会保存
@@ -3151,6 +3628,7 @@ worker 部署好了吗
 马上推送
 验证过了吗
 验证通过才能合并
+麻烦修一下
 麻烦推送
 麻烦确认一下是否已发送
 麻烦部署一下

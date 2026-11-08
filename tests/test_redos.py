@@ -131,3 +131,14 @@ def test_a_100_kb_reply_takes_under_50_ms(name, text):
         rules.find_claims(text)
         best = min(best, time.perf_counter() - start)
     assert best < 0.05, f"{name}: {best * 1000:.0f} ms"
+
+
+def test_a_100_kb_reply_of_different_claims_takes_under_50_ms():
+    text = "".join(f"Fixed the crash in module{i} and pushed to branch{i}, all {i} tests pass. " for i in range(1600))[:100000]
+    best = 9.9
+    for _ in range(5):
+        claims._analyse.cache_clear()
+        start = time.perf_counter()
+        rules.find_claims(text)
+        best = min(best, time.perf_counter() - start)
+    assert best < 0.05, f"{best * 1000:.0f} ms"
