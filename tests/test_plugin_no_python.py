@@ -29,6 +29,7 @@ def test_no_python_stays_quiet_before_a_command(tmp_path):
     assert out.returncode == 0 and out.stdout == ""
 
 
+@pytest.mark.skipif(os.name == "nt" or not shutil.which("sh"), reason="runs the hook line through a POSIX shell, as Claude Code does")
 def test_with_python_the_hook_runs_as_before(tmp_path):
     env = dict(os.environ, HOME=str(tmp_path), PATH=os.path.dirname(sys.executable) + os.pathsep + os.environ.get("PATH", ""))
     env.pop("CLAUDE_CONFIG_DIR", None)

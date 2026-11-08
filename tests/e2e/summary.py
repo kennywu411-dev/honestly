@@ -1,6 +1,6 @@
 """Scenario-by-CLI matrix from results/*/*.json. `summary.py` prints Markdown; exit code 1 when any scored scenario failed.
 What each cell says: PASS/FAIL against the scenario's `expect`, then what happened (H holds, W second-pass notices, R refusals)."""
-import glob, json, os, re, sys
+import glob, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import S, score
 groups = sys.argv[1:] or ["claude-guard", "claude-plugin", "codex", "gemini"]

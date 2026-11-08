@@ -1,5 +1,5 @@
 """Real Codex CLI + honestly hooks + scripted model.  run_codex.py [scenario-prefix ...]    results/codex/*.json, recordings/codex/"""
-import concurrent.futures as cf, glob, json, os, re, shutil, subprocess, sys, time, uuid
+import concurrent.futures as cf, glob, json, os, re, subprocess, sys, time, uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 from standin import Standin

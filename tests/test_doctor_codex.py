@@ -11,6 +11,7 @@ def codex_home(tmp_path, monkeypatch):
     home = tmp_path / "home"
     (home / ".codex").mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.delenv("CODEX_HOME", raising=False)
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     agents.guard("codex", "install", "/opt/venv/bin/honestly")
@@ -69,6 +70,7 @@ def test_a_codex_only_user_is_not_told_to_install_for_claude_code(codex_home):
 
 def test_nobody_installed_is_still_a_failure(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CODEX_HOME", raising=False)
     text, problems = support.doctor(zh=False, with_problems=True)

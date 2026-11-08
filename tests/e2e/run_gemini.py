@@ -1,5 +1,5 @@
 """Real Gemini CLI + honestly hooks + scripted model.  run_gemini.py [scenario-prefix ...]    results/gemini/*.json, recordings/gemini/"""
-import concurrent.futures as cf, glob, json, os, random, re, shutil, subprocess, sys, time
+import concurrent.futures as cf, glob, json, os, random, re, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 from standin import Standin

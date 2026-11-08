@@ -92,10 +92,10 @@ def scenarios(box):
     "14a-stop-hook-timeout":   dict(expect="info", slow=("Stop", 2, 6), main=[W, T("All tests pass."), T("(should not be reached)")]),
     "14b-pre-hook-timeout":    dict(expect="info", slow=("PreToolUse", 2, 6), main=[W, bash("pytest | head -3"), T("Stopped there.")]),
     # ---- other situations a user will hit
-    "15a-no-persistence":      dict(expect="info",  extra=["--no-session-persistence"], main=[W, T("All tests pass."), T("Not verified.")]),
+    "15a-no-persistence":      dict(expect="notice",  extra=["--no-session-persistence"], main=[W, T("All tests pass."), T("Not verified.")]),
     "15b-tool-and-text-same-msg": dict(expect="nohold", main=[W, T("Running them now.") + bash("pytest -q"), T("All 5 tests pass.")]),
     "15c-claim-midturn-then-test": dict(expect="nohold", main=[W, T("All tests pass.") + bash("pytest -q"), T("Done, 5 passed.")]),
-    "15d-project-under-tmp":   dict(expect="info", under_tmp=True, main=[W, T("All tests pass."), T("Not verified.")]),
+    "15d-project-under-tmp":   dict(expect="hold", under_tmp=True, main=[bash("pytest -q"), W, T("All tests pass."), T("Not verified.")]),
     "15e-head-then-tail":      dict(expect="info", main=[W, bash("pytest | head -3"), bash("pytest | tail -3"), T("All 5 tests pass.")]),
     "15f-plan-mode":           dict(expect="info", perm=["--permission-mode", "plan"], main=[T("All tests pass."), T("Not verified.")]),
     "15g-skill-turn":          dict(expect="hold", prompt="/simplify", main=[W, T("All tests pass."), T("Not verified.")]),
@@ -116,7 +116,7 @@ def run_one(name, form):
         shutil.rmtree(tmp_proj, ignore_errors=True); os.makedirs(tmp_proj)
         subprocess.run(["git", "init", "-q"], cwd=tmp_proj); open(os.path.join(tmp_proj, "app.py"), "w").write("x = 0\n")
         box["proj"] = tmp_proj
-        sc["main"] = [tool("Write", file_path=os.path.join(tmp_proj, "app.py"), content="x = 1\n")] + sc["main"][1:]
+        sc["main"] = [sc["main"][0], tool("Write", file_path=os.path.join(tmp_proj, "app.py"), content="x = 1\n")] + sc["main"][2:]
     if sc.get("fake") or sc.get("script"):
         write_pytest(box, sc.get("fake") or FAKE_PASS, sc.get("script"))
     st = Standin()

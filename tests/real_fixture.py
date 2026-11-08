@@ -15,7 +15,7 @@ def _fill(folder: str, tasks: str):
                 text = fh.read()
             if "__TASKS__" in text:
                 with open(p, "w", encoding="utf-8") as fh:
-                    fh.write(text.replace("__TASKS__", tasks))
+                    fh.write(text.replace("__TASKS__", json.dumps(tasks)[1:-1]))   # inside a JSON string: a Windows path has to stay valid
 
 
 def load(tmp_path, cli: str, name: str, until: str = "", tasks: dict = None) -> str:

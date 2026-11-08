@@ -14,7 +14,7 @@ PATS = {
 }
 files = 0; hits = collections.defaultdict(collections.Counter); skipped = 0
 for root in ROOTS:
-    for dp, dn, fn in os.walk(root):
+    for dp, _, fn in os.walk(root):
         if "node_modules" in dp or "packages/app-server-daemon" in dp or "/.tmp/plugins" in dp or "/.codex/plugins" in dp or "/skills/" in dp:
             continue   # public plugin docs the CLIs fetched or ship, not logs of this audit
         for f in fn:
@@ -31,7 +31,7 @@ for root in ROOTS:
 print("files scanned", files, "skipped", skipped, "files with a hit", len(hits))
 by = collections.Counter()
 for p, c in hits.items():
-    for k, v in c.items(): by[(k, os.path.basename(p) if not os.path.basename(p).startswith(("rollout", "session-", "transcript-at")) and not p.endswith(".jsonl") else "*" + os.path.splitext(p)[1])] += 1
+    for k in c: by[(k, os.path.basename(p) if not os.path.basename(p).startswith(("rollout", "session-", "transcript-at")) and not p.endswith(".jsonl") else "*" + os.path.splitext(p)[1])] += 1
 print("by pattern and file kind (counts of files):", by.most_common(30))
 for p, c in list(hits.items())[:40]:
     print(p.replace(BOX, "$BOX"), dict(c))

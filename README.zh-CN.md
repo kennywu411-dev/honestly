@@ -52,7 +52,7 @@ honestly doctor --lang zh       # 体检安装，并现场做两次自测
 其他助手。Codex 已在真实机器上端到端验证（Codex CLI 0.163：guard 拒绝了接管道的 `pytest`，并写明了模型和项目）；Gemini CLI 用真实 CLI（0.67）跑过，模型接口换成了本地替身；Cursor 按官方 hook 文档实现。两者在有用户用真实会话确认之前都标为实验性（见[它不是什么](#它不是什么)）：
 
 ```bash
-honestly guard install --agent codex     # ~/.codex/hooks.json（Codex 会要求你在 /hooks 里批准一次）
+honestly guard install --agent codex     # ~/.codex/hooks.json（你没信任的 hook，Codex 不会运行：打开一次 codex，选 Trust all；honestly doctor 会告诉你）
 honestly guard install --agent cursor    # ~/.cursor/hooks.json（需要开启 Cursor 的 agent transcripts）
 honestly guard install --agent gemini    # ~/.gemini/settings.json
 honestly guard status                    # 四家一起看；guard uninstall [--agent …] 只删 honestly 自己写的条目
@@ -92,6 +92,8 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 声称「登录接口的 bug 已修复，12 个测试全部通过」，但改完 login.py 之后没有运行测试命令。已要求其先运行测试再回复。
 ```
 
+Claude Code（在 2.1.319 上看到）把被拦的回复标成 “Stop hook error occurred”，把被拒的命令标成 “hook error”。这不是故障：这是它对 hook 说“不”的叫法，提示里也会写明。
+
 助手被要求现在就去跑检查并报告真实输出，做不了就把那句话改成"已修改，尚未验证"。如果声称的是难以撤销的事（已发送、已部署、已推送），做法不同：助手被要求核实它是否真的发生，或者说明没有做，并在做任何操作之前先问你，绝不能只为了让这句话成立就去做。它的下一条回复第一行会用加粗写明：为什么被拦、补跑的结果是什么。测试要是失败，它看到的是失败，就会去改代码，而不是直接报告完成。它的这次回答同样会被检查：如果仍然没有依据就说通过，为避免反复拦截不会再拦第二次，但会显示一条提醒，告诉你这句话未经验证。
 
 第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到一次完整运行的结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。只是找某一样东西的不拦：`pytest -rs | grep SKIP`、`pytest -k spikes | head`、`pytest tests/test_a.py | head`；如果回复接着说测试通过，而屏幕上没有结果，就会被拦。下面这些也放行：`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
@@ -129,7 +131,7 @@ honestly guard notify on      # 回复被拦下时弹桌面通知（macOS、Linu
 
 它刻意不标的：计划（"我接下来跑测试"）、提问、引用、代码块、标题和表格、主语是用户的句子（"你发给我的……"）、状态描述（"数据只保存在本地"）、文献标题（"fixed bed reactor"）、只是总结上一轮的回复。看不到的东西（远程 CI、浏览器操作、你自己的终端）一律记为"无法核实"，不会变成冤枉的"无支撑"。
 
-子代理做的事也算：`Agent` 调用里跑的测试是主助手结论的依据，后台命令的输出从任务文件里读回来。和主助手并行运行的后台子代理所做的修改，不会让主助手自己的检查作废。
+子代理做的事也算，Claude Code、Codex、Gemini CLI 都一样：子代理跑的测试是主助手结论的依据，子代理改的代码算作修改，不管它是不是在后台跑。后台或耗时长的命令，结果一到就读（任务文件、`write_stdin`、`read_background_output`）；命令还在跑就声称通过，会被拦。
 
 ## 按你的习惯配置
 
@@ -214,8 +216,8 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 
 ## 一条结论是怎么判的
 
-1. **范围：一轮。** 你的提问到它的回复之间做的所有事，包括子代理做的。
-2. **最后一次代码修改。** `Edit`/`Write` 工具、`sed -i`、`cat > file`、写文件的 heredoc。改文档、日志、笔记、记忆、`.env`、临时目录、agent 状态文件不算。
+1. **范围：一轮。** 从你的提问到它的回复之间做的所有事，包括子代理做的。后台任务的通知和上下文压缩都不算新的一轮。别的会话发来的消息单独算一段，回复它时不按这个会话的修改来判。一次提问只拦一次。
+2. **最后一次代码修改。** `Edit`/`Write` 工具、`sed -i`、`cat > file`、写文件的 heredoc。改文档、日志、笔记、记忆、`.env`、临时目录、agent 状态文件不算。放在 `/tmp` 下的项目仍然是项目：临时文件指会话所在文件夹之外的文件。
 3. **之后有没有对应的检查。** 见上表。`verify_commands` 里的自定义命令算测试。
 4. **输出说了什么。** 最后一行汇总说了算：`12 passed` 支持结论，`2 failed` 反驳，`fail 0` 是通过；一个测试都没收集到的运行（`no tests ran`、`Ran 0 tests`、`0 passing`、`[no tests to run]`）什么都不支持，退出码是绿的也一样。缩小范围的运行（`pytest -k`、单个文件）只在结论写了同样的数量时才算。最后一次检查没说通过还是失败（比如只是读 CI 状态），就用前面最近一次说了的。
 5. **非代码结论**看整轮加上一轮（回复经常开头先汇报上一轮做了什么），而且必须对得上：说"已保存到 report.csv"就得写过 `report.csv`；说"图发你了"得有发送工具，脚本正文里出现 mail 命令不算。

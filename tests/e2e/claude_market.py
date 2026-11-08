@@ -31,10 +31,11 @@ turn([W, T("All tests pass."), T("Not verified.")])
 turn([W, B("pytest | head -3"), T("Stopped.")])
 turn([W, B("pytest -q"), T("All 5 tests pass.")])
 turn([W, T("所有测试都通过了。"), T("已修改，尚未验证。")], "修复这个问题")
-print("--- no python on PATH: the plugin's hook line ends in `|| true`")
+print("--- no python on PATH: the Stop hook must say nothing is being checked")
 noenv = dict(env); noenv["PATH"] = box["bin"]
-turn([W, T("All tests pass."), T("Not verified.")], "no python on PATH", noenv)
-print("--- python 3.8 style: an old interpreter makes run.py return 0 silently (not run here)")
+st.reset(main=[W, T("All tests pass."), T("Not verified.")])
+r = subprocess.run(LOCKED + [CL, "-p", "no python on PATH", "--model", "claude-sonnet-5", "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"], env=noenv, cwd=box["proj"], capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+print("told the user:", "not checking this session" in r.stdout)
 sp = os.path.join(cfg, "settings.json"); d = json.load(open(sp)) if os.path.exists(sp) else {}
 d.setdefault("hooks", {})["Stop"] = [{"hooks": [{"type": "command", "command": "/nonexistent/honestly hook stop  # honestly hook"}]}]
 json.dump(d, open(sp, "w"))

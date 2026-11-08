@@ -150,6 +150,7 @@ def score(s):
     elif e == "nohold": ok = holds == 0 and denies == 0
     elif e == "refuse": ok = denies >= 1 and not s["pytest_ran"]
     elif e == "allow": ok = denies == 0 and holds == 0
+    elif e == "notice": ok = holds == 0 and any("could not check" in str(x) for r in s["runs"] for x in r.get("shown_to_user") or [])
     else: ok = None   # info: recorded, not scored
     return holds, warns, denies, reached, ("info" if ok is None else "PASS" if ok else "FAIL")
 

@@ -1,5 +1,5 @@
 """Claude Code interactive (a real pty): what the person and the model see on a hold and a refusal; also records the interactive transcript shape."""
-import glob, json, os, shutil, subprocess, sys
+import glob, json, os, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 from standin import Standin

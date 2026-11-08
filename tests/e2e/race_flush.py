@@ -1,6 +1,6 @@
 """Claude Code writes its transcript with a delay. How fast must a model answer for the stop hook to read a stale file?
 The stand-in waits `delay` seconds before each reply. Each cell is out of RUNS real runs, unwrapped hooks, installed as a user would."""
-import concurrent.futures as cf, json, os, subprocess, sys
+import concurrent.futures as cf, os, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
 from standin import Standin
