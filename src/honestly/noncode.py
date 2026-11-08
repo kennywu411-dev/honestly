@@ -101,15 +101,33 @@ DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\b
                            r"|\b(?:permission|access) denied\b|\bHTTP(?:/\S+)? ?[45]\d\d\b|\bERROR [45]\d\d\b|\breturned error\b|\b404 not found\b", re.I | re.M)
 
 
-def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False) -> tuple[str, str, str, str]:
+def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False, session_tools=None) -> tuple[str, str, str, str]:
     """Return (verdict, reason, verified_by, output) for a non-code claim given the tool events earlier in the turn
     (and the previous turn's tools: a reply often opens by summarising what the previous turn did).
     `automated`: the turn answers a task notification or another session's message, and such a reply
     usually summarises work from several turns back, so a missing action there is unverifiable, not unbacked."""
     verdict = _judge(category, sentence, tools, opaque, prev_tools, remote)
+    if verdict[0] == "not_this_turn" and session_tools is not None and not automated:
+        verdict = _judge_recap(category, sentence, session_tools(), opaque, remote) or verdict
     if automated and verdict[0] == "unbacked":
         return "unverifiable", "a reply to an automated message summarises earlier turns; " + verdict[1], verdict[2], verdict[3]
     return verdict
+
+
+NOT_DONE_YET = re.compile(r"了再|后再|[，,]再|\bthen I\b")   # 跑通了再上全量: a plan, in a turn with nothing to judge it against
+READ_BEFORE = re.compile(r"读过|看过|\bread\b", _I)   # project instructions loaded before the first tool call leave no trace
+
+
+def _judge_recap(category: str, sentence: str, earlier, opaque: set, remote) -> tuple | None:
+    """A turn with no tools: a recap if anything earlier in the session did this, and not one if nothing did. None when that cannot be told."""
+    if earlier is None or NOT_DONE_YET.search(sentence) or (category == "checked" and READ_BEFORE.search(sentence)):
+        return None
+    earlier = [t for t in earlier if t.kind == "tool"]
+    if OTHER_SESSION.search(sentence) or (remote and remote.search(sentence)):
+        return None
+    if earlier and _judge(category, sentence, earlier, opaque, None, remote)[0] != "unbacked":
+        return None
+    return "unbacked", f"nothing in this session did this: no {SPECS[category].noun} tool or command ran", "", ""
 
 
 def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None) -> tuple[str, str, str, str]:

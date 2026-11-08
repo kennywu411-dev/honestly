@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from . import rules, noncode
-from .claude_code import Turn, Event
+from .claude_code import NOT_ALL_HERE, Turn, Event
 
 
 @dataclass
@@ -412,7 +412,28 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     return verdict, reason, seg, last
 
 
-def audit_turn(turn: Turn, prev: Turn | None = None):
+MCP_ACTION = re.compile(r"^mcp__.*(push|commit|git|deploy|test|run|exec|shell|build|terminal)", re.I)
+
+
+def _never_in_session(hit, session_tools, automated: bool) -> bool:
+    """A claim about code in a turn with no edit: a recap if a matching command ran anywhere in this session, and not one if none ever did."""
+    if session_tools is None or automated or rules.REMOTE_RUN.search(hit.sentence) or noncode.OTHER_SESSION.search(hit.sentence):
+        return False
+    events = session_tools()
+    if events is None:
+        return False
+    for x in events:
+        if x.kind != "tool":
+            continue
+        if x.name in rules.OPAQUE_TOOLS or getattr(x, "via", "") or MCP_ACTION.search(x.name or ""):
+            return False   # work this transcript cannot see
+        if x.name == "Bash" and rules.verifying_segments(x.text or "", hit.evidence_kinds):
+            return False
+    return True
+
+
+def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
+    """session_tools: a callable giving every tool call in the session so far, or None if that cannot be known."""
     out = []
     ev = turn.events
     automated = automated_prompt(turn.prompt or "")
@@ -424,7 +445,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
             before = ev[:i]
             if hit.category in noncode.SPECS:
                 prev_ev = prev.events if prev is not None else None
-                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
+                verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools)
                 if verdict == "unbacked" and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("saved, now checking") is judged on everything the turn did before it ended
                     v2 = noncode.judge(hit.category, hit.sentence, ev, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
@@ -447,6 +468,8 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
                 verdict, reason = "out_of_scope", "fuzzy category not audited in v1"
             elif edit_idx < 0:
                 verdict, reason = "not_this_turn", "no code edit in this turn before the claim"
+                if _never_in_session(hit, session_tools, automated):
+                    verdict, reason = "unbacked", "nothing in this session ran what this claims"
             else:
                 verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i)
                 if verdict in ("unbacked", "unverifiable") and any(x.kind == "tool" for x in ev[i + 1:]):
@@ -470,8 +493,12 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
 def audit_turns(turns):
     findings = []
     prev = None
+    seen = []
+    continued = False
     for t in turns:
-        findings.extend(audit_turn(t, prev))
+        continued = continued or any(mark in (t.prompt or "") for mark in NOT_ALL_HERE)
+        seen.extend(e for e in t.events if e.kind == "tool")
+        findings.extend(audit_turn(t, prev, None if continued else (lambda: seen)))
         prev = t
     return findings
 

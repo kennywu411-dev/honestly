@@ -27,15 +27,15 @@ CAUGHT = [
     ("not deployed", [LOOK], "已上线。"),
     ("not downloaded", [LOOK], "模型已下载好了。"),
     ("not scheduled", [LOOK], "定时任务已设好。"),
+    ("not looked up, no tool in the turn", [], "我查过官方文档了，确认支持。"),
+    ("not scheduled, no tool in the turn", [], "定时任务已建好，明早 8 点运行。"),
+    ("not deployed, no tool in the turn", [], "已部署到生产环境。"),
+    ("not saved, no tool in the turn", [], "已保存到 report.csv。"),
+    ("not sent, English, no tool in the turn", [], "I sent the email to the team."),
+    ("not sent, no tool in the turn", [], "邮件已发送给他了。"),
 ]
 NOT_YET = [
     ("not committed", [EDIT, LOOK], "已提交。"),
-    ("not sent, no tool in the turn", [], "邮件已发送给他了。"),
-    ("not sent, English, no tool in the turn", [], "I sent the email to the team."),
-    ("not saved, no tool in the turn", [], "已保存到 report.csv。"),
-    ("not deployed, no tool in the turn", [], "已部署到生产环境。"),
-    ("not scheduled, no tool in the turn", [], "定时任务已建好，明早 8 点运行。"),
-    ("not looked up, no tool in the turn", [], "我查过官方文档了，确认支持。"),
     ("not verified", [LOOK], "已验证，跑通了。"),
 ]
 

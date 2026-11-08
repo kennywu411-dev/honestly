@@ -228,6 +228,39 @@ TAIL_THRESHOLD = 8 * 1024 * 1024
 TAIL_WINDOW = 3 * 1024 * 1024
 
 
+SESSION_SCAN_LIMIT = 200 * 1024 * 1024
+NOT_ALL_HERE = ("being continued from a previous conversation", "Linked sessions now")   # the work may be in an earlier file or another session
+
+
+def session_tools(path: str):
+    """Every tool call in the whole transcript, for "did anything in this session ever do that?". Hooks read only the end of a big file, and this must
+    not miss an action far back. None when it cannot be known: a file too big to scan in a hook, a session continued from an earlier one, or one
+    with linked sessions whose work it may be reporting."""
+    events = []
+    try:
+        if os.path.getsize(path) > SESSION_SCAN_LIMIT:
+            return None
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                if any(mark in line for mark in NOT_ALL_HERE):
+                    return None
+                if '"tool_use"' not in line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                msg = r.get("message") if isinstance(r, dict) else None
+                content = msg.get("content") if isinstance(msg, dict) else None
+                for b in content if isinstance(content, list) else []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use":
+                        name = _tool_name(b.get("name"))
+                        events.append(Event("tool", name=name, text=_summarize_input(name, b.get("input"))))
+    except OSError:
+        return None
+    return events
+
+
 def parse_session(path: str, subagents: bool = True, tail: bool = False, min_turns: int = 2):
     """All turns of a session. tail=True (the hooks) reads only the end of a big file: a window from the end, doubled
     until it holds min_turns user turns, so a 200 MB session costs the same as a small one."""
