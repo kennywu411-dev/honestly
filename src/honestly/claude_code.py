@@ -340,12 +340,9 @@ def merge_into_turns(turns: list, events: list) -> int:
 def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
     """Put every tool call a subagent made into the parent turn, in timestamp order, so a test the subagent ran counts and an
     edit it made is seen. The Agent call that spawned it is then no longer opaque. Returns the number of merged events."""
-    merged = 0
     by_tool_use = {}
     since = _iso_epoch(since_ts) - 120 if since_ts else 0.0
-    starts = sorted((t.ts, i) for i, t in enumerate(turns) if t.ts)
-    keys = [ts for ts, _ in starts]
-    arriving: dict[int, list] = {}
+    all_events = []
     for f in subagent_files(path):
         try:
             if since and os.path.getmtime(f) < since:
@@ -362,16 +359,11 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
             pass
         if not events:
             continue
-        bg = str(meta.get("requestShape") or "") == "background"
         by_tool_use[str(meta.get("toolUseId") or "")] = len(events)
         for e in events:
-            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
-            at = bisect.bisect_right(keys, e.ts) - 1
-            if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
-                arriving.setdefault(starts[at][1], []).append(e)
-                merged += 1
-    for i, incoming in arriving.items():
-        turns[i].events = _merged_by_time(turns[i].events, incoming)
+            e.via = f"subagent:{agent_id}"
+        all_events.extend(events)
+    merged = merge_into_turns(turns, all_events)
     if by_tool_use:
         for t in turns:
             for e in t.events:

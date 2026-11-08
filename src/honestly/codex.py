@@ -106,7 +106,29 @@ def _header(path: str) -> tuple:
     return project, model
 
 
-def parse_session(path: str, start: int = 0):
+def _merge_subagents(path: str, turns: list, depth: int = 3) -> None:
+    """A spawned agent records its work in a rollout of its own, named by its id, usually next to this one. Its tool calls are placed in the turn they
+    happened in, so a test it ran counts and an edit it made is seen. A spawn whose rollout cannot be found stays opaque."""
+    day = os.path.dirname(path)
+    sessions = os.path.dirname(os.path.dirname(os.path.dirname(day)))
+    for t in turns:
+        for e in t.events:
+            if e.kind != "tool" or e.name != "Agent":
+                continue
+            m = SPAWNED.search(e.result or "")
+            if not m or depth <= 0:
+                continue
+            found = glob.glob(os.path.join(glob.escape(day), f"rollout-*-{m.group(1)}.jsonl")) or glob.glob(os.path.join(glob.escape(sessions), "*", "*", "*", f"rollout-*-{m.group(1)}.jsonl"))
+            if not found:
+                continue
+            events = [x for c in parse_session(found[0], depth=depth - 1) for x in c.events if x.kind == "tool" and x.ts]
+            for x in events:
+                x.via = x.via or f"subagent:{m.group(1)}"
+            merge_into_turns(turns, events)
+            e.name = "Agent:read"
+
+
+def parse_session(path: str, start: int = 0, depth: int = 3):
     session = os.path.splitext(os.path.basename(path))[0].replace("rollout-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
@@ -198,4 +220,6 @@ def parse_session(path: str, start: int = 0):
                             command.running, command.is_error = False, int(ended.group(1)) != 0
     if cur is not None:
         turns.append(cur)
+    if depth > 0:
+        _merge_subagents(path, turns, depth)
     return turns

@@ -37,7 +37,7 @@ LABELS = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could
 
 
 def _is_edit(e: Event) -> bool:
-    if e.kind != "tool" or e.via.startswith("subagent-bg"):
+    if e.kind != "tool":
         return False
     if e.name in rules.EDIT_TOOLS:
         return bool(e.text.strip()) and not rules.path_is_doc(e.text)   # an Edit with no path is not evidence of a code edit

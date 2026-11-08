@@ -292,6 +292,8 @@ def gemini_parse(path: str, start: int = 0, subagents: bool = True):
                 cur.events.append(Event("text", text=text, ts=ts))
     if cur is not None:
         turns.append(cur)
+    if subagents and turns:
+        _merge_gemini_subagents(path, turns)
     return turns
 
 
