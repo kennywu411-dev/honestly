@@ -4,7 +4,7 @@ import dataclasses
 import os
 import re
 from dataclasses import dataclass
-from . import rules, noncode
+from . import rules, noncode, verdicts
 from .claude_code import NOT_ALL_HERE, Turn, Event, background_notice
 
 
@@ -44,34 +44,19 @@ def _is_edit(e: Event) -> bool:
     return e.name == "Bash" and rules.bash_is_edit(e.text)
 
 
-TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)?\b|✓|全部通过|fail(ed|ures)?[: ]+0\b|\b0 failed|\bpass \d+"
-                       r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b"
-                       r"|\b[1-9]\d* (?:examples?|tests?),[ \t]*(?:with[ \t]+)?0 failures\b"  # rspec: 5 examples, 0 failures; ExUnit: 9 tests, 0 failures; XCTest: Executed 9 tests, with 0 failures
-                       r"|\bwith \d+ failures? \(0 unexpected\)", re.I | re.M)  # XCTest: expected failures (XCTExpectFailure) are not failures
-TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
-                       r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
-# a non-zero failure count or a failed verdict, which no pass marker on the same summary can outweigh. Each shape is one a runner prints, so that a log line ("retried after 2 failures", "errors: 2") does not overrule a passing run.
-FAIL_COUNT = re.compile(r"\b[1-9]\d* (?:tests? )?failed\b"                                       # pytest: 2 failed; CTest: 2 tests failed
-                        r"|\b(?:tests?(?: run| count)?|total|passed)\b[^\n]{0,200}?[,;|(][ \t]*(?:fail(?:ed|ures?)|errors)[ \t]*[:=][ \t]*[1-9]"   # NUnit, Maven, PHPUnit, xUnit
-                        r"|\((?:failures|errors)=[1-9]|(?-i:^[ \t]*Failed:[ \t]+[1-9])|\bTest Run Failed\b"   # unittest; dotnet's own lines
-                        r"|\b(?:examples?|tests?|assertions?),[ \t]*(?:with[ \t]+)?[1-9]\d* failures?\b(?![ \t]*\(0 unexpected\))"   # RSpec, ExUnit, XCTest, minitest
-                        r"|\bpassed\b[^\n]{0,120}?\b[1-9]\d* errors?\b|\b(?:failures?|assertions?),[ \t]*[1-9]\d* errors?\b"   # pytest: 3 passed, 1 warning, 1 error; minitest: 0 failures, 2 errors
-                        r"|^[ \t]*[1-9]\d* failures?,[ \t]*\d+ errors?\b"                        # clojure.test: 2 failures, 0 errors
-                        r"|^[ \t]*[1-9]\d* fail[ \t]*$|^[ \t]*(?:#[ \t]*)?fail[ \t]+[1-9]|^#[ \t]*failed [1-9]\d* of\b"   # bun:  2 fail; TAP: # fail 2; prove
-                        r"|\[ *FAILED *\] *[1-9]\d* tests?\b|ℹ cancelled [1-9]"                  # GoogleTest; node --test
-                        r"|\b\d+ successes? / (?:[1-9]\d* failures?|\d+ failures? / [1-9]\d* errors?)"   # busted
-                        r"|\bBUILD (?:FAILURE|FAILED)\b|^[ \t]*evaluation failed\b|\bFAIL code \d|\* [\w.-]+: failed\b"   # Maven, Gradle, tox, nox: the run's verdict after the counts
-                        r"|\bnpm (?:ERR!|error) Lifecycle script\b|^[ \t]*Failed:[ \t]+\S+#\S+", re.I | re.M)   # npm workspaces, turbo
-# printed before the last summary, and not cancelled by it
-EARLY_FAIL = ((re.compile(r"^(?:--- FAIL:|FAIL\t)", re.M), "the output shows a failing Go package"),
-              (re.compile(r"^[ \t]*Failed![ \t]+-", re.M), "the output shows a failed dotnet project"),
-              (re.compile(r"^test result: FAILED", re.M), "the output shows a failed cargo target"),
-              (re.compile(r"^[ \t]*[1-9]\d* failed[ \t]*$", re.M), "the output counts failed tests above the passed ones"))   # Playwright:   1 failed ...   5 passed
-SUITE_LINE = re.compile(r"^[ \t]*Test (?:Suites:|Files)[^\n]*", re.M)   # Jest, Vitest: a file that failed to load runs no tests, so `Tests:` alone reads as a pass
-ANSI = re.compile(r"\x1b\[[0-9;]*m")
-# `go test` says FAIL on its own line for a package that failed to build, too
-TARGET_FAIL = ((re.compile(r"\bgo test\b"), re.compile(r"^(FAIL\b|--- FAIL:)", re.M), "go test output shows FAIL"),)   # `ok pkg/a` lines do not cancel a failing package
-SUMMARY_LINE = re.compile(r"((?<!Found )\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
+# What a run printed is read by verdicts.py, one table per runner.
+ANSI = verdicts.ANSI
+_LAZY = {"TEST_PASS": (verdicts.PASS, verdicts.WEAK_PASS), "TEST_FAIL": (verdicts.FAIL, verdicts.WEAK_FAIL), "FAIL_COUNT": (verdicts.FAIL,), "SUMMARY_LINE": (verdicts.COUNT,), "ZERO_TESTS": (verdicts.ZERO,)}
+SUITE_LINE = re.compile(r"^[ \t]*Test (?:Suites:|Files)[^\n]*", re.M)   # Jest, Vitest
+
+
+def __getattr__(name):
+    """The tables as one pattern each, built only for code that asks whether a line of that sort is there."""
+    if name in _LAZY:
+        return verdicts.union(*_LAZY[name])
+    raise AttributeError(name)
+
+
 IMAGE_READ = re.compile(r"\.(png|jpe?g|gif|webp)$", re.I)
 VISUAL_CMD = re.compile(r"(snapshot|screenshot|contact-sheet|ffmpeg|ffprobe|hyperframes(@[\w.]+)? (render|build)|blender |--screenshot|--dump-dom)", re.I)
 BROWSER_VIEW = re.compile(r"mcp__.*(screenshot|computer|browser_batch|navigate|read_page|get_page_text|preview_start|snapshot)|playwright|puppeteer", re.I)   # looking at the page in a browser
@@ -104,25 +89,6 @@ TASK_OUTPUT_READ = re.compile(r"tasks/[\w-]+\.output\b")   # a background comman
 REDIRECT_OUT = re.compile(r"(?:&>>?|(?<![0-9&>])>>?)\s*(\"[^\"]+\"|'[^']+'|[^\s;&|<>]+)")
 
 
-def _last_summary(out: str) -> str:
-    """The last pass/fail summary in the output decides; earlier runs in the same command are history."""
-    hits = [m.group(0) for m in SUMMARY_LINE.finditer(out)]
-    if not hits:
-        return out
-    # a summary spans its whole line: in "9 runs, 2 failures, 0 errors" the hit is only "0 errors", and the failures come before it.
-    # A progress bar rewrites one line with \r, so that is a line start too, and only the near part of a long line is the summary.
-    start = out.rfind(hits[-1])
-    line = max(out.rfind("\n", 0, start), out.rfind("\r", 0, start)) + 1
-    return out[max(line, start - 200):][:400]
-# a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet, PHPUnit, Deno, RSpec
-ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
-                        r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
-                        r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))"
-                        r"|\bNo tests executed\b"  # phpunit: No tests executed!
-                        r"|\bNo test is available\b|\bNo test matches\b"  # dotnet test: No test is available in ...; No test matches the given testcase filter ...
-                        r"|\b0 tests?,[ \t]*(?:with[ \t]+)?0 failures\b|\b0 runs, 0 assertions\b"  # ExUnit, XCTest, minitest
-                        r"|\bok\s*\|\s*0 passed\s*\|\s*0 failed\b"  # deno test: ok | 0 passed | 0 failed
-                        r"|\b0 examples,\s*0 failures\b", re.I | re.M)  # rspec: 0 examples, 0 failures
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 
 
@@ -130,58 +96,163 @@ PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 FAILS_BEFORE = re.compile(r"\bfail(?:s|ed|ing)? (?:on|against|without|before) (?:main|master|origin|the base|the old code|the fix)\b|(?:修复前|改之前|主分支上|main 上|旧代码上).{0,12}(?:失败|不通过|会挂)", re.I)
 
 
+_NO_OUTPUT = "(Bash completed with no output)"   # what the transcript holds when a command printed nothing
+_ABOUT_TESTS = re.compile(r"测试|用例|\btests?\b", re.I)
+_MANY_PARTS = re.compile(r"--workspaces?\b|\s-ws\b|\bpnpm\s+(?:\S+\s+)*?-r\b|\byarn\s+workspaces\b|\bturbo\s+(?:run\s+)?\w|\bnx\s+run-many\b|\blerna\s+run\b|\s--all-packages\b")
+_SKIPS_TESTS = re.compile(r"\s-x\s+(?:\S*:)?test\b|\s-DskipTests\b|\s-Dmaven\.test\.skip(?:=true)?\b|\s--no-run\b")   # `gradle build -x test`, `mvn verify -DskipTests`, `cargo test --no-run`
+
+
+@dataclass
+class _Status:
+    own: bool = True        # the exit status the tool reports is the run's
+    hidden: bool = False    # a later `;` or `||` step replaced it, so only the output can say how the run went
+    rerun: bool = False     # the same test command ran twice in this command
+    run: str = ""           # the test run's own part of the command
+
+
+def _status(seg: str, cmd: str) -> _Status:
+    """Whose exit status this is. `pytest && git push` with the push rejected is still a test run that passed; `pytest` exiting 1 is not."""
+    parts = rules.segments(cmd)
+    runs = rules.verifying_segments(cmd, {"test"}) or rules.verifying_segments(cmd, {"build"})
+    if not runs or len(parts) < 2:
+        return _Status(run=runs[-1].text if runs else "", rerun=bool(_RETRY_LOOP.search(cmd)))
+    texts = [p.text for p in parts]
+    last = runs[-1].text
+    rerun = _reruns(runs, cmd)
+    if last not in texts or texts[-1] != last:
+        after = cmd[cmd.rfind(last) + len(last):].lstrip(" \t")
+        return _Status(own=last not in texts, hidden=last in texts and not after.startswith("&&"), rerun=rerun, run=last)
+    checks = {r.text for r in runs}
+    first = texts.index(runs[0].text) if runs[0].text in texts else 0
+    # `pytest && git push && gh run list`: the push can be what failed, and then the last check never ran
+    own = all(t in checks or _HARMLESS_STEP.match(t) for t in texts[first:])
+    return _Status(own=own, rerun=rerun, run=last)
+
+
+_HARMLESS_STEP = re.compile(r"^\s*(?:cd|echo|printf|export|source|\.|true|:|sleep|set)\b|^\s*\w+=\S*\s*$")
+_RETRY_LOOP = re.compile(r"^\s*(?:until|while)\b|^\s*for\b.*\bbreak\b", re.S)
+_RUN_LEAD = re.compile(r"^(?:\w+=\S*|do|then|else|until|while|!|time|python[\d.]*|-m|uv|poetry|pipenv|pdm|hatch|run|npx|bunx|exec)$")
+_RERUN_FLAGS = re.compile(r"--(?:lf|last-failed|ff|failed-first|rerun-failed)\b")
+
+
+def _scope(text: str):
+    """(tool, what it was pointed at) of a test run: `python -m pytest tests/a -q` is (pytest, {tests/a})."""
+    words = re.sub(r"\d?>>?&?\s*\S+", " ", text.split("|")[0]).replace("(", " ").replace(")", " ").split()
+    words = [os.path.basename(w) if i == 0 else w for i, w in enumerate(words)]
+    while words and _RUN_LEAD.match(os.path.basename(words[0])):
+        words.pop(0)
+    return (os.path.basename(words[0]) if words else ""), {w for w in words[1:] if not w.startswith("-")}
+
+
+def _reruns(runs: list, cmd: str) -> bool:
+    """The last run answers for the earlier ones only if it covers what they ran: `pytest || pytest`, `pytest a; pytest`, `pytest; pytest --lf`.
+    `pytest a; pytest b` are two answers, and `pytest; pytest a` narrows the question."""
+    if _RETRY_LOOP.search(cmd):
+        return True
+    if len(runs) < 2:
+        return False
+    tool, last = _scope(runs[-1].text)
+    for earlier in runs[:-1]:
+        other, target = _scope(earlier.text)
+        covers = not last or (target and target <= last) or _RERUN_FLAGS.search(runs[-1].text)
+        if other != tool or not covers:
+            return False
+    return True
+
+
+def _piped(seg: str, cmd: str) -> bool:
+    """A pipe's last command set the exit status, so a failure only shows in what got through."""
+    return bool(rules.PIPE_SWALLOW.search(seg)) and not rules.PIPEFAIL_ON.search(cmd)
+
+
+def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
+    """A test run: its own summary decides, its exit status can only take a pass away."""
+    cmd = ev.text or seg
+    status = _status(seg, cmd)
+    run = verdicts.read(text, last_run_only=status.rerun, later_steps=not status.own)
+    errored = bool(ev.is_error) and status.own
+    piped = _piped(seg, cmd)
+    if run.state == "fail":
+        return "contradicted", f"the output shows a failure: {run.line[:80]}"
+    if category == "checks_pass" and not _ABOUT_TESTS.search(claim_text or ""):
+        problem = verdicts.read_check(text).problem
+        if problem:
+            return "contradicted", f"the output reports errors: {problem[:80]}"
+    if _SKIPS_TESTS.search(seg):
+        return "unbacked", f"the command skips the tests, so no tests ran: {seg[:60]}"
+    if run.state == "zero":
+        if piped and run.line:
+            return "unbacked", f"the visible summary counts no tests, and a pipe may have cut off the real count: {run.line[:60]}"
+        return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
+    if run.state == "skipped":
+        return "unbacked", f"every test was skipped, so no tests ran: {run.line[:60]}"
+    if run.state == "pass":
+        if errored:
+            return "contradicted", f"the command exited non-zero after a passing summary: {run.line[:60]}"
+        if piped and _MANY_PARTS.search(seg):
+            return "unbacked", f"a pipe can scroll an earlier workspace's failure away, so this summary only speaks for the last one: {run.line[:60]}"
+        if run.ambiguous and piped:
+            return "unbacked", f"the output shows failures it calls expected, and a pipe hid the exit status that would settle it: {run.line[:60]}"
+        if (rules.NARROWED_TEST.search(seg) or rules.TEST_IMPORT.search(seg)) and category == "tests_pass":   # a few test functions called by hand
+            claimed = re.search(r"(\d+)\s*(个|项)?\s*(测试|用例|tests?)", claim_text or "")
+            if claimed and claimed.group(1) == str(run.passed):
+                return "backed", f"narrowed run matches the claimed count ({run.passed} passed): {seg[:60]}"
+            return "unverifiable", "narrowed test run reported as passing"
+        return "backed", f"test output confirms: {seg[:80]}"
+    if category == "checks_pass" and not ev.is_error and not piped:
+        return "backed", f"test output confirms: {seg[:80]}"
+    if piped:
+        if category in ("tests_pass", "fixed"):
+            return "unbacked", "the test output went through a pipe and shows no pass/fail line, so the result was not seen"
+        return "unverifiable", "test piped through tail/head and output shows no pass/fail line"
+    if errored or ev.is_error:
+        return "unbacked", "test command errored and printed no pass/fail summary"
+    return "unverifiable", "test ran but output shows no pass/fail line"
+
+
+def _judge_check(seg: str, ev: Event, text: str):
+    """A compiler or linter: count real diagnostics. The word `error` in a file name or a warning is neither."""
+    status = _status(seg, ev.text or seg)
+    found = verdicts.read_check(text)
+    if found.problem:
+        return "contradicted", f"verification output reports errors: {found.problem[:80]}"
+    if ev.is_error and status.own:
+        return "unbacked", f"verification command errored: {seg[:60]}"
+    word = "" if found.clean else verdicts.error_word(text)
+    if word:
+        return "contradicted", f"verification output contains errors: {word[:80]}"
+    if found.clean:
+        return "backed", f"verified by: {seg[:80]}"
+    if _piped(seg, ev.text or seg):
+        # the exit status went with the pipe: an empty tail shows nothing, and text no table knows says neither pass nor fail
+        return "unverifiable", "piped verification with empty output" if not text.strip() else "piped verification; the output shows neither errors nor a clean result"
+    return "backed", f"verified by: {seg[:80]}"
+
+
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
-    """Decide from the verifying command's own output; fall back to exit status / pipes."""
-    out = ANSI.sub("", ev.result or "")   # FORCE_COLOR: `\x1b[31m1 failed` has no word boundary before the 1
-    if background_notice(out):
+    """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
+    text = verdicts.clean(ev.result or "")
+    if text.strip() == _NO_OUTPUT:
+        text = ""
+    if background_notice(text):
         return "unverifiable", "verification was started in the background; its result is off-transcript"
     if category == "fixed" and (re.search(r"(node --check|py_compile)", seg) or rules.import_only(seg)):
         return "unverifiable", "only a syntax check ran after the fix"
     if category == "fixed" and re.search(r"kaggle kernels status", seg):
         return "unverifiable", "only a status read ran after the fix"
-    if category in ("tests_pass", "checks_pass") or rules.VERIFY["test"].search(seg):   # a later `git push` failing in the same command does not undo `26 passed`
-        summ = _last_summary(out)
-        for runner, failed, why in TARGET_FAIL:
-            if runner.search(seg) and failed.search(out):
-                return "contradicted", why
-        for failed, why in EARLY_FAIL:   # the shape is the runner's, so `make test` and `npm test` around it count too
-            if failed.search(out):
-                return "contradicted", why
-        suites = SUITE_LINE.findall(out)
-        if suites and re.search(r"\b[1-9]\d* failed\b", suites[-1]):
-            return "contradicted", "a test suite or file failed to run"
-        if TEST_FAIL.search(summ) and not TEST_PASS.search(summ):
-            return "contradicted", "last test summary shows failures"
-        if FAIL_COUNT.search(summ):
-            return "contradicted", "last test summary counts failures"
-        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|\bPassed:\s*[1-9]|\bwith [1-9]\d* tests? passed\b|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
-            return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
-        if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out) and not re.search(r"(?m)^ok\s+\S+(?![^\n]*\[no tests to run\])|^OK \(\d+ tests?", out):
-            return "unbacked", "test command errored and printed no pass/fail summary"
-        if TEST_PASS.search(summ) or (category == "checks_pass" and not TEST_FAIL.search(out) and not ev.is_error):
-            if (rules.NARROWED_TEST.search(seg) or rules.TEST_IMPORT.search(seg)) and category == "tests_pass":   # a few test functions called by hand
-                claimed = re.search(r"(\d+)\s*(个|项)?\s*(测试|用例|tests?)", claim_text or "")
-                passed = re.search(r"\b(\d+) passed\b", summ)
-                if claimed and passed and claimed.group(1) == passed.group(1):
-                    return "backed", f"narrowed run matches the claimed count ({passed.group(1)} passed): {seg[:60]}"
-                return "unverifiable", "narrowed test run reported as passing"
-            return "backed", f"test output confirms: {seg[:80]}"
-        if rules.PIPE_SWALLOW.search(seg) and not rules.PIPEFAIL_ON.search(seg):
-            if category in ("tests_pass", "fixed"):
-                return "unbacked", "the test output went through a pipe and shows no pass/fail line, so the result was not seen"
-            return "unverifiable", "test piped through tail/head and output shows no pass/fail line"
-        if ev.is_error:
-            return "unbacked", "test command errored"
-        return "unverifiable", "test ran but output shows no pass/fail line"
+    if category == "tests_pass" or rules.VERIFY["test"].search(seg):
+        return _judge_run(category, seg, ev, text, claim_text)
+    if category in ("checks_pass", "build_ok"):
+        return _judge_check(seg, ev, text)
     if category == "pushed":
-        if PUSH_FAIL.search(out):
+        if PUSH_FAIL.search(text):
             return "contradicted", "push output shows an error"
         return ("unbacked", "push command errored") if ev.is_error else ("backed", f"push confirmed: {seg[:80]}")
     if ev.is_error:
         return "unbacked", f"verification command errored: {seg[:60]}"
-    if category in ("build_ok", "rendered") and re.search(r"(Traceback|\berror\b|fatal)", out, re.I) and not re.search(r"0 errors?|no errors?", out, re.I):
+    if category == "rendered" and re.search(r"(Traceback|\berror\b|fatal)", text, re.I) and not re.search(r"0 errors?|no errors?", text, re.I):
         return "contradicted", "verification output contains errors"
-    if rules.PIPE_SWALLOW.search(seg) and not rules.PIPEFAIL_ON.search(seg) and not out.strip():
+    if rules.PIPE_SWALLOW.search(seg) and not rules.PIPEFAIL_ON.search(seg) and not text.strip():
         return "unverifiable", "piped verification with empty output"
     return "backed", f"verified by: {seg[:80]}"
 
@@ -255,8 +326,7 @@ def _other_project_check(ev: list, flags: list, edit_idx: int, claim_idx: int, h
 
 
 def _clean_pass(out: str) -> bool:
-    return any(re.search(r"\b[1-9]\d* passed\b|\bOK\b", m.group(0)) and not re.search(r"\b[1-9]\d* failed|FAILED|\bFAIL\b", m.group(0))
-               for m in SUMMARY_LINE.finditer(out or ""))
+    return verdicts.clean_pass(out or "")
 
 
 RANK = {"backed": 0, "weak": 1, "unverifiable": 2, "unbacked": 3, "contradicted": 4}
@@ -286,7 +356,7 @@ def _hook_run(after: list):
         lines = GIT_COMMIT_TITLE.sub("", ANSI.sub("", x.result or "")).splitlines()
         out = "\n".join(line for line in lines if line.strip() not in (x.text or ""))   # a commit message echoed back
         if HOOK_TEST_COUNT.search(out):
-            return dataclasses.replace(x, result=out)
+            return dataclasses.replace(x, result=out, is_error=False)   # a hook's later step or the commit itself failing is not the tests failing; a failing count still shows
     return None
 
 
