@@ -403,8 +403,8 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         if turns:
             turn = turns[-1]
             prev = turns[-2] if len(turns) > 1 else None
-            if prev is not None and (turn.prompt or "").lstrip().startswith("Stop hook feedback"):
-                # Claude Code feeds the block back as a new message; the work it answers is the turn before it
+            if prev is not None and (turn.prompt or "").lstrip().startswith(("Stop hook feedback", "⚠️ honestly")):
+                # Claude Code and Gemini CLI feed the block back as a new message; the work it answers is the turn before it
                 import dataclasses
                 turn = dataclasses.replace(prev, events=[e for e in prev.events if e.kind != "text"] + list(turn.events))   # judge only the new reply, with the earlier edits as context
                 prev = turns[-3] if len(turns) > 2 else None
@@ -414,6 +414,8 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         _note("stop", f"transcript_path does not exist, only the final message was checked: {path}")
     if turn is None:
         turn = Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or ""))
+    if agent == "gemini" and second_pass and any(e.kind == "text" for e in turn.events):
+        final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
         turn.events.append(Event("text", text=final))
     bad = [f for f in audit_turn(turn, prev) if f.verdict in config.blocked_verdicts(cfg)]

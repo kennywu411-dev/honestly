@@ -49,7 +49,7 @@ honestly doctor --lang zh       # 体检安装，并现场做两次自测
 一切正常：guard 已安装并能正常拦截。
 ```
 
-其他助手。Codex 已在真实机器上端到端验证（Codex CLI 0.163：guard 拒绝了接管道的 `pytest`，并写明了模型和项目）；Cursor 和 Gemini CLI 按各家 hook 文档实现，在有用户确认之前标为实验性（见[它不是什么](#它不是什么)）：
+其他助手。Codex 已在真实机器上端到端验证（Codex CLI 0.163：guard 拒绝了接管道的 `pytest`，并写明了模型和项目）；Gemini CLI 用真实 CLI（0.67）跑过，模型接口换成了本地替身；Cursor 按官方 hook 文档实现。两者在有用户用真实会话确认之前都标为实验性（见[它不是什么](#它不是什么)）：
 
 ```bash
 honestly guard install --agent codex     # ~/.codex/hooks.json（Codex 会要求你在 /hooks 里批准一次）
@@ -222,7 +222,7 @@ honestly 的规则只能和测试它的会话记录一样可靠，而这些记�
 - **不是沙箱。**它拦的是无心之失，不防刻意绕过的助手：能执行 shell 的助手可以改自己的配置，项目里的 `.honestly.json` 也可以放宽这个项目的规则（`honestly doctor` 会列出这类覆盖）。`pytest || true`、`; exit 0` 这类明确的放行写法不拦；开了 `pipefail` 或读取 `${PIPESTATUS[0]}` 的管道视为正确写法。
 - **不是排行榜。**按模型的表只统计你自己的会话。
 - **与 Anthropic、OpenAI、Cursor、Google 无关。**独立项目，MIT 许可。
-- **Cursor 和 Gemini CLI 的拦截是实验性的。**它们的 hook 按各家文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过；Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
+- **Cursor 和 Gemini CLI 的拦截是实验性的。**Cursor 的 hook 按官方文档实现，测试覆盖了文档里的输入输出格式，但还没有在真实机器上跑过。Gemini CLI 用真实 CLI（0.67）跑过，回复由本地替身按脚本给出：接管道的 `pytest` 被拒绝，没跑测试或测试失败后说“测试通过”会被拦，真的通过则放行；还没有真实模型的会话确认。在 Gemini CLI 里，被拦的回复会留在屏幕上，后面跟着重试的内容。Codex 的 hook 字段和 Claude Code 完全一致，已真机验证；`honestly guard install --agent … --dry-run` 会把要写的内容原样打出来。Cursor 给 hook 看的记录只有工具输入没有工具输出，所以在 Cursor 下一条结论可能是"无支撑"（根本没检查），但不会是"被反驳"。
 - **不上传任何东西。**唯一的联网动作是 `honestly catches` 或 `honestly doctor` 每天最多问一次 PyPI 有没有新版，有就印一行 `pip install -U honestly`；hook 本身从不联网。设 `HONESTLY_NO_UPDATE_CHECK=1` 可关掉。`pr-note --gh` 只在你运行时写入你自己的 pull request。
 - CI 覆盖 Linux、macOS、Windows 和 Python 3.9–3.13，401 个测试。解析过的会话缓存在 `~/.honestly/cache/`（按文件、规则、配置失效；`--no-cache` 跳过）。规则先按一个人的会话（Python、JS、视频工具、Kaggle）调，再用另外两台机器的记录校正；其他技术栈只有合成测试覆盖。预期会遇到一两次误拦：`honestly ignore` 当场消掉，`honestly feedback` 一条命令生成可以直接提交的 issue。旧包名 `sober-cli`。
 
