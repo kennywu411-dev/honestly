@@ -179,3 +179,10 @@ def test_redaction_is_stable():
 
 def test_control_characters_go_but_lines_stay():
     assert strip_controls("a\x1b]0;x\x07b\tc\nd\u202ee\u200bf\x9bg") == "a]0;xb\tc\ndefg"
+
+
+def test_the_real_home_counts_when_the_variable_says_otherwise(monkeypatch):
+    monkeypatch.setenv("HOME", "/c/Users/bob")
+    monkeypatch.setattr("os.path.expanduser", lambda p: "/data/homes/bob" if p == "~" else p)
+    assert redact("/data/homes/bob/app.py") == "~/app.py"
+    assert redact("/c/Users/bob/app.py") == "~/app.py"

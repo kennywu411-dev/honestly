@@ -47,10 +47,10 @@ CARD_NUMBER = re.compile(r"(?<![\d-])\d(?:[ -]?\d){12,18}(?![\d-])")
 
 
 def _home_forms() -> list:
-    home = os.environ.get("HOME") or os.path.expanduser("~")
-    if not home or len(home.strip("/\\")) < 2:
-        return []
-    forms = {home, unicodedata.normalize("NFC", home), unicodedata.normalize("NFD", home)}
+    forms = set()
+    for home in (os.environ.get("HOME"), os.path.expanduser("~")):   # Git Bash on Windows: the variable and the real folder differ
+        if home and len(home.strip("/\\")) >= 2:
+            forms |= {home, unicodedata.normalize("NFC", home), unicodedata.normalize("NFD", home)}
     return sorted(forms, key=len, reverse=True)
 
 

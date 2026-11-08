@@ -7,6 +7,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKFLOWS = sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.yml")))
+pytestmark = pytest.mark.skipif(not WORKFLOWS, reason="the sdist does not ship .github")
 
 
 def _text(path):

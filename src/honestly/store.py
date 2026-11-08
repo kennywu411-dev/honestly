@@ -55,9 +55,10 @@ def tighten() -> None:
     """Bring a folder made by an older version, or by a command with a loose umask, to 0700 and 0600."""
     top = folder()
     try:
-        if stat.S_ISLNK(os.lstat(top).st_mode):
-            return
+        info = os.lstat(top)
     except OSError:
+        return
+    if stat.S_ISLNK(info.st_mode) or not stat.S_IMODE(info.st_mode) & 0o077:   # this runs on every hook: an already private folder costs one call
         return
     for base, _dirs, files in os.walk(top, followlinks=False):
         for name in [base] + [os.path.join(base, f) for f in files]:

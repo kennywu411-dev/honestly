@@ -257,3 +257,12 @@ def test_writing_does_not_fail_when_the_folder_cannot_be_made(tmp_path, monkeypa
     monkeypatch.setattr(hooks, "errors_path", lambda: str(blocker / "e.log"))
     _catch(claim="All tests pass.")
     hooks._note("stop", "x")
+
+
+@posix_only
+def test_a_folder_already_private_is_not_walked_on_every_hook(home, monkeypatch):
+    home.mkdir(mode=0o700)
+    def no_walk(*a, **k):
+        raise AssertionError("tighten walked a folder that is already private")
+    monkeypatch.setattr(os, "walk", no_walk)
+    store.tighten()
