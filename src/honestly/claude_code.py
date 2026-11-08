@@ -9,6 +9,7 @@ import glob
 import json
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 
 
@@ -59,7 +60,20 @@ def iter_sessions(root: str | None = None):
         yield path
 
 
-BG_OUTPUT = re.compile(r"Output is being written to:\s*(\S+\.output)")
+# The harness's whole message when a command goes to the background. A command can print these words too, so the message has
+# to start with them, be short, and contain nothing a run prints.
+BG_NOTICE = re.compile(r"\s*Command (?:running in background with ID: (?P<asked>[\w-]+)|was moved to the background \(ID: (?P<moved>[\w-]+)\)[^\n.]*)\.?"
+                       r"(?:\s*Output is being written to:\s*(?P<path>\S+?\.output)(?=[\s.]|$))?")
+BG_NOTICE_MAX = 1500
+RUN_OUTPUT = re.compile(r"\b\d+ (?:passed|failed|errors?)\b|\bFAILED\b|Traceback \(most recent", re.I)
+
+
+def background_notice(text: str):
+    """The match when `text` is the harness saying a command went to the background, else None."""
+    if not text or len(text) > BG_NOTICE_MAX or text.count("\n") > 3:
+        return None
+    m = BG_NOTICE.match(text)
+    return m if m and not RUN_OUTPUT.search(text) else None
 
 
 def _records(path: str, start: int = 0):
@@ -94,22 +108,56 @@ def clip_output(text: str, keep: int = OUTPUT_KEEP) -> str:
     return text[:head] + "\n[... output clipped by honestly ...]\n" + kept + text[-tail:]
 
 
-def _tool_result_text(b: dict) -> str:
+def _is_under(path: str, folder: str) -> bool:
+    if not folder:
+        return False
+    real, base = os.path.realpath(path), os.path.realpath(folder)
+    return real == base or real.startswith(base.rstrip(os.sep) + os.sep)
+
+
+def _task_file_tail(path: str):
+    """The end of a background command's output file, or None unless it is an ordinary file. Opening never blocks or follows a link."""
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+    try:
+        fd = os.open(path, flags)
+    except (OSError, ValueError):
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):   # the job's whole log can be long: only the tail is used
+            return None
+        os.lseek(fd, max(0, info.st_size - 6000), os.SEEK_SET)
+        return os.read(fd, 6000).decode("utf-8", "ignore")
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _background_output(m, tool_input, project: str):
+    """What a background command wrote, when the notice is the harness's own and names the harness's own task file, else None."""
+    path, task = m.group("path"), m.group("asked") or m.group("moved")
+    if not path or path.startswith(("\\\\", "//")) or not os.path.isabs(path):   # a network path would connect out, with the user's credentials on Windows
+        return None
+    if os.path.basename(path) != f"{task}.output" or os.path.basename(os.path.dirname(path)) != "tasks":
+        return None
+    if m.group("asked") and not (isinstance(tool_input, dict) and tool_input.get("run_in_background")):
+        return None
+    if _is_under(path, project):
+        return None
+    return _task_file_tail(path)
+
+
+def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "") -> str:
     rc = b.get("content")
     if isinstance(rc, list):
         rc = " ".join(str(x.get("text") or "") for x in rc if isinstance(x, dict))
     rc = rc or ""
-    m = BG_OUTPUT.search(rc)
-    if m and os.path.exists(m.group(1)):   # a background command: its real output is in the task file, when it still exists
-        try:
-            with open(m.group(1), "rb") as fh:   # only the tail is used; the file can be a long-running job's whole log
-                fh.seek(0, 2)
-                fh.seek(max(0, fh.tell() - 6000))
-                out = fh.read().decode("utf-8", "ignore")
-            if out.strip():
-                rc = out[-3000:]
-        except Exception:
-            pass
+    if tool == "Bash":
+        m = background_notice(rc)
+        out = _background_output(m, tool_input, project) if m else None
+        if out and out.strip():
+            rc = out[-3000:]
     return clip_output(rc)
 
 
@@ -119,6 +167,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
     turns: list[Turn] = []
     cur: Turn | None = None
     results: dict[str, tuple] = {}   # tool_use_id -> (is_error, text)
+    calls: dict[str, tuple] = {}     # tool_use_id -> (tool name, its input)
     version = ""
     project = ""
     for r in _records(path, start):
@@ -136,7 +185,8 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
             if isinstance(content, list):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
-                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b))
+                        name, inp = calls.get(b.get("tool_use_id", ""), ("", None))
+                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b, name, inp, project))
                 if any(isinstance(b, dict) and b.get("type") == "text" for b in content) and origin.get("kind") == "human":
                     human = True
             if human:
@@ -156,6 +206,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 if b.get("type") == "text":
                     cur.events.append(Event("text", text=str(b.get("text") or ""), ts=ts))
                 elif b.get("type") == "tool_use":
+                    calls[str(b.get("id") or "")] = (_tool_name(b.get("name")), b.get("input"))
                     cur.events.append(Event("tool", name=_tool_name(b.get("name")), text=_summarize_input(_tool_name(b.get("name")), b.get("input")),
                                            tool_use_id=str(b.get("id") or ""), ts=ts))
     if cur is not None:

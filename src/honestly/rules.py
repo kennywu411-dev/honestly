@@ -497,7 +497,7 @@ _GIT_ROOTS: set = set()
 def project_of(path: str):
     """The project a path belongs to: the nearest directory with a `.git`, else the first two levels under the
     home directory (~/Documents/foo). None when the path is relative, temporary or unknown."""
-    if not path:
+    if not path or path.startswith(("\\\\", "//")):   # a network path in a command: looking at it would connect out
         return None
     p = os.path.normpath(os.path.expanduser(path))
     if not os.path.isabs(p) or TEMP_PATH.search(p):

@@ -2,6 +2,7 @@
 import json
 import os
 import signal
+import time
 import sys
 
 import pytest
@@ -29,14 +30,18 @@ def alarm():
 def test_a_symlink_to_an_endless_device_is_ignored(tmp_path, alarm):
     p = tmp_path / ".honestly.json"
     os.symlink("/dev/zero", p)
+    start = time.perf_counter()
     assert config._read(str(p)) == {}
+    assert time.perf_counter() - start < 0.3
 
 
 @posix_only
 def test_a_fifo_is_ignored_without_blocking(tmp_path, alarm):
     p = tmp_path / ".honestly.json"
     os.mkfifo(p)
+    start = time.perf_counter()
     assert config._read(str(p)) == {}
+    assert time.perf_counter() - start < 0.3
 
 
 def test_a_huge_file_is_ignored(tmp_path):
