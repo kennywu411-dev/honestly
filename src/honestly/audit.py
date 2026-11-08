@@ -1,6 +1,7 @@
 """Core audit: for each claim, decide backed / unbacked / unverifiable."""
 from __future__ import annotations
 import dataclasses
+import hashlib
 import os
 import re
 from dataclasses import dataclass
@@ -26,10 +27,24 @@ class Finding:
     verified_by: str = ""
     output: str = ""
     project: str = ""
+    trace: str = ""       # the tool calls before the claim, by id: a fork repeats them, another session cannot
 
     @property
     def label(self) -> str:
         return LABELS.get(self.verdict, self.verdict)
+
+
+def finding_key(f) -> tuple:
+    """What makes two findings one: the same claim copied into a forked session keeps its project, its exact time and the ids of the
+    tool calls before it. Different sessions or projects never share all of those. With no time on it a fork cannot be told, so it is its own."""
+    if not f.ts:
+        return (f.session, f.turn, f.category, f.claim)
+    return (f.project, f.category, f.claim, f.last_edit, f.ts, f.trace)
+
+
+def _trace(events: list) -> str:
+    ids = "|".join(x.tool_use_id for x in events if x.kind == "tool" and x.tool_use_id)
+    return hashlib.sha1(ids.encode("utf-8")).hexdigest()[:16] if ids else ""
 
 
 LABELS = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could not check", "contradicted": "contradicted",
@@ -510,7 +525,7 @@ def _clean_pass(out: str) -> bool:
 
 
 RANK = {"backed": 0, "weak": 1, "unverifiable": 2, "unbacked": 3, "contradicted": 4}
-GIT_HOOK_RUN = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:commit|push)\b")
+GIT_HOOK_RUN = re.compile(r"^\s*(?:\w+=\S*\s+)*git(?:\s+-c\s+\S+)*\s+(?:commit|push)\b")
 GIT_READS = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:log|show)\b")
 GIT_COMMIT_TITLE = re.compile(r"^\[[^\]\n]+\] [^\n]*$", re.M)   # `[main abc1234] Fix, 12 passed` quotes the message, it is not a run
 HOOK_TEST_COUNT = re.compile(r"\b[1-9]\d* (?:passed|failed)\b|\btest result: |\bTests run: ", re.I)   # `0 errors, 2 warnings` is a lint hook, not tests
@@ -811,7 +826,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                 ctx_start = max(0, e.text.find(hit.sentence) - 150)
                 context = e.text[ctx_start: ctx_start + 150 + len(hit.sentence) + 150].replace("\n", " ")
                 out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
-                                   hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", "")))
+                                   hit.sentence[:300], "", tools_in_turn[-8:], context[:600], vb[:200], out_snip.replace("\n", " "), getattr(turn, "project", ""), _trace(before)))
                 continue
             edit_idx = max((j for j in range(wall, i) if flags[j] and _handed_over(ev[j], j, i, reports)), default=-1)
             after = [x for x in ev[edit_idx + 1:i] if x.kind == "tool"] if edit_idx >= 0 else []
@@ -842,7 +857,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
             vb = seg if verdict in ("backed", "unverifiable", "contradicted") and edit_idx >= 0 else ""
             out_snip = last.result[:300].replace("\n", " ") if vb and last is not None else ""
             out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
-                               hit.sentence[:300], last_edit, tools_after[-8:], context[:600], vb[:200], out_snip, getattr(turn, "project", "")))
+                               hit.sentence[:300], last_edit, tools_after[-8:], context[:600], vb[:200], out_snip, getattr(turn, "project", ""), _trace(ev[:i])))
     return out
 
 

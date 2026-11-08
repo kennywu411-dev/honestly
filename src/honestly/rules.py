@@ -72,6 +72,9 @@ def _note_once(where: str, msg: str) -> None:
         NOTE(where, msg)
 
 
+GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}   # a folder name that says nothing alone: it is shown with its parent
+
+
 def pipe_stages(text: str) -> list:
     """`a | b |& c` -> ["a ", " b ", " c"]; `||` is a list operator, not a pipe."""
     return re.split(r"(?<!\|)\|&?(?!\|)", text)

@@ -17,6 +17,7 @@ def _repo(tmp_path):
     env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.com", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.com")
     subprocess.run(["git", "add", "-A"], cwd=root, check=True, env=env)
     subprocess.run(["git", "commit", "-qm", "init"], cwd=root, check=True, env=env)
+    os.utime(root / "a.py", (1700000000, 1700000000))   # older than the transcripts below: pr-note compares the two
     return os.path.realpath(root)
 
 
@@ -141,7 +142,7 @@ def test_cli_check_exit_code(tmp_path, monkeypatch, capsys):
 def test_window_defaults_to_where_the_branch_left_its_base(tmp_path):
     root = _repo(tmp_path)
     cutoff, label = prnote.window_start(root, "", None)
-    assert label == "since the last commit" and cutoff.startswith("20")
+    assert label == "all history" and cutoff.startswith("19")   # one commit: a window starting at it would hide the work it holds
     assert prnote.window_start(root, "", "2h")[1] == "last 2h"
     with pytest.raises(SystemExit):
         prnote.window_start(root, "", "yesterday")
@@ -185,6 +186,10 @@ def test_real_world_shell_shapes(tmp_path, monkeypatch):
     os.makedirs(other)
     elsewhere = str(tmp_path / "home")
     os.makedirs(elsewhere)
+    (tmp_path / "app" / "gate.py").write_text("g = 1\n")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qm", "gate"], cwd=root, check=True)
+    os.utime(tmp_path / "app" / "gate.py", (1700000000, 1700000000))
     _session(str(cr), elsewhere, [
         # an edit of a loop over two checkouts, one of them this repository
         ("bash", f"for d in {root} {other}; do cd $d && sed -i 's/a/b/' gate.py; done", "", False),

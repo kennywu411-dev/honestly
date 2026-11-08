@@ -21,7 +21,7 @@ def test_catches_card_is_valid_svg_and_counts(tmp_path):
     rows = [{"kind": "pre", "agent": "codex", "message": "piped"},
             {"kind": "stop", "agent": "claude-code", "message": "⚠️ honestly blocked this reply: x said <done>"}]
     svg = report.catches_card(rows, 7)
-    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
+    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>") and "done>" not in svg and "x said" not in svg   # a card to post carries no message text
     assert ">2<" in svg and "Claude Code 1" in svg and "Codex 1" in svg
     written = report.write_catches_card(rows, 7, str(tmp_path))
     assert written[0].endswith("honestly-catches.svg") and os.path.getsize(written[0]) > 1000
@@ -32,7 +32,7 @@ def test_rule_install_status_uninstall(tmp_path):
     (tmp_path / "CLAUDE.md").write_text("# mine\n\nkeep this\n")
     assert "added" in support.rule("install", "claude-code", str(tmp_path))
     text = (tmp_path / "CLAUDE.md").read_text()
-    assert text.startswith("# mine") and support.RULE_START in text and "pipefail" in text
+    assert text.startswith("# mine") and support.RULE_START in text and "tail -n 40" in text
     assert "already present" in support.rule("install", "claude-code", str(tmp_path))      # idempotent
     assert text == (tmp_path / "CLAUDE.md").read_text()
     assert "present" in support.rule("status", "claude-code", str(tmp_path))
