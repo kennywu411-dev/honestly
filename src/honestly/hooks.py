@@ -1218,7 +1218,7 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
             pass
         return 0
     if out:
-        print(json.dumps(out, ensure_ascii=False))
+        print(json.dumps(out, ensure_ascii=True))   # ASCII: a Windows pipe defaults to cp1252, and a character it cannot write would end the hook and lose the hold
     return 0
 
 
