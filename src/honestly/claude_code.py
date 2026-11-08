@@ -223,7 +223,7 @@ def _is_prompt(r: dict, content, origin: dict) -> bool:
 def _mark(text: str, seen_calls: dict, peer: bool, compact: bool, ts: str, listed: bool = False) -> Event:
     """What a record that is not a prompt leaves in the turn. "report": someone else's work, a wall for what follows. "notice": this session's own
     background task ended. "compact": its context was compacted. "aside": the harness said something, a reminder or a command's echo. In these three a reply may
-    sum up earlier work. "meta": text that is part of the work itself, a skill's body."""
+    sum up earlier work. "meta": text that is part of the work itself, a skill's body. ("stopped", added by the parser: the reply so far went through a stop.)"""
     head = text[:1500]
     task = head.lstrip().startswith("<task-notification>")
     own = OWN_TASK.search(head)
@@ -251,6 +251,10 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
         origin = r.get("origin") if isinstance(r.get("origin"), dict) else {}
         ts = str(r.get("timestamp") or "")
         content = msg.get("content")
+        if t == "system" and r.get("subtype") in ("stop_hook_summary", "turn_duration"):
+            if cur is not None:
+                cur.events.append(Event("mark", name="stopped", ts=ts))   # what came before this went through a stop as a reply of its own
+            continue
         if t == "user":
             if isinstance(content, list):
                 for b in content:
