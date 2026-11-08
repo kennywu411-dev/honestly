@@ -39,7 +39,7 @@ GROUPS = {'E1': ["cat <<'EOF' > src/app.py\nx=1\nEOF", 'cat <<EOF >> src/app.py\
          'for f in a b; do echo x > src/$f.py; done', 'while read l; do echo $l > src/app.py; done < list', 'case a in a) echo x > src/app.py;; esac',
          'f() { echo x > src/app.py; }; f', '> src/app.py', ': > src/app.py', 'true > src/app.py', "echo 'x=1' &> src/app.py", 'exec 3> src/app.py; echo x >&3'],
  'E11': ['echo x >> CMakeLists.txt', "echo 'requests==2' >> requirements.txt", 'echo x > src/memory/alloc.py', 'echo x > src/docs/gen.py', 'echo x > src/计划/app.py',
-         'echo x > .claude/hooks/run.py', 'echo x > .git/hooks/pre-commit', 'echo x > LICENSE_check.py'],
+         'echo x > .claude/hooks/run.py', 'echo x > LICENSE_check.py'],
  'E12': ['ruff --fix .', 'ruff check --fix .', 'eslint --fix src', 'npx jscodeshift -t mod.js src/', '2to3 -w src/app.py', 'pyupgrade --py311-plus src/app.py',
          "comby 'a' 'b' -in-place .py", 'rg -l foo | xargs sd foo bar', 'npm install lodash', 'uv add requests', 'cargo add serde', 'poetry add requests',
          'yarn add lodash', 'go get example.com/x', 'python gen.py > src/generated.py'],

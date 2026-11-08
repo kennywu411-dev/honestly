@@ -192,7 +192,7 @@ def path_is_doc(path: str) -> bool:
     path = path.replace("\\", "/").strip()   # Claude Code on Windows writes native paths
     if ALWAYS_SCRATCH.search(path):
         return True
-    if CODE_TXT.search(path) or re.search(r"(?:^|/)\.git/hooks/", path):
+    if CODE_TXT.search(path):
         return False
     ext = os.path.splitext(path)[1].lower()
     if ext in SOURCE_EXT or ext == ".sql":
@@ -269,6 +269,7 @@ def _resolve_vars(text: str, whole_cmd: str) -> str:
 _AUTHORS = {"cat", "echo", "printf", "sed", "gsed", "awk", "gawk", "perl", "jq", "cp", "mv", "tee", "print", "Write-Output", "Set-Content"}
 _SCRATCH_NAMES = {"out", "output", "status", "log", "result", "results", "tmp", "temp", "stdout", "stderr", "foo", "bar", "baz", "a", "b", "c", "x", "y", "z"}
 _SCRATCH_EXT = {".out", ".stamp", ".tmp", ".bak", ".orig", ".rej", ".pid", ".lock"}
+_TEMP_SUBST = re.compile(r"^(?:\$\(|`)[^)`]*(?:\bmktemp\b|[\s'\"]/tmp/|[\s'\"]/private/tmp/)")   # `T=$(mktemp -d)`, `T=$(ls -d /tmp/x.*)`
 _TEMP_VAR = re.compile(r"^\$\{?(?:TMPDIR|TMP|TEMP|RUNNER_TEMP|TEMPDIR)\b|^\$\(mktemp\b|^`mktemp\b")
 _KNOWN_SOURCE_DIRS = {"src", "lib", "app", "tests", "test", "pkg", "cmd", "internal"}
 _GIT_FLAGS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
@@ -441,6 +442,15 @@ _PKG_ADD = {"npm": {"install", "i", "add", "uninstall", "un", "rm", "remove", "u
 _PKG_NEEDS_NAME = {"npm", "pnpm", "bun", "pipenv"}
 
 
+_CODE_NAMES = {"Makefile", "Dockerfile", "Justfile", "Rakefile", "Gemfile", "Taskfile", "Procfile", "Cargo.lock", "CMakeLists.txt"}
+
+
+def _looks_like_code(t: str) -> bool:
+    t = t.rstrip("/")
+    base = os.path.basename(t)
+    return os.path.splitext(base)[1].lower() in CODE_EXT or base in _CODE_NAMES or base in _KNOWN_SOURCE_DIRS or bool(CODE_TXT.search(t))
+
+
 def _verb_writes(real: list, c):
     """The files this command changes by itself. None: it changes nothing. A None inside the list: something changes, but the text does not say what."""
     h = _sh.head_name(real[0])
@@ -470,7 +480,8 @@ def _verb_writes(real: list, c):
             return None
         return [a for a in _positional(args, {"-c", "-sc", "-ec", "-esc"}) if a not in cmds] or [None]
     if low in ("cp", "mv", "install", "ln", "rsync", "ditto", "gcp", "gmv"):
-        return _dest_writes(low, args)
+        moved = _dest_writes(low, args)
+        return [t for t in moved if _looks_like_code(t)] or None if moved else None   # moving an image, a sound or `.github` changes no code under test
     if low in ("rm", "unlink", "shred", "trash", "grm"):
         out = []
         for a in _positional(args):
@@ -655,6 +666,14 @@ def _write_paths(code: str, whole_cmd: str, argv: list) -> list:
     return out
 
 
+_READ_LITERAL = re.compile(r"""(?:\bopen\(\s*|\bPath\(\s*)(['"])[^'"\n]+\1\s*(?:\)\s*\.\s*read\w*\(|,\s*['"]r[bt]?['"]\s*\)|\))""")
+
+
+def _names_besides_reads(code: str) -> list:
+    """The file names a script spells out, other than ones it only opens to read."""
+    return QUOTED_PATH.findall(_READ_LITERAL.sub(" ", code[:200_000]))
+
+
 def writes_only_scratch(seg: Segment, whole_cmd: str = "") -> bool:
     """An interpreter heredoc whose every write goes to a temp or scratch path (a test harness, a probe page) authors no code.
     Any write it cannot follow (an unresolved variable, a mode in a variable) makes it an edit."""
@@ -673,8 +692,13 @@ def _code_only_scratch(code: str, head: str, seg, whole_cmd: str) -> bool:
     env = shell_env(whole_cmd) if whole_cmd else {}
     argv = [_sh.resolve(t, env) for t in (toks[toks.index("-") + 1:] if "-" in toks else [])]
     targets = _write_paths(code, whole_cmd, argv)
-    if not targets or None in targets:
+    if not targets:
         return False
+    if None in targets:
+        named = _names_besides_reads(code)   # `def edit(path, a, b): ...`, then edit("docs/x.md", ...): every file it is handed is a document
+        if not named or not all(path_is_doc(t) for t in _under_cd(named, seg, whole_cmd)):
+            return False
+        targets = [t for t in targets if t is not None]
     targets = _under_cd(targets, seg, whole_cmd)
     return all(TEMP_PATH.search(t) or path_is_doc(t) for t in targets)
 
@@ -724,6 +748,8 @@ def _target_counts(t, authored: bool, u, whole_cmd: str = "") -> bool:
         env.update(u.env)
     t = _sh.resolve(t, env).strip()
     if not t or t.startswith("/dev/") or t.lower() in _sh.DEV_NULL:
+        return False
+    if TEMP_PATH.search(t) or _TEMP_SUBST.search(t):
         return False
     if "$" in t or "`" in t:
         if _TEMP_VAR.match(t):
@@ -1462,8 +1488,6 @@ def _command_kinds_of(words: tuple, _pattern: str) -> set:
     if _config_verify(line) or _config_verify(written):
         out.add("test")
     for kind, rx in VERIFY.items():
-        if kind in ("push", "commit"):
-            continue
         if _matches(rx, line) or _matches(rx, written):
             out.add(kind)
     if _matches(_MORE_TEST, line):

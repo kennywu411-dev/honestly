@@ -1166,6 +1166,9 @@ def _next_cwd(st: _State, argv: list, certain: bool):
         st.cwd = "~" if head_name(argv[0]) == "cd" else st.cwd
         return
     target = resolve(args[0], st.env)
+    if re.match(r"(?:\$\(|`)[^)`]*(?:\bmktemp\b|[\s'\"]/tmp/|[\s'\"]/private/tmp/)", target):
+        st.cwd = "/tmp/from-a-substitution"   # `T=$(mktemp -d); cd "$T"`
+        return
     if target == "-" or "$(" in target or "`" in target or re.search(r"\$\{[^}]*[:#%/]", target) or not certain:
         st.cwd = None
         return

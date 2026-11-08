@@ -85,6 +85,23 @@ def test_a_run_piped_into_tee_is_a_run_not_an_edit(cmd, held):
     assert not held([EDIT, bash(cmd, OK)])
 
 
+# Each of these came from replaying real sessions: they were held by mistake on the first try at this parser.
+@pytest.mark.parametrize("cmd", ["mv .github \"$S/workflows\"", "cp a.m4a research/ref-audio/", "cp $d/*.jpg renders/", "mv renders/a.png renders/old/", "printf '#!/bin/sh\\n' > .git/hooks/commit-msg", "S=/tmp/x; cp $d/*.jpg $d/episode.json $S/$d",
+                                 "T=$(mktemp -d); cd \"$T\" && echo x > a.py", "T=$(ls -d /tmp/e2e.* | head -1); cd \"$T\" && printf 'x' > src/app.py", "T=$(mktemp -d); echo x > $T/a.py",
+                                 "python3 - <<'EOF'\nimport pathlib\ndef edit(path, a, b):\n    p = pathlib.Path(path); s = p.read_text()\n    p.write_text(s.replace(a, b))\nedit('docs/x.md', 'a', 'b')\nedit('notes/y.txt', 'a', 'b')\nEOF"])
+def test_no_code_was_changed_here(cmd):
+    assert not rules.bash_is_edit(cmd)
+
+
+def test_handing_a_helper_a_source_file_is_an_edit():
+    assert rules.bash_is_edit("python3 - <<'EOF'\nimport pathlib\ndef edit(path, a, b):\n    p = pathlib.Path(path); s = p.read_text()\n    p.write_text(s.replace(a, b))\nedit('docs/x.md', 'a', 'b')\nedit('src/app.py', 'a', 'b')\nEOF")
+
+
+def test_a_kaggle_push_is_a_push():
+    for cmd in ["kaggle competitions submit x -k y -v 1 -f s.parquet", "kaggle kernels push -p d", "git push origin main", "git -C x push"]:
+        assert rules.verifying_segments(cmd, {"push"}), cmd
+
+
 def test_tee_into_a_source_file_is_still_an_edit():
     for cmd in ["echo 'x=1' | tee src/app.py", "cat new.py | tee src/app.py", "python gen.py | tee src/gen.py", "cat <<'EOF' | tee src/app.py\nx\nEOF"]:
         assert rules.bash_is_edit(cmd), cmd
