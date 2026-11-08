@@ -48,6 +48,7 @@ def test_system_language_follows_posix_order_and_os_fallback(monkeypatch):
     assert fresh(LANG="C") is False
     import subprocess, sys as _sys
     monkeypatch.setattr(_sys, "platform", "darwin")
+    monkeypatch.setattr(hooks, "program", lambda name: name)   # pretending to be a Mac: `defaults` need not exist on this machine
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: type("R", (), {"stdout": '(\n    "zh-Hans-CN",\n    "en-AU"\n)'})())
     assert fresh() is True   # no locale variables at all: the macOS UI language decides
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: type("R", (), {"stdout": '(\n    "en-AU",\n    "zh-Hans-CN"\n)'})())
