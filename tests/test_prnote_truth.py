@@ -443,6 +443,7 @@ def test_a_cursor_session_says_it_cannot_tell(tmp_path, monkeypatch):
     root = repo(tmp_path)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     d = home / ".cursor" / "projects" / "x" / "agent-transcripts"
     d.mkdir(parents=True)
     rows = [{"role": "user", "message": {"content": [{"type": "text", "text": "fix"}]}},
@@ -459,6 +460,7 @@ def test_a_gemini_session_in_the_repo_counts_without_naming_it(tmp_path, monkeyp
     root = repo(tmp_path)
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     d = home / ".gemini" / "tmp" / "abc"
     (d / "chats").mkdir(parents=True)
     (d / ".project_root").write_text(root, encoding="utf-8")

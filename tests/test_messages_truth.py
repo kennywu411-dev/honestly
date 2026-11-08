@@ -168,6 +168,7 @@ def test_the_rule_text_does_not_advise_what_earns_a_hold():
 
 def test_the_overview_only_offers_what_runs(capsys, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     cli.main([])
     out = capsys.readouterr().out
     assert "explain N, share" not in out and "two live self-tests" in out and "honestly explain N" in out
@@ -205,6 +206,7 @@ def test_a_fixed_language_wins(tmp_path, monkeypatch, fixed, reply, zh):
 
 def test_a_report_with_no_conversation_follows_the_system(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setenv("LANG", "zh_CN.UTF-8")
     monkeypatch.setattr(hooks, "_SYSTEM_ZH", None)
     assert "拦截记录" in hooks.catches_report(7)
@@ -215,6 +217,7 @@ def test_a_report_with_no_conversation_follows_the_system(tmp_path, monkeypatch)
 # ------------------------------------------------------------------ config
 def test_the_categories_can_be_found(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     out = config.show(str(tmp_path))
     for cat in ("tests_pass", "sent", "scheduled", "verified"):
         assert cat in out
@@ -230,6 +233,7 @@ def exit_code(argv):
 
 def test_off_refuses_what_is_not_a_category(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     assert exit_code(["config", "off", "tests"]) == 2 and "tests_pass" in capsys.readouterr().err
     assert config.load(str(tmp_path))["off"] == []
@@ -238,12 +242,14 @@ def test_off_refuses_what_is_not_a_category(tmp_path, monkeypatch, capsys):
 @pytest.mark.parametrize("argv", [["config", "strictness", "bogus"], ["config", "language", "fr"], ["config", "strictness"], ["config", "off"], ["config", "verify"]])
 def test_a_bad_setting_exits_2(tmp_path, monkeypatch, argv):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     assert exit_code(argv) == 2
 
 
 def broken(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     os.makedirs(tmp_path / ".honestly")
     p = tmp_path / ".honestly" / "config.json"
@@ -268,6 +274,7 @@ def test_a_broken_settings_file_is_not_overwritten(tmp_path, monkeypatch, capsys
 
 def test_the_project_file_is_found_from_a_subfolder(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     root = tmp_path / "repo"
     (root / ".git").mkdir(parents=True)
     (root / "src" / "deep").mkdir(parents=True)
@@ -281,6 +288,7 @@ def test_the_project_file_is_found_from_a_subfolder(tmp_path, monkeypatch):
 
 def test_a_file_above_the_repository_is_not_this_project(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     (tmp_path / ".honestly.json").write_text('{"off": ["tests_pass"]}', encoding="utf-8")
     root = tmp_path / "repo"
     (root / ".git").mkdir(parents=True)
@@ -292,6 +300,7 @@ def test_a_file_above_the_repository_is_not_this_project(tmp_path, monkeypatch):
 
 def test_project_writes_go_to_the_repository_root(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     root = tmp_path / "repo"
     (root / ".git").mkdir(parents=True)
     (root / "src").mkdir()
@@ -301,6 +310,7 @@ def test_project_writes_go_to_the_repository_root(tmp_path, monkeypatch):
 
 def test_doctor_does_not_send_a_codex_user_to_the_claude_install(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
     hooks.guard("install", agent="codex")
@@ -312,6 +322,7 @@ def test_doctor_does_not_send_a_codex_user_to_the_claude_install(tmp_path, monke
 
 def test_doctor_knows_the_plugin(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
     os.makedirs(tmp_path / ".claude")
@@ -323,6 +334,7 @@ def test_doctor_knows_the_plugin(tmp_path, monkeypatch):
 
 def test_doctor_with_nothing_installed_still_fails(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
     from honestly.support import doctor
@@ -332,6 +344,7 @@ def test_doctor_with_nothing_installed_still_fails(tmp_path, monkeypatch):
 
 def test_doctor_reads_the_real_encoding(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
     monkeypatch.setenv("PYTHONIOENCODING", "latin-1")

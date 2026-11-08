@@ -43,6 +43,7 @@ def write(path, rs):
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.setenv("HONESTLY_NO_UPDATE_CHECK", "1")
     monkeypatch.chdir(tmp_path)
