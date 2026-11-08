@@ -149,6 +149,7 @@ def _edited_name(last_edit: str) -> str:
         if written:   # `cd proj/.claude && python3 - <<EOF ... open('launch.json', 'w')` wrote launch.json, not ".claude"
             return re.split(r"[\\/]", written[-1])[-1][:40]
         files = re.findall(r"[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", QUOTED.sub(" ", rules.CD_DIR.sub(" ", rest)))   # a `cd` folder is not the file
+        files = [f for f in files if os.path.splitext(f)[1].lower() in rules.CODE_EXT]   # `pytest.mark` in a script's text is not a file
         return re.split(r"[\\/]", files[-1])[-1][:40] if files else ""
     return re.split(r"[\\/]", rest)[-1][:40] if rest else ""
 
@@ -538,7 +539,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
             known["tools"] = _session_tools(agent, path)
         return known["tools"]
 
-    findings = audit_turn(turn, prev, session_tools if path else None)
+    findings = audit_turn(turn, prev, session_tools if path else None, latest_reply_only=True)
     bad = [f for f in findings if f.verdict in config.blocked_verdicts(cfg)]
     if not bad:
         if findings and path and not os.path.exists(path) and not second_pass:   # no record of what it did (--no-session-persistence): nothing to hold it on, and the person should know

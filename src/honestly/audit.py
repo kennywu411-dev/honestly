@@ -590,7 +590,7 @@ def _never_in_session(hit, session_tools, automated: bool) -> bool:
     return True
 
 
-def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
+def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_reply_only: bool = False):
     """session_tools: a callable giving every tool call in the session so far, or None if that cannot be known."""
     out = []
     ev = turn.events
@@ -602,7 +602,11 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     prompted_by_harness = automated
     own_notice = False
     reported = set()   # background subagents that have said they are done. One still at work has handed over nothing, and its edits do not make a finished check stale.
+    # One prompt can have several replies when a notification brings the agent back. A hook judges the one going out: the earlier ones were judged at their own stop.
+    judged_up_to = max((i for i, e in enumerate(ev) if e.kind == "mark" and e.name == "stopped"), default=-1) if latest_reply_only else -1
     for i, e in enumerate(ev):
+        if e.kind == "mark" and e.name == "stopped":
+            continue
         if e.kind == "mark":
             task = TASK_ID.search(e.text)
             if task:
@@ -614,7 +618,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
             if e.name != "meta":
                 since = i + 1
             continue
-        if e.kind != "text":
+        if e.kind != "text" or i < judged_up_to:
             continue
         for hit in rules.find_claims(e.text):
             before = ev[since:i]
