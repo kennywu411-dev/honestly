@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from honestly import saferegex
+from honestly import hooks, saferegex
 
 LINES = ["=========== 1 failed, 2 passed, 1 warning in 0.12s ===========", "FAILED tests/test_a.py::test_x - assert 1 == 2", "Tests:       1 failed, 2 passed, 3 total", "test result: FAILED. 2 passed; 1 failed; 0 ignored",
          "FAIL\tgithub.com/acme/app/pkg\t0.012s", "--- FAIL: TestPrice (0.00s)", "error[E0308]: mismatched types", "make: *** [test] Error 1", "", "  1 failing", "ok  pkg 0.1s", "word boundary case", "a.b+c", "aaa"]
@@ -34,3 +34,29 @@ def test_a_pattern_that_makes_re_hang_is_answered_at_once(pattern):
         for line in LINES:
             safe.search(line * 3)
     assert time.perf_counter() - start < 0.5
+
+
+@pytest.mark.parametrize("cmd", ["pytest | grep -E '(.*)*X'", "pytest | grep -E '(.+)+X'", "pytest | grep -E '(=+)+X'", "pytest | grep -E '([a-z ]+)+X'", "pytest | grep -E '(.*)(.*)(.*)(.*)(.*)X'", "pytest | rg '(.*)*X'",
+                                 "pytest | Select-String '(.+)+X'", 'pytest | findstr "(.*)*X"', "pytest | grep -E '" + "(" * 2000 + "'", "pytest | grep -E '" + "(a" * 2000 + ")" * 2000 + "'", "pytest | grep -E 'a{1,100000000}'", "pytest | grep '" + "x*" * 5000 + "Q'", "pytest | sed -n '/(.*)*X/p'", "pytest | awk '/(.+)+X/'"])
+def test_the_pipe_check_never_hangs_or_raises(cmd):
+    start = time.perf_counter()
+    hooks.find_hidden_status(cmd)
+    assert time.perf_counter() - start < 0.5
+
+
+def test_the_verdict_samples_still_decide():
+    keep = hooks._pattern_keeps_verdict
+    assert keep("grep", {"E"}, ["passed|failed"]) == "select"
+    assert keep("grep", set(), ["FAILED\\|ERROR"]) == "select"
+    assert keep("grep", set(), ["FAILED|ERROR"]) == "filter"     # in a basic regex `|` is a plain character
+    assert keep("grep", set(), ["[[:digit:]]\\+ passed"]) == "select"
+    assert keep("grep", {"E"}, ["^(FAIL|ok)"]) == "select"
+    assert keep("grep", set(), ["SKIP"]) == "filter"
+    assert keep("grep", {"v"}, ["warning"]) == "filter"
+    assert keep("grep", {"v"}, ["DEBUG"]) == "keep"
+    assert keep("fgrep", set(), ["1 failed"]) == "select"
+    assert keep("grep", {"x", "E"}, ["FAILED \\(failures=1\\)"]) == "select"
+    assert keep("grep", {"q"}, ["x"]) == "silent"
+    assert keep("grep", {"c"}, ["x"]) == "count"
+    assert keep("grep", set(), None) == "keep"
+    assert keep("grep", {"E"}, ["(a)\\1"]) == "keep"     # could not tell

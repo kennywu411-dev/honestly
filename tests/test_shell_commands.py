@@ -175,6 +175,68 @@ def test_a_dry_push_and_listing_tags_prove_nothing(cmd, out, held):
     assert held([EDIT, bash(cmd, out)], "Pushed to main." if "push" in cmd else "Committed.")
 
 
+# ------------------------------------------------------------ the result is hidden
+SILENT_RUNS = [t[0] for t in GROUPS["H1"] if ">/dev/null" in t[0]] + [c for c in GROUPS["H2"] + GROUPS["H2b"] if "out.log" not in c]
+
+
+@pytest.mark.parametrize("cmd", SILENT_RUNS, ids=ids(SILENT_RUNS))
+def test_output_and_status_both_gone(cmd, held):
+    assert hooks.find_hidden_status(cmd), "refused"
+    assert not rules.verifying_segments(cmd, T), "and no evidence"
+    assert held([EDIT, bash(cmd, "ok")])
+
+
+def test_a_silent_run_whose_status_still_shows_is_left_alone():
+    for cmd in ["pytest -q > /dev/null", "pytest -q >/dev/null 2>&1; echo $?", "pytest -q >/dev/null 2>&1 && echo ok || echo bad", "pytest -q >/dev/null 2>&1 && echo ok",
+                "pytest -q > /dev/null || exit 1", "pytest -q > /dev/null || echo FAILED", "set -e; pytest -q > /dev/null; echo done", "pytest -q > out.log 2>&1", "pytest -q || true", "pytest -q; true"]:
+        assert not hooks.find_hidden_status(cmd), cmd
+    assert rules.verifying_segments("pytest -q >/dev/null; echo $?", T)
+
+
+HIDDEN = cases("H4", "H4s", "H5", "H6", "H6b", "H7", "H8", "H9", "H10")
+
+
+@pytest.mark.parametrize("cmd", HIDDEN, ids=ids(HIDDEN))
+def test_this_pipeline_hides_the_result(cmd):
+    assert hooks.find_hidden_status(cmd)
+
+
+@pytest.mark.parametrize("cmd", GROUPS["H4s"], ids=ids(GROUPS["H4s"]))
+def test_the_stop_hook_does_not_accept_it_either(cmd, held):
+    assert held([EDIT, bash(cmd, "")])
+
+
+ALLOWED = cases("R1", "R2", "R3", "R4", "R5", "R6")
+
+
+@pytest.mark.parametrize("cmd", ALLOWED, ids=ids(ALLOWED))
+def test_this_pipeline_hides_nothing(cmd):
+    assert not hooks.find_hidden_status(cmd)
+
+
+STAY_ALLOWED = ["pytest | tail", "pytest | tail -5", "pytest | tee log", "pytest | cat", "pytest | grep -E 'passed|failed'", "pytest -k foo | head", "pytest tests/test_a.py | head",
+                "pytest -rs | grep SKIP", "pytest 2>&1 | grep -A20 FAILURES | head -40", "pytest --version | head -1", "pytest --help | head", "pytest --collect-only | head",
+                "cargo build | head", "go build ./... | head", "make | head", "ruff check . | head", "mypy . | head", "npm run build | tail", "set -o pipefail; pytest | head",
+                "set -euo pipefail; pytest | head", "set -o errexit -o pipefail; pytest | head", "setopt pipefail; pytest | head", "bash -o pipefail -c 'pytest | head'",
+                "bash -euo pipefail -c 'pytest | head'", "bash <<'EOF'\nset -euo pipefail\npytest | head\nEOF", "(set -o pipefail; pytest | head)", "pytest | head; echo ${PIPESTATUS[0]}",
+                "pytest | wc -l; exit ${PIPESTATUS[0]}", 'git commit -m "pytest | head"', "echo 'pytest | head'", "grep 'pytest | head' docs.md", "cat > a.sh <<'EOF'\npytest | head\nEOF",
+                "cat pytest.ini | head", "ls tests | head", "rg pytest . | head", "git grep pytest | head", "git log --grep pytest | head", "pip show pytest | head", "gh run view 1 | head"]
+STAY_REFUSED = ["pytest | head", "pytest | head -5", "pytest|head", "pytest |& head -3", "pytest 2>&1 | head -3", "pytest | wc -l", "pytest | grep -c passed", "pytest | grep -q passed", "pytest | sort | head",
+                "pytest | sed -n 1,5p", "pytest | sed 5q", "pytest | awk 'NR<=5'", "npm test | head -2", "go test ./... | wc -l", "cargo test | head", "python -m pytest | head", "uv run pytest | head -3",
+                "docker compose exec web pytest | head -3", "make test | head -3", "x=$(pytest | head)", "echo \"$(pytest | wc -l)\"", "bash -c 'pytest | head -3'", "{ pytest; } | head -3", "(pytest) | head -3",
+                "bash <<'EOF'\npytest | head -3\nEOF", "pytest |\nhead -3", "pytest \\\n | head -3", "for i in 1 2; do pytest | head -3; done", "if true; then pytest | wc -l; fi", "git commit -m \"$(pytest | head)\""]
+
+
+@pytest.mark.parametrize("cmd", STAY_ALLOWED, ids=ids(STAY_ALLOWED))
+def test_allowed_before_and_still_allowed(cmd):
+    assert not hooks.find_hidden_status(cmd)
+
+
+@pytest.mark.parametrize("cmd", STAY_REFUSED, ids=ids(STAY_REFUSED))
+def test_refused_before_and_still_refused(cmd):
+    assert hooks.find_hidden_status(cmd)
+
+
 # ------------------------------------------------------------ where a command worked
 ED = ("Edit", {"file_path": "/home/me/proj/src/app.py"}, "ok")
 
@@ -202,3 +264,24 @@ def test_home_in_a_cd_is_expanded():
     assert _dir("cd $HOME/p && pytest") == os.path.join(os.path.expanduser("~"), "p")
 
 
+# ------------------------------------------------------------ whitespace the shell ignores
+SAME = ["sed -i 's/a/b/' src/app.py", "git apply fix.diff", "git checkout -- src/app.py", "git reset --hard", "git stash pop", "cat > src/app.py <<'EOF'\nx\nEOF", "echo x > src/app.py",
+        "npm test", "go test ./...", "cargo test", "just test", "bun test", "make test", "python manage.py test", "npm run build", "cargo build", "docker build .", "go run .", "uv run python app.py",
+        "pytest | head", "go test ./... | wc -l", "cd /a/b && pytest", "git -C /a/b status", "for f in a; do echo x > src/$f.py; done", "if ls; then echo pytest; fi", "for i in 1 2; do pytest | head; done"]
+
+
+def _answers(cmd):
+    return (rules.bash_is_edit(cmd), bool(rules.verifying_segments(cmd, {"test", "build"})), bool(rules.verifying_segments(cmd, {"exercise"})), bool(hooks.find_hidden_status(cmd)), _dir(cmd))
+
+
+def _respaced(cmd):
+    head, sep, rest = cmd.partition("\n")
+    return [head.replace(" ", "  ") + sep + rest, head.replace(" ", "\t") + sep + rest, "   " + cmd, head + "   " + sep + rest, cmd + "\n", "\n" + cmd,
+            head.replace(" ", " \\\n  ", 1) + sep + rest, head.replace("; ", ";\n") + sep + rest]
+
+
+@pytest.mark.parametrize("cmd", SAME, ids=ids(SAME))
+def test_whitespace_changes_nothing(cmd):
+    want = _answers(cmd)
+    for variant in _respaced(cmd):
+        assert _answers(variant) == want, variant
