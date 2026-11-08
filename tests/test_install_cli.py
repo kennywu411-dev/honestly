@@ -1333,3 +1333,109 @@ def test_a_cache_timestamp_in_the_future_does_not_stop_checking_forever(tmp_path
     monkeypatch.setattr(update, "_fetch_latest", lambda timeout=2.0: "9.9.9")
     (tmp_path / "u.json").write_text(json.dumps({"ts": 9e12, "latest": "0.0.1"}))
     assert update.latest_version(now=1000.0) == "9.9.9"
+
+
+# ---------------------------------------------------------------- what grows on disk
+def _finding():
+    from honestly.audit import Finding
+    return Finding(session="s", turn=1, version="", agent="claude-code", model="", ts="", category="fixed", verdict="backed", reason="", claim="c", last_edit="", tools_after_edit=[], context="")
+
+
+def test_a_session_keeps_one_cache_entry_however_often_it_changes(tmp_path, monkeypatch):
+    from honestly import cache
+    monkeypatch.setattr(cache, "cache_dir", lambda: str(tmp_path / "c"))
+    s = tmp_path / "s.jsonl"
+    other = tmp_path / "o.jsonl"
+    other.write_text("{}\n")
+    cache.put(str(other), "a", [_finding()])
+    for i in range(20):
+        s.write_text("x" * (i + 1))
+        cache.put(str(s), "a", [_finding()])
+        assert cache.get(str(s), "a")
+    assert len(list((tmp_path / "c").iterdir())) == 2
+    assert cache.get(str(other), "a")   # another session's entry is untouched
+
+
+def test_entries_nothing_has_asked_for_in_months_go_away(tmp_path, monkeypatch):
+    from honestly import cache
+    monkeypatch.setattr(cache, "cache_dir", lambda: str(tmp_path / "c"))
+    monkeypatch.setattr(cache, "_pruned", False)
+    (tmp_path / "c").mkdir()
+    old = tmp_path / "c" / "aaaa-bbbb.json"
+    old.write_text("[]")
+    os.utime(old, (1000, 1000))
+    s = tmp_path / "s.jsonl"
+    s.write_text("x")
+    cache.put(str(s), "a", [_finding()])
+    assert not old.exists() and cache.get(str(s), "a")
+
+
+def test_a_background_task_file_that_changed_is_a_cache_miss(tmp_path, monkeypatch):
+    from honestly import cache
+    monkeypatch.setattr(cache, "cache_dir", lambda: str(tmp_path / "c"))
+    s = tmp_path / "s.jsonl"
+    s.write_text("x")
+    task = tmp_path / "bg.output"
+    task.write_text("1 failed\n")
+    cache.put(str(s), "a", [_finding()], deps=[str(task)])
+    assert cache.get(str(s), "a")
+    task.write_text("3 passed, 0 failed\n")
+    assert cache.get(str(s), "a") is None
+    cache.put(str(s), "a", [_finding()], deps=[str(task)])
+    task.unlink()   # task files are temporary; what was read while it existed still stands
+    assert cache.get(str(s), "a")
+
+
+def test_audit_notices_a_background_task_file_that_changed(tmp_path):
+    home = tmp_path / "home"
+    task = tmp_path / "bg.output"
+    task.write_text("=== 1 failed, 2 passed in 0.1s ===\n")
+    p = home / ".claude" / "projects" / "-w" / "s.jsonl"
+    p.parent.mkdir(parents=True)
+    t = "2026-11-01T00:00:00Z"
+    rows = [{"type": "user", "message": {"role": "user", "content": "fix"}, "origin": {"kind": "human"}, "cwd": "/w", "timestamp": t},
+            {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": "e", "name": "Edit", "input": {"file_path": "/w/src/a.py", "old_string": "a", "new_string": "b"}}]}, "cwd": "/w", "timestamp": t},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "e", "content": "ok"}]}, "cwd": "/w", "timestamp": t},
+            {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "pytest -q"}}]}, "cwd": "/w", "timestamp": t},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b", "content": f"Output is being written to: {task}"}]}, "cwd": "/w", "timestamp": t},
+            {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": "Fixed. All tests pass."}]}, "cwd": "/w", "timestamp": t}]
+    p.write_text("\n".join(map(json.dumps, rows)) + "\n")
+    before = json.loads(_honestly(["audit", "--summary-json"], home).stdout)
+    task.write_text("=== 3 passed in 0.1s ===\n")
+    cached = json.loads(_honestly(["audit", "--summary-json"], home).stdout)
+    fresh = json.loads(_honestly(["audit", "--summary-json", "--no-cache"], home).stdout)
+    assert cached == fresh and cached != before
+
+
+def test_audit_clear_cache_empties_it(tmp_path):
+    home = tmp_path / "home"
+    _seed_session(home)
+    _honestly(["audit", "--summary-json"], home)
+    assert list((home / ".honestly" / "cache").iterdir())
+    r = _honestly(["audit", "--clear-cache"], home)
+    assert r.returncode == 0 and b"cache" in r.stdout and not list((home / ".honestly" / "cache").iterdir())
+
+
+def test_the_cache_is_never_left_half_written(tmp_path, monkeypatch):
+    from honestly import cache
+    monkeypatch.setattr(cache, "cache_dir", lambda: str(tmp_path / "c"))
+    s = tmp_path / "s.jsonl"
+    s.write_text("x")
+    def broken(*a, **k):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(cache.json, "dump", broken)
+    cache.put(str(s), "a", [_finding()])
+    assert not list((tmp_path / "c").iterdir())
+
+
+def test_the_logs_stop_growing_and_keep_the_previous_part(tmp_path, monkeypatch):
+    log = tmp_path / "catches.jsonl"   # conftest points catches_path here
+    monkeypatch.setattr(hooks, "LOG_LIMIT", 1000)
+    for _ in range(40):
+        hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": "/tmp", "session_id": "s"})
+    assert log.stat().st_size < 3000 and (tmp_path / "catches.jsonl.1").exists()
+    assert len(hooks.load_catches()) >= 1
+    errors = tmp_path / "hook-errors.log"
+    for _ in range(40):
+        hooks._note("stdin", "x" * 100)
+    assert errors.stat().st_size < 3000 and (tmp_path / "hook-errors.log.1").exists()

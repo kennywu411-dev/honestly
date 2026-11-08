@@ -74,6 +74,7 @@ BG_NOTICE = re.compile(r"\s*Command (?:running in background with ID: (?P<asked>
                        r"(?:\s*Output is being written to:\s*(?P<path>\S+?\.output)(?=[\s.]|$))?")
 BG_NOTICE_MAX = 1500
 RUN_OUTPUT = re.compile(r"\b\d+ (?:passed|failed|errors?)\b|\bFAILED\b|Traceback \(most recent", re.I)
+TASK_FILES_READ: set = set()   # what the parse read besides the log itself; the audit cache depends on these too
 
 
 def background_notice(text: str):
@@ -155,6 +156,7 @@ def _background_output(m, tool_input, project: str):
         return None
     if _is_under(path, project):
         return None
+    TASK_FILES_READ.add(path)
     return _task_file_tail(path)
 
 

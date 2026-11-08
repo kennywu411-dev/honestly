@@ -28,13 +28,15 @@ def _audited(path, parse, cfg_sig, use_cache, extra=""):
         hit = cache.get(path, cfg_sig + extra)
         if hit is not None:
             return hit
+    from .claude_code import TASK_FILES_READ
+    TASK_FILES_READ.clear()
     try:
         out = audit_turns(parse(path))
     except Exception as e:   # one log that cannot be read costs that log, not the whole audit
         SKIPPED.append((path, e))
         return []
     if use_cache:
-        cache.put(path, cfg_sig + extra, out)
+        cache.put(path, cfg_sig + extra, out, deps=sorted(TASK_FILES_READ))
     return out
 
 
@@ -94,6 +96,10 @@ def cmd_audit(a):
     from dataclasses import asdict
     from .redact import strip_controls
     from .report import text_report, colorize, want_color
+    if a.clear_cache:
+        from . import cache
+        print(f"honestly: cleared {cache.clear()} cache entries ({cache.cache_dir()})")
+        return 0
     agents = tuple(a.agent) if a.agent else ALL_AGENTS
     findings, sessions, dups = collect(a.root, a.codex_root, agents, a.since, project=a.project, use_cache=not a.no_cache, cursor_root=a.cursor_root, gemini_root=a.gemini_root)
     if a.json:
@@ -474,6 +480,7 @@ def _dispatch(args: list):
     pa.add_argument("--since", default=None, help="only claims from the last N days/weeks/months, e.g. 30d, 8w, 3m")
     pa.add_argument("--json", default=None, help="also write every finding as JSONL")
     pa.add_argument("--summary-json", action="store_true", help="print machine-readable counts instead of the report")
+    pa.add_argument("--clear-cache", action="store_true", help="empty ~/.honestly/cache and stop")
     _common(pa); pa.set_defaults(fn=cmd_audit)
     ps = sub.add_parser("share", help="write a shareable card (SVG, and PNG when a converter is available)")
     ps.add_argument("--root", default=None, help="Claude Code projects dir (default ~/.claude/projects, or under $CLAUDE_CONFIG_DIR)")

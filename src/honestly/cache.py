@@ -1,13 +1,15 @@
 """Per-session cache of audit findings, so a repeated `honestly audit` costs milliseconds instead of a full re-parse.
 
-A session's entry is keyed on the file's size and mtime, its subagent files, the rule sources and the active config,
-so any of those changing invalidates it. Stored under ~/.honestly/cache/; safe to delete at any time.
+A session's entry is keyed on the file's size and mtime, its subagent files, the rule sources and the active config, and it also
+remembers the background task files it read, so any of those changing invalidates it. Stored under ~/.honestly/cache/, one entry per
+session (`honestly audit --clear-cache` empties it); safe to delete at any time.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import time
 from dataclasses import asdict
 
 from . import store
@@ -36,10 +38,19 @@ def rules_signature() -> str:
     return _RULES_SIG
 
 
+def _session_prefix(path: str) -> str:
+    return hashlib.sha1(os.path.abspath(path).encode("utf-8")).hexdigest()[:20]
+
+
 def key(path: str, extra: str = "") -> str:
     st = os.stat(path)
-    h = hashlib.sha1(f"{os.path.abspath(path)}|{st.st_size}|{st.st_mtime_ns}|{rules_signature()}|{extra}".encode("utf-8"))
-    return h.hexdigest()
+    state = hashlib.sha1(f"{st.st_size}|{st.st_mtime_ns}|{rules_signature()}|{extra}".encode("utf-8")).hexdigest()
+    return f"{_session_prefix(path)}-{state[:24]}"
+
+
+def _dep_state(path: str):
+    st = os.stat(path)
+    return [st.st_size, st.st_mtime_ns]
 
 
 def _well_formed(f: Finding) -> bool:
@@ -51,8 +62,12 @@ def _well_formed(f: Finding) -> bool:
 def get(path: str, extra: str = ""):
     try:
         with open(os.path.join(cache_dir(), key(path, extra) + ".json"), encoding="utf-8") as fh:
-            rows = json.load(fh)
-        found = [Finding(**r) for r in rows]
+            entry = json.load(fh)
+        for dep, state in entry["deps"].items():
+            # a background task's output is part of what the verdict was made from. A task file that is gone cannot be read again: what it said still stands.
+            if os.path.exists(dep) and _dep_state(dep) != state:
+                return None
+        found = [Finding(**r) for r in entry["findings"]]
         return found if all(_well_formed(f) for f in found) else None   # a damaged entry is a miss: the session is read again
     except Exception:
         return None
@@ -64,14 +79,39 @@ def _scrubbed(value):
     return [_scrubbed(v) for v in value] if isinstance(value, list) else value
 
 
-def put(path: str, extra: str, findings) -> None:
-    """Findings quote replies, commands and their output, so they are scrubbed first. Written whole or not at all."""
-    final = os.path.join(cache_dir(), key(path, extra) + ".json")
+_pruned = False
+UNUSED_FOR = 90 * 24 * 3600
+
+
+def _prune_unused(folder: str) -> None:
+    """Once per run: sessions whose logs are gone leave entries nothing will ask for again."""
+    global _pruned
+    if _pruned:
+        return
+    _pruned = True
+    limit = time.time() - UNUSED_FOR
+    for entry in os.scandir(folder):
+        if entry.stat().st_mtime < limit:
+            os.remove(entry.path)
+
+
+def put(path: str, extra: str, findings, deps=()) -> None:
+    """Findings quote replies, commands and their output, so they are scrubbed first. Written whole or not at all, and one entry per
+    session: a new one replaces the session's older ones, so the cache does not grow every time a log does."""
+    folder = cache_dir()
+    name = key(path, extra) + ".json"
+    final = os.path.join(folder, name)
     tmp = f"{final}.{os.getpid()}.tmp"
     try:
+        entry = {"deps": {d: _dep_state(d) for d in deps if os.path.exists(d)}, "findings": [{k: _scrubbed(v) for k, v in asdict(f).items()} for f in findings]}
         with store.open_private(tmp) as fh:
-            json.dump([{k: _scrubbed(v) for k, v in asdict(f).items()} for f in findings], fh, ensure_ascii=False)
+            json.dump(entry, fh, ensure_ascii=False)
         os.replace(tmp, final)
+        prefix = _session_prefix(path) + "-"
+        for other in os.listdir(folder):
+            if other.startswith(prefix) and other != name:
+                os.remove(os.path.join(folder, other))
+        _prune_unused(folder)
     except Exception:
         try:
             os.unlink(tmp)
