@@ -3,13 +3,12 @@ import contextlib
 import io
 import json
 import os
-import re
 import subprocess
 import sys
 
 import pytest
 
-from honestly import agents, cache, claude_code, cli, config, hooks, prnote, rules, support, update
+from honestly import agents, cache, claude_code, cli, hooks, prnote, rules, support, update
 from honestly.audit import Finding
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell scripts")

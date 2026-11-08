@@ -161,7 +161,7 @@ def _gemini_rows(turns, calls):
     n = 0
     for t in range(turns):
         rows.append({"type": "user", "id": f"u{t}", "content": f"turn {t}"})
-        for i in range(calls):
+        for _ in range(calls):
             n += 1
             rows.append({"type": "gemini", "id": f"g{n}", "model": "g", "content": "", "toolCalls": [{"name": "run_shell_command", "args": {"command": "ls"}, "result": FILLER, "status": "success"}]})
     return rows

@@ -59,7 +59,7 @@ def tighten() -> None:
             return
     except OSError:
         return
-    for base, dirs, files in os.walk(top, followlinks=False):
+    for base, _dirs, files in os.walk(top, followlinks=False):
         for name in [base] + [os.path.join(base, f) for f in files]:
             try:
                 info = os.lstat(name)
