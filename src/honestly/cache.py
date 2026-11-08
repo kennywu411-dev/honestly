@@ -42,11 +42,18 @@ def key(path: str, extra: str = "") -> str:
     return h.hexdigest()
 
 
+def _well_formed(f: Finding) -> bool:
+    tools = f.tools_after_edit
+    return (all(isinstance(v, str) for k, v in vars(f).items() if k not in ("turn", "tools_after_edit")) and isinstance(f.turn, int)
+            and isinstance(tools, list) and all(isinstance(t, str) for t in tools))
+
+
 def get(path: str, extra: str = ""):
     try:
         with open(os.path.join(cache_dir(), key(path, extra) + ".json"), encoding="utf-8") as fh:
             rows = json.load(fh)
-        return [Finding(**r) for r in rows]
+        found = [Finding(**r) for r in rows]
+        return found if all(_well_formed(f) for f in found) else None   # a damaged entry is a miss: the session is read again
     except Exception:
         return None
 

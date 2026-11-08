@@ -67,7 +67,11 @@ def _fake_session(d: str, rows: list) -> str:
 def self_test() -> list:
     """Feed guard two fake turns and see whether it blocks: a code claim ('All tests pass.' right after an edit, no test
     run) and a non-code claim ('I've sent you the file.' with no send tool). Returns [(name, blocked, message)]."""
-    d = tempfile.mkdtemp(prefix="honestly-doctor-")
+    with tempfile.TemporaryDirectory(prefix="honestly-doctor-") as d:
+        return _self_test_in(d)
+
+
+def _self_test_in(d: str) -> list:
     ts = "2026-01-01T00:00:0{}Z"
     code = _fake_session(d, [
         {"type": "user", "message": {"role": "user", "content": "fix the bug"}, "origin": {"kind": "human"}, "cwd": d, "timestamp": ts.format(0)},

@@ -48,7 +48,8 @@ def _summarize_input(name: str, inp) -> str:
     if not isinstance(inp, dict):
         return ""
     if name == "Bash":
-        return inp.get("command", "") or ""
+        command = inp.get("command")
+        return command if isinstance(command, str) else ""
     for k in ("file_path", "path", "notebook_path", "url", "pattern", "query", "prompt", "description"):
         if k in inp:
             return str(inp[k])

@@ -241,12 +241,15 @@ def gemini_parse(path: str, start: int = 0):
 
 
 # ------------------------------------------------------------ hook payloads
+TEXT_FIELDS = ("cwd", "transcript_path", "last_assistant_message", "model")
+
+
 def normalize(agent: str, which: str, data: dict) -> dict:
-    """The fields the two hooks need, whatever the assistant calls them."""
-    d = dict(data)
+    """The fields the two hooks need, whatever the assistant calls them. A field of the wrong type is dropped: the rest can still be checked."""
+    d = {k: v for k, v in data.items() if k not in TEXT_FIELDS or isinstance(v, str)}
     if agent == "cursor":
         roots = d.get("workspace_roots")
-        d.setdefault("cwd", roots[0] if isinstance(roots, list) and roots else "")
+        d.setdefault("cwd", roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else "")
         if which == "stop":
             d["stop_hook_active"] = bool(d.get("loop_count"))   # loop_count counts our own follow-ups
             d.setdefault("last_assistant_message", "")

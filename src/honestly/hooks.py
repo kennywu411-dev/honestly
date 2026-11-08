@@ -365,8 +365,21 @@ def load_catches(since_days: int | None = None) -> list[dict]:
                 except Exception:
                     continue
                 if isinstance(r, dict) and (not cutoff or str(r.get("ts", "")) >= cutoff):
-                    rows.append(r)
+                    rows.append(_row(r))
     return rows
+
+
+ROW_TEXT = ("ts", "kind", "agent", "model", "project", "topic", "claim", "reason", "command", "message", "version", "session")
+
+
+def _row(r: dict) -> dict:
+    """A log row in the shape the readers expect, whatever the file holds."""
+    r = dict(r)
+    for k in ROW_TEXT:
+        if k in r and not isinstance(r[k], str):
+            r[k] = ""
+    r["tools"] = [t for t in r["tools"] if isinstance(t, str)] if isinstance(r.get("tools"), list) else []
+    return r
 
 
 def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
