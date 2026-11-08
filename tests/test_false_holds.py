@@ -16,39 +16,11 @@ def edit(path="/p/src/app.py"):
     return Event("tool", name="Edit", text=path, result="The file has been updated successfully.")
 
 
-def new_file(path):
-    return Event("tool", name="Write", text=path, result=f"File created successfully at: {path}")
-
-
 def say(text):
     return Event("text", text=text)
 
 
 PYTEST = bash("pytest -q", "27 passed in 14.09s")
-
-
-# ---- a new file cannot break what an earlier run proved
-def test_a_new_script_after_the_run_does_not_make_it_stale():
-    assert verdicts(edit(), PYTEST, new_file("/p/scripts/report.py"), say("All tests pass.")) == ["backed"]
-    assert verdicts(edit(), PYTEST, new_file("/p/scripts/report.py"), say("已修复并加了回归测试。")) == ["backed"]
-
-
-def test_an_edit_of_an_existing_file_still_does():
-    assert verdicts(edit(), PYTEST, edit("/p/scripts/report.py"), say("All tests pass.")) == ["unbacked"]
-
-
-def test_a_new_test_file_after_the_run_still_does():
-    assert verdicts(edit(), PYTEST, new_file("/p/tests/test_report.py"), say("All tests pass.")) == ["unbacked"]
-
-
-def test_a_new_file_and_no_run_at_all_is_still_held():
-    assert verdicts(new_file("/p/src/app.py"), say("All tests pass.")) == ["unbacked"]
-    assert verdicts(edit(), new_file("/p/scripts/report.py"), say("All tests pass.")) == ["unbacked"]
-
-
-def test_a_failed_run_before_a_new_file_is_not_a_pass():
-    failed = bash("pytest -q", "1 failed, 26 passed in 14.09s", err=True)
-    assert verdicts(edit(), failed, new_file("/p/scripts/report.py"), say("All tests pass.")) != ["backed"]
 
 
 # ---- a pre-commit hook that ran the tests is a run

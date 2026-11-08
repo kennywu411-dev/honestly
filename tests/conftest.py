@@ -6,6 +6,7 @@ from honestly import hooks
 def _isolated_catch_log(tmp_path, monkeypatch):
     """Hooks under test must never write into the developer's real ~/.honestly/catches.jsonl."""
     monkeypatch.setattr(hooks, "catches_path", lambda: str(tmp_path / "catches.jsonl"))
+    monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "hook-errors.log"))
 
 
 @pytest.fixture(autouse=True)

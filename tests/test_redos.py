@@ -3,14 +3,14 @@ import time
 
 import pytest
 
-from honestly import agents, audit, hooks, rules
+from honestly import audit, hooks, rules
 
 PATTERNS = {
-    "FAIL_COUNT": audit.FAIL_COUNT, "COUNTED_TESTS": audit.COUNTED_TESTS, "COMMITTED_RECAP": audit.COMMITTED_RECAP, "TEST_PATH": audit.TEST_PATH,
-    "SELF_CHECK_OK": audit.SELF_CHECK_OK, "SELF_CHECK_BAD": audit.SELF_CHECK_BAD, "GIT_COMMIT_TITLE": audit.GIT_COMMIT_TITLE, "DRY_RUN_FLAG": audit.DRY_RUN_FLAG,
+    "FAIL_COUNT": audit.FAIL_COUNT, "COUNTED_TESTS": audit.COUNTED_TESTS, "COMMITTED_RECAP": audit.COMMITTED_RECAP,
+    "SELF_CHECK_OK": audit.SELF_CHECK_OK, "SELF_CHECK_BAD": audit.SELF_CHECK_BAD, "GIT_COMMIT_TITLE": audit.GIT_COMMIT_TITLE, "DRY_RUN_FLAG": audit.DRY_RUN_FLAG, "DRY_RUN_CLAIM": audit.DRY_RUN_CLAIM, "SCRIPT_RUN": audit.SCRIPT_RUN,
     "TEST_PASS": audit.TEST_PASS, "TEST_FAIL": audit.TEST_FAIL, "SUMMARY_LINE": audit.SUMMARY_LINE, "ZERO_TESTS": audit.ZERO_TESTS,
-    "SHELL_OUTPUT": agents.SHELL_OUTPUT, "PS_WRITE": rules.PS_WRITE, "PS_WRITE_SOURCE": rules.PS_WRITE_SOURCE, "PIPE_SWALLOW": rules.PIPE_SWALLOW,
-    "SELECT_CUTS_END": hooks.SELECT_CUTS_END, "SELECT_LAST": hooks.SELECT_LAST,
+    "PS_WRITE": rules.PS_WRITE, "PS_WRITE_SOURCE": rules.PS_WRITE_SOURCE, "PIPE_SWALLOW": rules.PIPE_SWALLOW,
+    "SESSION_REPORT": audit.SESSION_REPORT, "SUITE_LINE": audit.SUITE_LINE, "SELECT_CUTS_END": hooks.SELECT_CUTS_END, "SELECT_LAST": hooks.SELECT_LAST,
 }
 AWKWARD = [" ", "\n ", "\n", "\t", "9 tests, ", "fail ", ", ", "[  FAILED  ] ", "- ", "* ", "*", "| ", ".test", "Output: a\n", "with 1 failures ", "1 ", "# ", "#", " \n# ", "\n- * "]
 

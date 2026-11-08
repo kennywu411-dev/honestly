@@ -50,18 +50,27 @@ TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)
                        r"|\bwith \d+ failures? \(0 unexpected\)", re.I | re.M)  # XCTest: expected failures (XCTExpectFailure) are not failures
 TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
                        r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
-# a non-zero failure count, which no pass marker on the same summary can outweigh. Each shape is one a runner prints, so that a log line ("retried after 2 failures", "connection failed: 3 retries") does not overrule a passing run.
+# a non-zero failure count or a failed verdict, which no pass marker on the same summary can outweigh. Each shape is one a runner prints, so that a log line ("retried after 2 failures", "errors: 2") does not overrule a passing run.
 FAIL_COUNT = re.compile(r"\b[1-9]\d* (?:tests? )?failed\b"                                       # pytest: 2 failed; CTest: 2 tests failed
-                        r"|(?:^|[,;|(-])[ \t]*(?:fail(?:ed|ures?)|errors)[ \t]*[:=][ \t]*[1-9]"  # dotnet, NUnit: Failed: 2; Maven: Errors: 2; unittest: (failures=2)
+                        r"|\b(?:tests?(?: run| count)?|total|passed)\b[^\n]{0,200}?[,;|(][ \t]*(?:fail(?:ed|ures?)|errors)[ \t]*[:=][ \t]*[1-9]"   # NUnit, Maven, PHPUnit, xUnit
+                        r"|\((?:failures|errors)=[1-9]|(?-i:^[ \t]*Failed:[ \t]+[1-9])|\bTest Run Failed\b"   # unittest; dotnet's own lines
                         r"|\b(?:examples?|tests?|assertions?),[ \t]*(?:with[ \t]+)?[1-9]\d* failures?\b(?![ \t]*\(0 unexpected\))"   # RSpec, ExUnit, XCTest, minitest
-                        r"|\b(?:passed|failures?|assertions?),[ \t]*[1-9]\d* errors?\b"          # pytest: 7 passed, 2 errors; minitest: 0 failures, 2 errors
+                        r"|\bpassed\b[^\n]{0,120}?\b[1-9]\d* errors?\b|\b(?:failures?|assertions?),[ \t]*[1-9]\d* errors?\b"   # pytest: 3 passed, 1 warning, 1 error; minitest: 0 failures, 2 errors
                         r"|^[ \t]*[1-9]\d* failures?,[ \t]*\d+ errors?\b"                        # clojure.test: 2 failures, 0 errors
-                        r"|^[ \t]*[1-9]\d* fail[ \t]*$|^[ \t]*(?:#[ \t]*)?fail[ \t]+[1-9]"       # bun:  2 fail; TAP: # fail 2
-                        r"|\[ *FAILED *\] *[1-9]\d* tests?\b", re.I | re.M)                      # GoogleTest: [  FAILED  ] 2 tests
-# runners that print one result per package or project: a failing one is not cancelled by the next one passing
-TARGET_FAIL = ((re.compile(r"\bgo test\b"), re.compile(r"^(FAIL\b|--- FAIL:)", re.M), "go test output shows FAIL"),   # `ok pkg/a` lines do not cancel a failing package
-               (re.compile(r"\bdotnet test\b"), re.compile(r"^\s*Failed!\s+-", re.M), "dotnet test output shows a failed project"),
-               (re.compile(r"\bcargo test\b"), re.compile(r"^test result: FAILED", re.M), "cargo test output shows a failed target"))
+                        r"|^[ \t]*[1-9]\d* fail[ \t]*$|^[ \t]*(?:#[ \t]*)?fail[ \t]+[1-9]|^#[ \t]*failed [1-9]\d* of\b"   # bun:  2 fail; TAP: # fail 2; prove
+                        r"|\[ *FAILED *\] *[1-9]\d* tests?\b|ℹ cancelled [1-9]"                  # GoogleTest; node --test
+                        r"|\b\d+ successes? / (?:[1-9]\d* failures?|\d+ failures? / [1-9]\d* errors?)"   # busted
+                        r"|\bBUILD (?:FAILURE|FAILED)\b|^[ \t]*evaluation failed\b|\bFAIL code \d|\* [\w.-]+: failed\b"   # Maven, Gradle, tox, nox: the run's verdict after the counts
+                        r"|\bnpm (?:ERR!|error) Lifecycle script\b|^[ \t]*Failed:[ \t]+\S+#\S+", re.I | re.M)   # npm workspaces, turbo
+# printed before the last summary, and not cancelled by it
+EARLY_FAIL = ((re.compile(r"^(?:--- FAIL:|FAIL\t)", re.M), "the output shows a failing Go package"),
+              (re.compile(r"^[ \t]*Failed![ \t]+-", re.M), "the output shows a failed dotnet project"),
+              (re.compile(r"^test result: FAILED", re.M), "the output shows a failed cargo target"),
+              (re.compile(r"^[ \t]*[1-9]\d* failed[ \t]*$", re.M), "the output counts failed tests above the passed ones"))   # Playwright:   1 failed ...   5 passed
+SUITE_LINE = re.compile(r"^[ \t]*Test (?:Suites:|Files)[^\n]*", re.M)   # Jest, Vitest: a file that failed to load runs no tests, so `Tests:` alone reads as a pass
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# `go test` says FAIL on its own line for a package that failed to build, too
+TARGET_FAIL = ((re.compile(r"\bgo test\b"), re.compile(r"^(FAIL\b|--- FAIL:)", re.M), "go test output shows FAIL"),)   # `ok pkg/a` lines do not cancel a failing package
 SUMMARY_LINE = re.compile(r"((?<!Found )\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
 IMAGE_READ = re.compile(r"\.(png|jpe?g|gif|webp)$", re.I)
 VISUAL_CMD = re.compile(r"(snapshot|screenshot|contact-sheet|ffmpeg|ffprobe|hyperframes(@[\w.]+)? (render|build)|blender |--screenshot|--dump-dom)", re.I)
@@ -100,10 +109,11 @@ def _last_summary(out: str) -> str:
     hits = [m.group(0) for m in SUMMARY_LINE.finditer(out)]
     if not hits:
         return out
-    # a summary spans its whole line: in "9 runs, 2 failures, 0 errors" the hit is only "0 errors", and the failures come before it
+    # a summary spans its whole line: in "9 runs, 2 failures, 0 errors" the hit is only "0 errors", and the failures come before it.
+    # A progress bar rewrites one line with \r, so that is a line start too, and only the near part of a long line is the summary.
     start = out.rfind(hits[-1])
-    tail = out[out.rfind("\n", 0, start) + 1:]
-    return tail[:400]
+    line = max(out.rfind("\n", 0, start), out.rfind("\r", 0, start)) + 1
+    return out[max(line, start - 200):][:400]
 # a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet, PHPUnit, Deno, RSpec
 ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
                         r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
@@ -122,7 +132,7 @@ FAILS_BEFORE = re.compile(r"\bfail(?:s|ed|ing)? (?:on|against|without|before) (?
 
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output; fall back to exit status / pipes."""
-    out = ev.result or ""
+    out = ANSI.sub("", ev.result or "")   # FORCE_COLOR: `\x1b[31m1 failed` has no word boundary before the 1
     if re.search(r"running in background|Output is being written to", out, re.I):
         return "unverifiable", "verification was started in the background; its result is off-transcript"
     if category == "fixed" and (re.search(r"(node --check|py_compile)", seg) or rules.import_only(seg)):
@@ -134,11 +144,17 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
         for runner, failed, why in TARGET_FAIL:
             if runner.search(seg) and failed.search(out):
                 return "contradicted", why
+        for failed, why in EARLY_FAIL:   # the shape is the runner's, so `make test` and `npm test` around it count too
+            if failed.search(out):
+                return "contradicted", why
+        suites = SUITE_LINE.findall(out)
+        if suites and re.search(r"\b[1-9]\d* failed\b", suites[-1]):
+            return "contradicted", "a test suite or file failed to run"
         if TEST_FAIL.search(summ) and not TEST_PASS.search(summ):
             return "contradicted", "last test summary shows failures"
         if FAIL_COUNT.search(summ):
             return "contradicted", "last test summary counts failures"
-        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|\bPassed:\s*[1-9]|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
+        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|\bPassed:\s*[1-9]|\bwith [1-9]\d* tests? passed\b|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
             return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
         if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out) and not re.search(r"(?m)^ok\s+\S+(?![^\n]*\[no tests to run\])|^OK \(\d+ tests?", out):
             return "unbacked", "test command errored and printed no pass/fail summary"
@@ -242,62 +258,64 @@ def _clean_pass(out: str) -> bool:
 
 
 RANK = {"backed": 0, "weak": 1, "unverifiable": 2, "unbacked": 3, "contradicted": 4}
-FILE_CREATED = re.compile(r"created successfully|Successfully created", re.I)   # Claude Code's Write, Gemini CLI's write_file
-TEST_PATH = re.compile(r"(?:^|[\\/._-])(?:tests?|spec)(?:[\\/._-]|$)|\.(?:test|spec)\.", re.I)
-GIT_HOOK_RUN = re.compile(r"\bgit (?:commit|push)\b")
+GIT_HOOK_RUN = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:commit|push)\b")
+GIT_READS = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:log|show)\b")
 GIT_COMMIT_TITLE = re.compile(r"^\[[^\]\n]+\] [^\n]*$", re.M)   # `[main abc1234] Fix, 12 passed` quotes the message, it is not a run
+HOOK_TEST_COUNT = re.compile(r"\b[1-9]\d* (?:passed|failed)\b|\btest result: |\bTests run: ", re.I)   # `0 errors, 2 warnings` is a lint hook, not tests
 SELF_CHECK_OK = re.compile(r"^[ \t]*\[(?:OK|PASS(?:ED)?)\]", re.M | re.I)
-SELF_CHECK_BAD = re.compile(r"^[ \t]*\[(?:FAIL(?:ED)?|ERROR)\]", re.M | re.I)
-DRY_RUN_CLAIM = re.compile(r"空跑|\bdry[- ]run\b", re.I)
+SELF_CHECK_BAD = re.compile(r"^[ \t]*\[[ \t]*(?:FAIL(?:ED)?|ERROR|X|✗)[ \t]*\]|^[ \t]*(?:FAIL(?:ED)?|ERROR)\b|Traceback \(most recent", re.M | re.I)
+SCRIPT_RUN = re.compile(r"(?:^|[\s/])(?:python[\d.]*|node|bun|bash|sh|zsh|deno run|uv run)\s|(?:^|\s)\./\S", re.I)
+DRY_RUN_CLAIM = re.compile(r"空跑[^，。；\n]{0,12}(?:通过|成功|没问题|正常)|\bdry[- ]run\b[^,.;\n]{0,20}\b(?:pass(?:es|ed)?|succeed(?:s|ed)?|ok)\b", re.I)   # about the dry run, not "tests pass and the dry run is clean"
 DRY_RUN_FLAG = re.compile(r"\s--dry(?:[-_]run)?\b")
-COUNTED_TESTS = re.compile(r"(\d+)[ \t]*(?:[个项][ \t]*)?(?:测试|用例|tests?\b)", re.I)
-COMMITTED_RECAP = re.compile(r"^[ \t]*(?:[-*][ \t]*){0,4}(?:已提交|已经提交|committed\b)", re.M | re.I)   # a list heading over the sentence, not a word inside it
-
-
-def _new_file(e) -> bool:
-    return e.kind == "tool" and FILE_CREATED.search(e.result or "") is not None and not TEST_PATH.search(e.text or "")
-
-
-def _before_new_files(ev: list, flags: list, edit_idx: int) -> int:
-    """The last edit that changed existing code: a brand-new file cannot break what a run before it proved. -1 when there is none."""
-    k = edit_idx
-    while k >= 0 and (not flags[k] or _new_file(ev[k])):
-        k -= 1
-    return k
+DRY_RUN_BAD = re.compile(r"Traceback \(most recent|^\w*Error\b", re.M)
+COUNTED_TESTS = re.compile(r"(\d{1,7})[ \t]*(?:[个项][ \t]*)?(?:测试|用例|tests?\b)", re.I)
+COMMITTED_RECAP = re.compile(r"^[ \t]*(?:[-*][ \t]*){0,4}(?:已提交|已经提交|committed\b)[^\n]{0,40}[：:]\**[ \t]*$", re.M | re.I)   # a list heading over the sentence, not a word inside it
+SESSION_REPORT = re.compile(r"\bThe session\b.{0,200}\byou started\b|<side-sessions-event>|<agent-message|Another Claude session sent a message", re.S)
 
 
 def _hook_run(after: list):
-    """A commit or push whose hook printed a test summary is a test run, as (event, its output without the commit's own title line)."""
+    """A commit or push whose hook printed a test count is a test run, as (event, its output without what the command itself said)."""
     for x in reversed(after):
-        if x.name == "Bash" and GIT_HOOK_RUN.search(x.text or ""):
-            out = GIT_COMMIT_TITLE.sub("", x.result or "")
-            if SUMMARY_LINE.search(out):
-                return dataclasses.replace(x, result=out)
+        if x.name != "Bash":
+            continue
+        segs = rules.segments(x.text or "")
+        if not any(GIT_HOOK_RUN.match(s.text) for s in segs) or any(GIT_READS.match(s.text) for s in segs):
+            continue
+        lines = GIT_COMMIT_TITLE.sub("", ANSI.sub("", x.result or "")).splitlines()
+        out = "\n".join(line for line in lines if line.strip() not in (x.text or ""))   # a commit message echoed back
+        if HOOK_TEST_COUNT.search(out):
+            return dataclasses.replace(x, result=out)
     return None
 
 
+def _script_runs(x, only_after: bool) -> list:
+    return [s for s in rules.verifying_segments(x.text, {"run"}, after_edit_only=only_after) if SCRIPT_RUN.search(s.text)]
+
+
 def _self_check(edit_ev, after: list):
-    """A script of the project run after the edit that reports its own checks as `[OK] ...` lines, with none failed."""
+    """A script of the project run after the edit that reports its own checks as `[OK] ...` lines, exits clean and shows no failure."""
     for x, only_after in reversed([(edit_ev, True)] + [(a, False) for a in after]):
-        if x.name != "Bash" or not SELF_CHECK_OK.search(x.result or "") or SELF_CHECK_BAD.search(x.result or ""):
+        if x.name != "Bash" or x.is_error or not SELF_CHECK_OK.search(x.result or "") or SELF_CHECK_BAD.search(x.result or ""):
             continue
-        if rules.verifying_segments(x.text, {"run"}, after_edit_only=only_after):
+        if _script_runs(x, only_after):
             return x
     return None
 
 
 def _dry_run(edit_ev, after: list):
-    """A command run with --dry or --dry-run after the edit, and not just a flag named in a heredoc's script."""
-    for x in reversed([edit_ev] + after):
-        if x.name == "Bash" and not x.is_error and any(not s.heredoc and DRY_RUN_FLAG.search(s.text) for s in rules.segments(x.text)):
+    """A script run with --dry or --dry-run after the edit, clean, and not a flag named in a heredoc, a grep or a commit message."""
+    for x, only_after in reversed([(edit_ev, True)] + [(a, False) for a in after]):
+        if x.name != "Bash" or x.is_error or DRY_RUN_BAD.search(x.result or ""):
+            continue
+        if any(DRY_RUN_FLAG.search(s.text.split("|")[0]) for s in _script_runs(x, only_after)):
             return x
     return None
 
 
-def _relayed_count(hit, ev: list, automated: bool) -> bool:
-    """A turn another session or a task started, and a test count that no run in this turn printed: the number is that report's."""
+def _relayed_count(hit, ev: list, prompt: str) -> bool:
+    """Another session's report started the turn, and no run in this turn printed the test count: the number is that report's."""
     m = COUNTED_TESTS.search(hit.sentence)
-    return automated and m is not None and not any(re.search(rf"\b{m.group(1)} passed\b", x.result or "") for x in ev if x.kind == "tool")
+    return SESSION_REPORT.search((prompt or "")[:1500]) is not None and m is not None and not any(re.search(rf"\b{m.group(1)} passed\b", x.result or "") for x in ev if x.kind == "tool")
 
 
 def _passed_then_committed(ev: list) -> bool:
@@ -436,13 +454,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None):
                     v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"})
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
-                if verdict == "unbacked":
-                    earlier = _before_new_files(ev, flags, edit_idx)
-                    if 0 <= earlier < edit_idx:
-                        v3 = _judge_code(hit, ev, flags, earlier, i, hit.evidence_kinds - {"exercise", "run"})
-                        if v3[0] == "backed":
-                            verdict, reason, seg, last = "backed", "only new files were created after this run; " + v3[1], v3[2], v3[3]
-                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev, automated):
+                if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev, turn.prompt):
                     verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
                 if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
                     verdict, reason = "unverifiable", "a recap of work already committed; a later edit is not part of it"
