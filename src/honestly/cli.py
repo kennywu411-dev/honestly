@@ -50,41 +50,69 @@ def _report_skipped() -> None:
         SKIPPED.clear()
 
 
+def _session_dir(path: str, agent: str) -> str:
+    """Where a session ran, without parsing it: its own project's settings judge it, wherever `audit` is run from."""
+    import json, re
+    if agent == "cursor":
+        return ""   # the transcript does not say
+    if agent == "gemini":
+        from . import agents as _ag
+        return _ag._gemini_project(path)
+    try:
+        with open(path, "rb") as fh:
+            m = re.search(rb'"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"', fh.read(1 << 16))
+        return json.loads(b'"' + m.group(1) + b'"') if m else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def _file_time(path: str) -> str:
+    import datetime as dt
+    try:
+        return dt.datetime.fromtimestamp(os.path.getmtime(path), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    except (OSError, ValueError, OverflowError):
+        return ""
+
+
 def collect(root_claude=None, root_codex=None, agents=ALL_AGENTS, since=None, project=None, use_cache=True, cursor_root=None, gemini_root=None):
     import json
-    from . import claude_code, codex, config
-    cfg = config.load(None)
-    config.apply(cfg)   # the user's ignore list and custom checks apply to the audit too
-    cfg_sig = json.dumps(cfg, sort_keys=True, ensure_ascii=False)
+    from . import agents as _ag, claude_code, codex, config
+    from .audit import finding_key
     cutoff = _since_cutoff(since)
-    findings, sessions = [], 0
+    timed, sessions, cfg_of = [], 0, {}
+
+    def read(path, parse, agent, extra=""):
+        nonlocal sessions
+        sessions += 1
+        where = _session_dir(path, agent)
+        if where not in cfg_of:   # the user's settings plus that project's, the same ones its hooks used
+            cfg_of[where] = config.load(where) if where else config.load_user()
+        cfg = cfg_of[where]
+        config.apply(cfg)
+        cfg_sig = json.dumps(cfg, sort_keys=True, ensure_ascii=False)
+        stamp = _file_time(path)   # a transcript with no clock (Cursor) is placed by its file
+        timed.extend((f, f.ts or stamp) for f in _audited(path, parse, cfg_sig, use_cache, extra))
+
     if "claude-code" in agents:
         for path in claude_code.iter_sessions(root_claude):
-            sessions += 1
             subs = claude_code.subagent_files(path)
-            extra = "|".join(f"{os.path.getsize(s)}:{os.path.getmtime(s)}" for s in subs)
-            findings.extend(_audited(path, claude_code.parse_session, cfg_sig, use_cache, extra))
+            read(path, claude_code.parse_session, "claude-code", "|".join(f"{os.path.getsize(s)}:{os.path.getmtime(s)}" for s in subs))
     if "codex" in agents:
         for path in codex.iter_sessions(root_codex):
-            sessions += 1
-            findings.extend(_audited(path, codex.parse_session, cfg_sig, use_cache))
-    from . import agents as _ag
+            read(path, codex.parse_session, "codex")
     if "cursor" in agents:
         for path in _ag.cursor_sessions(cursor_root):
-            sessions += 1
-            findings.extend(_audited(path, _ag.cursor_parse, cfg_sig, use_cache))
+            read(path, _ag.cursor_parse, "cursor")
     if "gemini" in agents:
         for path in _ag.gemini_sessions(gemini_root):
-            sessions += 1
-            findings.extend(_audited(path, _ag.gemini_parse, cfg_sig, use_cache))
+            read(path, _ag.gemini_parse, "gemini")
+    findings = [f for f, when in timed if not cutoff or when >= cutoff]
     if project:
         findings = [f for f in findings if project.lower() in (f.project or "").lower()]
-    if cutoff:
-        findings = [f for f in findings if (f.ts or "9999") >= cutoff]
     _report_skipped()
     seen, deduped = set(), []
     for f in findings:
-        key = (f.category, f.claim, f.last_edit[:60], str(f.ts or "")[:16])
+        key = finding_key(f)
         if key in seen:
             continue
         seen.add(key); deduped.append(f)
@@ -108,12 +136,17 @@ def cmd_audit(a):
                 d = asdict(f); d["label"] = f.label
                 fh.write(json.dumps(d, ensure_ascii=False) + "\n")
         print(f"wrote {len(findings)} findings to {a.json}", file=sys.stderr)
+    filtered = " ".join(x for x in (f"--project {a.project}" if a.project else "", f"--since {a.since}" if a.since else "") if x)
     if a.summary_json:
         from .audit import summarize
-        s = summarize(findings); s["sessions"] = sessions; s["duplicates_removed_forks"] = dups
+        from .report import stats
+        s, st = summarize(findings), stats(findings)
+        s.update(schema=1, sessions=len({f.session for f in findings}) if filtered else sessions, sessions_read=sessions, duplicates_removed_forks=dups,
+                 claims_in_scope=sum(st["counts"].values()), decided=st["decided"], rate=None if st["rate"] is None else round(st["rate"], 4))
         print(json.dumps(s, ensure_ascii=False, indent=2))
         return
-    report = strip_controls(text_report(findings, sessions, dups))   # it quotes replies: nothing in them may drive the terminal
+    looked = [x for x in (a.root, a.codex_root, a.cursor_root, a.gemini_root) if x]
+    report = strip_controls(text_report(findings, sessions, dups, filtered, looked))   # it quotes replies: nothing in them may drive the terminal
     print(colorize(report) if want_color() else report)
 
 
@@ -140,7 +173,7 @@ def cmd_explain(a):
     if not flagged:
         print("nothing flagged"); return
     if a.n < 1 or a.n > len(flagged):
-        print(f"honestly explain: pick 1..{len(flagged)}", file=sys.stderr)
+        print(f"honestly explain: there are {len(flagged)} flagged claims; pick 1 to {len(flagged)}.", file=sys.stderr)
         return 1
     f = flagged[a.n - 1]
     show = lambda text: print(strip_controls(text))
@@ -149,23 +182,26 @@ def cmd_explain(a):
     show(f"claim:   {f.claim}")
     show(f"context: …{f.context}…")
     show(f"last code edit: {f.last_edit or '-'}")
-    show("tools after it:" if f.tools_after_edit else "tools after it: (none)")
+    show("tools after it (the last 8 at most):" if f.tools_after_edit else "tools after it: (none)")
     for t in f.tools_after_edit:
         show(f"  - {t}")
+    if f.output:
+        show(f"output:  {f.output}")
     show(f"why: {f.reason}")
 
 
 def cmd_catches(a):
-    from .hooks import catches_report, _is_zh
+    from .hooks import catches_report, _lang_zh
     from .redact import strip_controls
     from .update import update_note
-    from . import __version__
+    from . import __version__, config
     from .hooks import catches_path, catches_unreadable
     why = catches_unreadable()
     if why:
         print(f"honestly: cannot read {catches_path()}: {why}", file=sys.stderr)
         return 1
-    print(strip_controls(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh")))
+    zh = _lang_zh(config.load(), "") if a.lang == "auto" else a.lang == "zh"
+    print(strip_controls(catches_report(a.days, zh=zh)))
     if a.card:
         from .hooks import load_catches
         from .report import write_catches_card
@@ -176,7 +212,7 @@ def cmd_catches(a):
             print("No card written: nothing was caught in this window.", file=sys.stderr)
         for p in write_catches_card(rows, a.days, out) if rows else []:
             print("wrote", p)
-    note = update_note(__version__, zh=_is_zh(""))   # once a day, CLI only, never from the hooks
+    note = update_note(__version__, zh=zh)   # once a day, CLI only, never from the hooks
     if note:
         print("\n" + note)
 

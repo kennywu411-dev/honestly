@@ -368,6 +368,14 @@ def first_notice(cwd: str | None, session: str) -> bool:
     return True
 
 
+def load_user() -> dict:
+    """The user's settings alone, for a session whose project cannot be told."""
+    cfg = dict(DEFAULTS)
+    for k, v in _clean(_read(user_path())).items():
+        cfg[k] = sorted(set(v)) if k in LIST_KEYS else v
+    return cfg
+
+
 _BASE_TEST = rules.VERIFY["test"]
 
 

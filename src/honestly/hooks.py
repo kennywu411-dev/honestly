@@ -339,12 +339,12 @@ def _note(which: str, msg: str) -> None:
         pass
 
 
-def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: str = "", command: str = "", tools=None) -> None:
+def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: str = "", command: str = "", tools=None, agent: str = "") -> None:
     """Append one line per catch so `honestly catches` can show what guard did this week. Local file, never sent anywhere."""
     import datetime
     scrub = lambda text, limit=None: redact(text)[:limit]
     row = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "kind": kind,
-           "agent": getattr(turn, "agent", "") or "claude-code", "model": scrub(getattr(turn, "model", "") or "", 80),
+           "agent": getattr(turn, "agent", "") or agent or "claude-code", "model": scrub(getattr(turn, "model", "") or str(data.get("model") or ""), 80),
            "project": scrub(data.get("cwd") or getattr(turn, "project", "") or ""), "topic": scrub(_topic(getattr(turn, "prompt", "") or "", 80)),
            "claim": scrub(claim, 200), "reason": scrub(reason, 200), "command": scrub(command, 200), "message": scrub(plain),
            "tools": [scrub(str(t), 160) for t in (tools or [])][-8:], "version": __import__("honestly").__version__,
@@ -410,7 +410,7 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
     if zh is None:
         zh = _lang_zh(config.load(), "")
     rows = load_catches(since_days)
-    window = f"最近 {since_days} 天" if zh else f"last {since_days} days"
+    window = f"最近 {since_days} 天" if zh else ("last day" if since_days == 1 else f"last {since_days} days")
     if not rows:
         if zh:
             return (f"honestly guard：{window}没有拦截记录。\n"
@@ -419,7 +419,9 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
                 "  Either the agent ran its checks every time, or guard is not installed (honestly guard status, honestly doctor).")
     stop = sum(1 for r in rows if r.get("kind") == "stop")
     pre = len(rows) - stop
-    by_project = Counter(_short(r.get("project", "")) for r in rows)
+    from .report import project_labels
+    names = project_labels(_project_path(r.get("project", "")) for r in rows)
+    by_project = Counter(names[_project_path(r.get("project", ""))] if r.get("project") else "" for r in rows)
     by_model = Counter((AGENT_NAMES.get(r.get("agent", ""), r.get("agent", "")) + " " + r.get("model", "")).strip() for r in rows)
     n = len(rows)
     if zh:
@@ -437,15 +439,28 @@ def catches_report(since_days: int = 7, zh: bool | None = None) -> str:
         lines.append(f"  {c:3}  {k or ('（未知）' if zh else '(unknown)')}")
     lines += ["", "最近三次：" if zh else "Most recent:"]
     for r in rows[-3:]:
-        lines.append(f"  {local_time(r.get('ts', ''))}  {r.get('message', '')[:160]}")
+        lines.append(f"  {local_time(r.get('ts', ''))}  {redact(r.get('message', ''))[:160]}")
     lines.append("")
     if zh:
-        lines.append(f"可以直接分享的一句话：honestly 在{window}拦截了 AI 助手 {n} 次未经检查就报告「已完成」的回复。")
+        refused = f"拒绝了 {pre} 条会藏住结果的命令" if pre else ""
+        held = f"拦截了 AI 助手 {stop} 次未经检查就报告「已完成」的回复" if stop else ""
+        lines.append(f"可以直接分享的一句话：honestly 在{window}" + "，".join(x for x in (held, refused) if x) + "。")
         lines.append("认为是误判？运行 honestly feedback 生成反馈。")
     else:
-        lines.append(f"One line to share: honestly blocked my coding agent {n} time{'s' if n != 1 else ''} in the {window} from saying \"done\" without checking.")
+        held = f"blocked my coding agent {stop} time{'s' if stop != 1 else ''} from saying \"done\" without checking" if stop else ""
+        refused = f"refused {pre} command{'s' if pre != 1 else ''} whose result a pipe would have hidden" if pre else ""
+        lines.append(f"One line to share: in the {window}, honestly " + " and ".join(x for x in (held, refused) if x) + ".")
         lines.append("A catch looks wrong? `honestly feedback` turns it into an issue-ready text.")
     return "\n".join(lines)
+
+
+def _project_path(path: str) -> str:
+    """The project's folder, without a tool's config folder the shell happened to be in."""
+    parts = re.split(r"[\\/]", path or "")
+    home = [p for p in re.split(r"[\\/]", os.path.expanduser("~")) if p]
+    while len([p for p in parts if p]) > 1 and parts[-1].startswith(".") and [p for p in parts[:-1] if p] != home:
+        parts.pop()
+    return "/".join(parts)
 
 
 def _short(path: str) -> str:
@@ -1199,7 +1214,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     from .claude_code import Turn
     plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
     if data.get("session_id") or data.get("transcript_path") or data.get("conversation_id"):   # no session: someone trying the hook by hand or from a script, not a catch
-        _record("pre", data, turn, plain, command=t)
+        _record("pre", data, turn, plain, command=t, agent=agent)
     last = "Select-Object -Last 40" if pipe.lower().replace(".exe", "") in PS_PIPES else "tail -n 40"
     shown = _untrusted(pipe, 30)
     drop = shown if pipe.startswith(">") else f"| {shown}"

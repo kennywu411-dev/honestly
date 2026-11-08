@@ -74,12 +74,11 @@ def check_code(root, cr, *extra):
     here = os.getcwd()
     os.chdir(root)
     try:
-        cli.main(["pr-note", "--agent", "claude-code", "--root", str(cr), "--check", *extra])
+        return cli.main(["pr-note", "--agent", "claude-code", "--root", str(cr), "--check", *extra]) or 0
     except SystemExit as e:
         return e.code
     finally:
         os.chdir(here)
-    return 0
 
 
 EDIT = ("edit", "a.py")
@@ -420,6 +419,8 @@ def test_the_users_config_reaches_the_note(tmp_path):
     assert note(root, cr)[0].status == "none"
     config.add_to("verify_commands", "./ci.sh --all", project=True, cwd=root)
     config.add_to("off", "sent", project=True, cwd=root)
+    assert note(root, cr)[0].status == "none"   # a project file cannot relax anything until its owner trusts it
+    config.trust(root)
     ev, block = note(root, cr)
     assert ev.status == "pass", block   # the user said this command is their test run, and it exited clean
     assert "emailed" not in block
@@ -430,6 +431,7 @@ def test_a_custom_check_that_fails_is_a_failure(tmp_path):
     from honestly import config
     root, cr = repo(tmp_path), tmp_path / "c"
     config.add_to("verify_commands", "./ci.sh --all", project=True, cwd=root)
+    config.trust(root)
     session(cr, root, [EDIT, ("bash", "./ci.sh --all", "boom\n", True)])
     assert note(root, cr)[0].status == "fail"
     config.apply(config.load(str(tmp_path)))
