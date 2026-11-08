@@ -236,11 +236,12 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         else:
             lines.append(f"{ok}" + L(f"the hooks let some input through unchecked (not an error); last note in {ep}:", f"hook 有部分输入未检查直接放行（非错误）；{ep} 的最后一条："))
             lines += ["         " + l for l in tail.strip().splitlines()[-1:]]
-    try:
+    unreadable = hooks.catches_unreadable()
+    if unreadable:
+        lines.append(f"{warn}" + L(f"catches log cannot be read: {hooks.catches_path()} ({unreadable})", f"拦截记录读不了：{hooks.catches_path()}（{unreadable}）"))
+    else:
         rows = hooks.load_catches()
         lines.append(f"{ok}" + L(f"catches log: {len(rows)} recorded", f"拦截记录：{len(rows)} 条") + (f", {L('last', '最近')} {hooks.local_time(rows[-1].get('ts', ''))}" if rows else "") + f"  ({hooks.catches_path()})")
-    except OSError as e:
-        lines.append(f"{warn}" + L(f"catches log cannot be read: {hooks.catches_path()} ({e.strerror})", f"拦截记录读不了：{hooks.catches_path()}（{e.strerror}）"))
     notify = os.environ.get("HONESTLY_NOTIFY") == "1" or os.path.exists(hooks.notify_flag_path())
     lines.append(f"{ok}" + L(f"desktop notifications {'on' if notify else 'off  (honestly guard notify on)'}", f"桌面通知{'已开' if notify else '未开（honestly guard notify on）'}"))
     cfg = config.load()

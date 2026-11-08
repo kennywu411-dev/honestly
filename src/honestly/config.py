@@ -118,6 +118,18 @@ def _read(path: str) -> dict:
         return {}
 
 
+def _read_checked(path: str) -> tuple:
+    """(settings, why they could not be read): a repository can put a FIFO or /dev/zero under this name, so only an ordinary small file is opened."""
+    data = _read_small_file(path)
+    if data is None:
+        return {}, "it is not an ordinary small file, or cannot be opened"
+    try:
+        d = json.loads(data.decode("utf-8"))
+    except (ValueError, RecursionError) as e:
+        return {}, str(e)
+    return (d, "") if isinstance(d, dict) else ({}, "it is not a JSON object")
+
+
 def _read_for_edit(path: str, project: bool = False) -> dict:
     """What an edit starts from. A file that cannot be read is refused: rewriting it would lose everything in it. A repository's file
     is not followed through a symbolic link, which anyone can make point at a file in the user's home."""
@@ -125,13 +137,9 @@ def _read_for_edit(path: str, project: bool = False) -> dict:
         return {}
     if project and os.path.islink(path):
         raise SystemExit(f"honestly: {path} is a symbolic link, and a file inside a project is not written through one. Nothing changed.")
-    try:
-        with open(path, encoding="utf-8") as fh:
-            d = json.load(fh)
-    except (ValueError, OSError, RecursionError) as e:
-        raise SystemExit(f"honestly: cannot read {path}: {e}\nFix the file or delete it. Nothing was changed.") from None
-    if not isinstance(d, dict):
-        raise SystemExit(f"honestly: {path} is not a JSON object.\nFix the file or delete it. Nothing was changed.")
+    d, why = _read_checked(path)
+    if why:
+        raise SystemExit(f"honestly: cannot read {path}: {why}\nFix the file or delete it. Nothing was changed.")
     return d
 
 
@@ -162,7 +170,9 @@ def _prune_backups(target: str) -> None:
             pass
 
 
-def _new_file_mode() -> int:
+def _new_file_mode(private: bool) -> int:
+    if private:
+        return 0o600
     mask = os.umask(0)
     os.umask(mask)
     return 0o666 & ~mask
@@ -194,7 +204,7 @@ def write_text_atomic(path: str, text: str, backup: bool = True, follow_symlinks
         if exists:
             shutil.copymode(target, tmp)
         else:
-            os.chmod(tmp, _new_file_mode())
+            os.chmod(tmp, _new_file_mode(private=follow_symlinks))   # follow_symlinks=False is a file inside a project, meant to be shared
         if check_expect:
             try:
                 with open(target, "rb") as fh:
@@ -421,16 +431,10 @@ def problems(cwd: str | None = None) -> list:
     """Settings files that exist but are being ignored, because they cannot be read."""
     out = []
     for path in (user_path(), project_path(cwd)):
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, encoding="utf-8") as fh:
-                d = json.load(fh)
-        except (ValueError, OSError, RecursionError) as e:
-            out.append(f"{path} is not valid JSON and is being ignored: {e}")
-            continue
-        if not isinstance(d, dict):
-            out.append(f"{path} is not valid JSON and is being ignored: it is not an object")
+        if os.path.exists(path):
+            why = _read_checked(path)[1]
+            if why:
+                out.append(f"{path} is not valid JSON and is being ignored: {why}")
     return out
 
 

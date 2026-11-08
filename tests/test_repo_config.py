@@ -11,7 +11,7 @@ from honestly import cli, config, hooks, noncode, support
 
 CLAIM = "All tests pass."
 EVERY_CATEGORY = ["tests_pass", "checks_pass", "build_ok", "rendered", "pushed", "committed", "fixed", "verified"] + [n for n, _ in noncode.CLAIMS]
-LOOSENING = {"off": {"off": EVERY_CATEGORY}, "ignore": {"ignore": ["e"]}, "lenient": {"strictness": "lenient"}, "verify": {"verify_commands": ["foo"]}}
+LOOSENING = {"off": {"off": EVERY_CATEGORY}, "ignore": {"ignore": ["tests pass"]}, "lenient": {"strictness": "lenient"}, "verify": {"verify_commands": ["foo"]}}
 
 
 @pytest.fixture(autouse=True)

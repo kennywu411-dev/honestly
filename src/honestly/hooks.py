@@ -349,6 +349,17 @@ def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: st
         pass
 
 
+def catches_unreadable() -> str:
+    """Why the log exists and cannot be opened, or ''. Reading it carries on without it; a report should say so rather than show nothing."""
+    try:
+        with open(catches_path(), "rb"):
+            return ""
+    except (FileNotFoundError, NotADirectoryError):
+        return ""
+    except OSError as e:
+        return e.strerror or str(e)
+
+
 def load_catches(since_days: int | None = None) -> list[dict]:
     import datetime
     rows = []

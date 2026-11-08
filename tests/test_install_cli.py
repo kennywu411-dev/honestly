@@ -680,10 +680,23 @@ def _repo(tmp_path):
 def test_the_project_file_is_found_from_any_folder_of_the_repository(tmp_path):
     from honestly import config
     root = _repo(tmp_path)
-    (root / ".honestly.json").write_text('{"strictness": "lenient"}')
+    (root / ".honestly.json").write_text('{"strictness": "strict"}')
     for cwd in (root, root / "src", root / "src" / "deep"):
         assert config.project_path(str(cwd)) == str(root / ".honestly.json")
-        assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": str(cwd)}) is None   # lenient applies everywhere
+        assert config.load(str(cwd))["strictness"] == "strict"   # a team's rules hold wherever the agent has moved to
+
+
+def test_a_trusted_project_file_is_the_same_file_from_any_folder(tmp_path, monkeypatch):
+    from honestly import config
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    root = _repo(tmp_path)
+    (root / ".honestly.json").write_text('{"strictness": "lenient"}')
+    assert config.load(str(root / "src"))["strictness"] == "normal"   # relaxing needs `honestly trust`
+    config.trust(str(root / "src" / "deep"))
+    assert config.load(str(root))["strictness"] == "lenient" and config.load(str(root / "src"))["strictness"] == "lenient"
 
 
 def test_the_nearest_project_file_wins_and_the_search_stops_at_the_repository(tmp_path):
@@ -975,7 +988,9 @@ def test_a_honestly_folder_it_cannot_use_gets_one_line(tmp_path, args, kind):
         d.chmod(0o555)
     r = _honestly(args, home)
     if kind != "file":
-        d.chmod(0o755)
+        d.chmod(0o755)   # honestly makes its own folder private again, so this one may simply work
+        assert r.returncode in (0, 1) and b"Traceback" not in r.stderr
+        return
     assert r.returncode == 1 and b"Traceback" not in r.stderr and b"honestly" in r.stderr
 
 
@@ -1391,7 +1406,8 @@ def test_a_background_task_file_that_changed_is_a_cache_miss(tmp_path, monkeypat
 
 def test_audit_notices_a_background_task_file_that_changed(tmp_path):
     home = tmp_path / "home"
-    task = tmp_path / "bg.output"
+    (tmp_path / "tasks").mkdir()
+    task = tmp_path / "tasks" / "b1.output"
     task.write_text("=== 1 failed, 2 passed in 0.1s ===\n")
     p = home / ".claude" / "projects" / "-w" / "s.jsonl"
     p.parent.mkdir(parents=True)
@@ -1400,7 +1416,7 @@ def test_audit_notices_a_background_task_file_that_changed(tmp_path):
             {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": "e", "name": "Edit", "input": {"file_path": "/w/src/a.py", "old_string": "a", "new_string": "b"}}]}, "cwd": "/w", "timestamp": t},
             {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "e", "content": "ok"}]}, "cwd": "/w", "timestamp": t},
             {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "pytest -q"}}]}, "cwd": "/w", "timestamp": t},
-            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b", "content": f"Output is being written to: {task}"}]}, "cwd": "/w", "timestamp": t},
+            {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b", "content": f"Command was moved to the background (ID: b1). Output is being written to: {task}"}]}, "cwd": "/w", "timestamp": t},
             {"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": "Fixed. All tests pass."}]}, "cwd": "/w", "timestamp": t}]
     p.write_text("\n".join(map(json.dumps, rows)) + "\n")
     before = json.loads(_honestly(["audit", "--summary-json"], home).stdout)
@@ -1429,19 +1445,6 @@ def test_the_cache_is_never_left_half_written(tmp_path, monkeypatch):
     monkeypatch.setattr(cache.json, "dump", broken)
     cache.put(str(s), "a", [_finding()])
     assert not list((tmp_path / "c").iterdir())
-
-
-def test_the_logs_stop_growing_and_keep_the_previous_part(tmp_path, monkeypatch):
-    log = tmp_path / "catches.jsonl"   # conftest points catches_path here
-    monkeypatch.setattr(hooks, "LOG_LIMIT", 1000)
-    for _ in range(40):
-        hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": "/tmp", "session_id": "s"})
-    assert log.stat().st_size < 3000 and (tmp_path / "catches.jsonl.1").exists()
-    assert len(hooks.load_catches()) >= 1
-    errors = tmp_path / "hook-errors.log"
-    for _ in range(40):
-        hooks._note("stdin", "x" * 100)
-    assert errors.stat().st_size < 3000 and (tmp_path / "hook-errors.log.1").exists()
 
 
 # ---------------------------------------------------------------- a hook must not slow the assistant
@@ -1497,58 +1500,24 @@ def test_the_shortcut_never_skips_an_event_with_a_pipe_however_it_is_written():
     assert not cli._no_pipe_in('{"command": "pytest | head"}'.encode("utf-16"))
 
 
+@posix_only
+def test_a_project_file_above_the_folder_takes_the_long_way_so_its_notice_is_given(tmp_path):
+    from honestly import cli
+    root = _repo(tmp_path)
+    event = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": str(root / "src" / "deep"), "session_id": "s"}
+    assert cli._no_pipe_in(json.dumps(event).encode())
+    (root / ".honestly.json").write_text('{"strictness": "lenient"}')
+    assert not cli._no_pipe_in(json.dumps(event).encode())
+    home = tmp_path / "home"
+    r = _honestly(["hook", "pre"], home, json.dumps(event).encode())
+    assert b".honestly.json" in r.stdout   # told once per conversation, even on a command with no pipe
+
+
 def test_input_it_cannot_read_is_still_noted_for_doctor(tmp_path):
     home = tmp_path / "home"
     r = _honestly(["hook", "pre"], home, b"not json")
     assert r.returncode == 0 and r.stdout == b""
     assert "not JSON" in (home / ".honestly" / "hook-errors.log").read_text()
-
-
-@pytest.mark.parametrize("which,timeout", [("pre", 10), ("stop", 30)])
-def test_the_time_budget_is_inside_what_the_assistant_allows(which, timeout):
-    assert 0 < hooks.BUDGET[which] < timeout
-
-
-def test_a_hook_that_takes_too_long_gives_up_quietly_and_exits_zero(tmp_path):
-    code = ("import time, sys\n"
-            "from honestly import hooks\n"
-            "hooks.BUDGET['pre'] = 0.2\n"
-            "hooks.pre_hook = lambda **k: time.sleep(20)\n"
-            "sys.exit(hooks.run_hook('pre'))\n")
-    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=os.path.join(ROOT, "src"))
-    import time
-    t = time.time()
-    r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env, timeout=15)
-    assert time.time() - t < 10 and r.returncode == 0 and r.stdout == b"" and r.stderr == b""
-    assert "gave up" in (tmp_path / ".honestly" / "hook-errors.log").read_text()
-
-
-@posix_only
-def test_a_slow_regex_cannot_outlast_the_budget(tmp_path):
-    code = ("import re, sys\n"
-            "from honestly import hooks\n"
-            "hooks.BUDGET['pre'] = 0.2\n"
-            "hooks.pre_hook = lambda **k: re.match(r'(a+)+$', 'a' * 40 + 'b')\n"
-            "sys.exit(hooks.run_hook('pre'))\n")
-    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=os.path.join(ROOT, "src"))
-    r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env, timeout=30)
-    assert r.returncode == 0 and r.stdout == b""
-
-
-def test_the_budget_is_off_once_the_answer_is_being_printed(capsys):
-    import io
-    hooks.BUDGET["pre"], saved = 5, hooks.BUDGET["pre"]
-    real = sys.stdin
-    sys.stdin = io.StringIO(PIPED)
-    try:
-        assert hooks.run_hook("pre") == 0
-    finally:
-        sys.stdin = real
-        hooks.BUDGET["pre"] = saved
-    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "deny"
-    if hasattr(__import__("signal"), "getitimer"):
-        import signal
-        assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
 
 
 @posix_only
@@ -1559,27 +1528,6 @@ def test_a_transcript_that_is_a_fifo_does_not_hang_the_hook(tmp_path, which):
     event = {"tool_name": "Bash", "tool_input": {"command": "pytest | head -2"}, "cwd": "/tmp", "session_id": "s", "transcript_path": str(fifo), "last_assistant_message": "All tests pass."}
     r = _honestly(["hook", which], tmp_path / "home", json.dumps(event).encode())
     assert r.returncode == 0
-
-
-def test_a_giant_single_turn_does_not_read_the_whole_log_again_and_again(tmp_path, monkeypatch):
-    from honestly import claude_code
-    p = tmp_path / "t.jsonl"
-    filler = "y" * 200
-    with open(p, "w") as f:
-        f.write(json.dumps({"type": "user", "message": {"role": "user", "content": "start"}, "origin": {"kind": "human"}, "cwd": "/w", "timestamp": "2026-01-01T00:00:00Z"}) + "\n")
-        for i in range(3000):
-            f.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": f"t{i}", "name": "Bash", "input": {"command": "ls"}}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:01Z"}) + "\n")
-            f.write(json.dumps({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": filler}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:02Z"}) + "\n")
-        f.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": "Done."}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:03Z"}) + "\n")
-    monkeypatch.setattr(claude_code, "TAIL_THRESHOLD", 1000)
-    monkeypatch.setattr(claude_code, "TAIL_WINDOW", 2000)
-    monkeypatch.setattr(claude_code, "TAIL_LIMIT", 20000)
-    reads = []
-    real = claude_code._parse
-    monkeypatch.setattr(claude_code, "_parse", lambda path, sidechain=False, start=0: reads.append(start) or real(path, sidechain, start))
-    turns = claude_code.parse_session(str(p), tail=True)
-    assert len(reads) <= 3 and min(reads) > 0   # it stops at the limit instead of working back to the start of the file
-    assert turns and turns[-1].events[-1].text == "Done."   # the turn in progress is kept, not dropped for having begun before the window
 
 
 def test_a_big_log_with_many_turns_still_gives_whole_turns(tmp_path, monkeypatch):

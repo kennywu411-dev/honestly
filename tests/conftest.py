@@ -14,6 +14,19 @@ def _isolated_catch_log(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _rule_tables_back_to_defaults():
+    """A test that applies a config (an ignore phrase, a category switched off) must not change what the next test judges."""
+    yield
+    config.apply(config.DEFAULTS)
+
+
+@pytest.fixture(autouse=True)
+def _claude_folder_follows_home(monkeypatch):
+    """Tests move HOME; a CLAUDE_CONFIG_DIR from the developer's shell would keep pointing at the real sessions."""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _running_as_the_installed_command(monkeypatch):
     """`guard install` writes the path of the running program; under pytest that is pytest, so stand in for the installed command."""
     monkeypatch.setattr(sys, "argv", ["/test/venv/bin/honestly"])

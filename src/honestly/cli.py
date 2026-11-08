@@ -159,6 +159,11 @@ def cmd_catches(a):
     from .redact import strip_controls
     from .update import update_note
     from . import __version__
+    from .hooks import catches_path, catches_unreadable
+    why = catches_unreadable()
+    if why:
+        print(f"honestly: cannot read {catches_path()}: {why}", file=sys.stderr)
+        return 1
     print(strip_controls(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh")))
     if a.card:
         from .hooks import load_catches
@@ -288,6 +293,11 @@ def cmd_feedback(a):
     from .hooks import load_catches
     from .redact import strip_controls
     from .support import feedback
+    from .hooks import catches_path, catches_unreadable
+    why = catches_unreadable()
+    if why:
+        print(f"honestly: cannot read {catches_path()}: {why}", file=sys.stderr)
+        return 1
     total = len(load_catches())
     if total and not 1 <= a.n <= total:
         print(strip_controls(feedback(a.n)), file=sys.stderr)
@@ -487,9 +497,20 @@ def _no_pipe_in(event: bytes) -> bool:
         return False
     import json
     try:
-        return isinstance(json.loads(event), dict)
+        data = json.loads(event)
     except (ValueError, RecursionError):
         return False
+    if not isinstance(data, dict):
+        return False
+    folder = data.get("cwd") or (data.get("workspace_roots") or [""])[0] if isinstance(data.get("workspace_roots") or [], list) else data.get("cwd")
+    while isinstance(folder, str) and folder:   # a repository's .honestly.json can make the hook say something once per conversation: that takes the long way
+        if os.path.lexists(os.path.join(folder, ".honestly.json")):
+            return False
+        parent = os.path.dirname(folder)
+        if parent == folder:
+            break
+        folder = parent
+    return True
 
 
 def _dispatch(args: list):
