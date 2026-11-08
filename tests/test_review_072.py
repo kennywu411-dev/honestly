@@ -147,7 +147,7 @@ def test_a_self_check_needs_a_clean_script_run(cmd, out, err):
 @pytest.mark.parametrize("text", ["- Committed the parser change\n- Rewrote cache.py\n- All tests pass.", "已提交。\n之后我又改了 parser.py，测试全部通过。"])
 def test_committed_in_a_list_item_is_not_a_heading(text):
     commit = bash('pytest -q && git commit -q -m "feat"', "90 passed in 11.78s")
-    assert verdicts(edit(), commit, edit("/p/src/parser.py"), say(text)) == ["unbacked"]
+    assert verdicts(edit(), commit, edit("/p/src/parser.py"), say(text)) == ["unbacked", "unbacked"]
 
 
 def test_a_task_notification_is_not_another_sessions_report():

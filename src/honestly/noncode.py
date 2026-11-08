@@ -15,6 +15,7 @@ class Spec:
     tool: re.Pattern | None      # matches a tool *name* (MCP tools, SendUserFile, CronCreate ...)
     bash: re.Pattern | None      # matches a Bash command text
     noun: str                    # for the reason text
+    heredoc: re.Pattern | None = None   # matches the body of an interpreter heredoc that ran; a heredoc's text is otherwise not evidence
 
 
 _I = re.I
@@ -30,8 +31,12 @@ SPECS: dict[str, Spec] = {
     "downloaded": Spec(
         tool=re.compile(r"(download|fetch_file|save_file)", _I),
         bash=re.compile(r"(\bcurl\b(?! -s -o /dev/null)[^|\n]*(-o |-O\b|--output|--remote-name)|\bwget\b|yt-dlp|youtube-dl|\baria2c\b|gh release download|kaggle (competitions|datasets|kernels) (download|output|files)|huggingface-cli download|\bhf download|pip download|gsutil cp|aws s3 (cp|sync)|git clone|git sparse-checkout|rclone (copy|sync)|scp \S+@\S+:|\bgdown\b"
-                        r"|hf_hub_download|snapshot_download|urlretrieve|requests\.get|urllib\.request|httpx\.(get|stream)|aiohttp|brew (install|fetch)|apt(-get)? install|pip3? install|npm (install|i)\b|conda install|\bdownload\w*\()", _I),
-        noun="download"),
+                        r"|hf_hub_download|snapshot_download|urlretrieve|requests\.get|urllib\.request|httpx\.(get|stream)|aiohttp|brew (install|fetch)|apt(-get)? install|pip3? install|npm (install|i)\b|conda install|\bdownload\w*\("
+                        # a script of the project that says what it does, run and not merely written or read
+                        r"|(?:^|[\s;&|(])(?:[\w./~-]{0,200}/)?(?:python[\d.]*|uv run(?: python[\d.]*)?|node|bun|deno run|bash|sh|zsh|ruby|tsx)\s+(?:-[\w-]{1,20}\s+){0,4}(?:[\w.~-]{0,60}/){0,8}[\w-]{0,60}(?:fetch|download)[\w-]{0,60}\.\w{1,4}\b"
+                        r"|(?:^|[\s;&|(])\.{0,2}/(?:[\w.~-]{0,60}/){0,8}[\w-]{0,60}(?:fetch|download)[\w-]{0,60}(?:\.\w{1,4})?(?=\s|$))", _I),
+        noun="download",
+        heredoc=re.compile(r"\b(?:urlretrieve|urlopen|hf_hub_download|snapshot_download)\s?\(|\b(?:requests|httpx|session)\.(?:get|stream)\s?\(|\bdownload\w{0,30}\s?\(", _I)),
     "saved": Spec(
         tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$"),
         bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
@@ -50,17 +55,6 @@ SPECS: dict[str, Spec] = {
         bash=None,   # filled from rules.VERIFY (test/build/render/run) at import time
         noun="check"),
 }
-
-# Each claim regex is deliberately narrow: a completed, first-hand action, not a description or a plan.
-CLAIMS: list[tuple[str, re.Pattern]] = [
-    ("sent", re.compile(r"(已发送|发送成功|已发出|已回复|邮件已发|已发给你|发给你了|(图|截图|文件|对比图|视频|成片|抽帧图?)(已|已经)发|\bsent (you|the|an|a|it|them|out|over)\b|\bI('ve| have)? ?(emailed|replied|posted)\b|\breplied to\b|\bposted (to|the|it|in)\b)", _I)),
-    ("deployed", re.compile(r"(已部署|部署成功|部署完成|已上线|上线成功|已发布到|发布成功|(?<!forward )(?<!forward-)(?<!\bthe )(?<!\ba )(?<!\ban )(?<!\bour )(?<!\byour )(?<!\btheir )(?<!\bnewly )(?<!\bcurrently )\bdeployed\b(?!\s+(?:engineers?|engineering|models?|versions?|apps?|services?|systems?|roles?|positions?|instances?|environments?|code|state|contracts?|artifacts?|builds?)\b)|\bis (now )?live\b|went live|\bpublished to\b)", _I)),
-    ("downloaded", re.compile(r"(已下载|下载完成|下载好了|下载成功|下载到了|\bdownloaded\b(?!\s+(?:data|files?|models?|assets?|imagery|copy|version|package|archive)\b))", _I)),
-    ("saved", re.compile(r"(已保存(?!的)|保存到|保存在(?!.{0,6}的)|已导出(?!的)|导出到|已写入(?!的)|写入了|已存到|存到了|已存为|已放到|放到了|\bsaved (to|at|as|in)\b|\bexported (to|as)\b|\bwritten to\b|\bwrote (it |them )?to\b)", _I)),
-    ("scheduled", re.compile(r"((定时|任务|提醒|闹钟|cron|自动检查).{0,8}(已设好|已设定|已安排|已建好|已创建|设好了|建好了)|(已设好|已设定|已安排好?|已建好?|建好了|设好了).{0,8}(定时|任务|提醒|闹钟|自动检查)|定时任务(已|已经)?(建|设|创建|加)好?|已建(好)?定时|设置好了定时|已经定时|\bI('ve| have)? ?scheduled\b|\bscheduled (a|the|an|it)\b|cron (job )?(created|added|set up|installed))", _I)),
-    ("checked", re.compile(r"(我核对过|核对过了|核实过|已核实|查过了|我查了|我查过|确认过了|我确认过|对照过|我核对了|已核对|翻过了|\bI('ve| have)? ?(checked|confirmed|looked (it )?up|double-checked|cross-checked|looked at|read through)\b|\bchecked against\b|\bverified against\b)", _I)),
-]
-# the pre-existing "verified" pattern in rules.CLAIM_PATTERNS is routed here as well
 
 PATH_IN_CLAIM = re.compile(r"([\w\-./~一-鿿]+\.(?:md|txt|json|jsonl|csv|png|jpe?g|gif|webp|mp4|mov|mp3|wav|pdf|docx?|xlsx?|pptx?|html?|svg|py|js|ts|yaml|yml|toml|tex|srt|zip|tar\.gz|ipynb|env|cfg|ini))", _I)
 DIR_IN_CLAIM = re.compile(r"((?:[\w\-.~\u4e00-\u9fff]+/)+)")   # a directory such as keyframes/libtv/
@@ -84,21 +78,72 @@ def _shell_text(cmd: str) -> str:
         return cmd
 
 
+COMMENT_LINE = re.compile(r"^[ \t]*(?:#|//).*$", re.M)
+SHELL_HEAD = re.compile(r"\s*(?:[\w./~-]{0,200}/)?(?:bash|sh|zsh|dash)\b")
+
+
+def _heredoc_did_it(spec: Spec, cmd: str) -> bool:
+    """A heredoc fed to an interpreter ran: its calls count, and so do the commands of one fed to a shell. What it merely prints or writes down does not."""
+    if not spec.heredoc or "<<" not in cmd:
+        return False
+    from . import rules
+    for seg in rules.segments(cmd):
+        if not (seg.heredoc and seg.interp and "\n" in seg.text):
+            continue
+        body = seg.text.split("\n", 1)[1]
+        if SHELL_HEAD.match(seg.text):
+            if spec.bash.search(_shell_text(body)):
+                return True
+        elif spec.heredoc.search(COMMENT_LINE.sub("", QUOTED_STRING.sub('""', body))):
+            return True
+    return False
+
+
 def _hits(spec: Spec, tools: list, must_mention: str = "") -> list:
     out = []
     for t in tools:
         if spec.tool and spec.tool.search(t.name or ""):
             out.append(t)
-        elif t.name == "Bash" and spec.bash and spec.bash.search(_shell_text(t.text or "")):
+        elif t.name == "Bash" and spec.bash and (spec.bash.search(_shell_text(t.text or "")) or _heredoc_did_it(spec, t.text or "")):
             out.append(t)
     if must_mention:
         out = [t for t in out if must_mention in (t.text or "").lower()]
     return out
 
 
+QUOTED_STRING = re.compile(r"\"[^\"\n]{0,400}\"|'[^'\n]{0,400}'")
 # the step itself failing, and not the word turning up in what another step of the command printed
 DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\bfailed to\b|\b(?:deploy(?:ment)?|upload|download|publish|release|push|build)(?:ing)? failed\b"
                            r"|\b(?:permission|access) denied\b|\bHTTP(?:/\S+)? ?[45]\d\d\b|\bERROR [45]\d\d\b|\breturned error\b|\b404 not found\b", re.I | re.M)
+
+
+DOWNLOAD_FAILED = re.compile(r"\bcurl: \(\d{1,3}\)|\bwget: |\bno such file\b|(?<!matches )\bnot found\b|\bunable to\b|\bcould not\b|\bcannot\b", re.I)
+
+
+NAMED_ARCHIVE = re.compile(r"(?:^|[\s;&|(])(?:ls|stat|file|du|unzip|zipinfo|tar)\s(?:[^|;&\n]{0,120}?\s)??[\"']?([\w.~/ -]{0,160}?\.(?:zip|tar|tgz|gz|bz2|xz|7z|rar|dmg|pkg|deb|whl|safetensors|gguf|ckpt|onnx))[\"']?(?=[\s|;&]|$)", re.I)
+
+
+def _shows_a_named_archive(t) -> bool:
+    """`unzip -l x.zip`, `ls -la x.zip`, `tar -tzf x.tgz`: the command names the file and its output shows something came back."""
+    if t.is_error or not (t.result or "").strip():
+        return False
+    m = NAMED_ARCHIVE.search(_shell_text(t.text or ""))
+    if not m:
+        return False
+    if re.match(r"\s*(?:[^|;&\n]*[;&|(]\s*)?(?:unzip|zipinfo|tar)\b", m.group(0)):
+        return True
+    return m.group(1).rsplit("/", 1)[-1].lower() in (t.result or "").lower()
+
+
+def _a_later_step_failed(spec: Spec, t) -> bool:
+    """`kaggle datasets download ...; ls *.zip`: a command exits with its last step. An error from a step after the download, with nothing saying the download failed, is not the download failing."""
+    out = t.result or ""
+    if DEPLOY_FAILED.search(out) or DOWNLOAD_FAILED.search(out):
+        return False
+    from . import rules
+    segs = rules.segments(t.text or "")
+    steps = [i for i, s in enumerate(segs) if spec.bash.search(_shell_text(s.text)) or _heredoc_did_it(spec, s.text)]
+    return bool(steps) and steps[-1] < len(segs) - 1
 
 
 def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False, session_tools=None, own_notice: bool = False) -> tuple[str, str, str, str]:
@@ -168,6 +213,11 @@ def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: l
     if category == "sent" and SEND_SELF.search(sentence):
         # "sent you the image": only SendUserFile-like tools count, a mail client does not
         hits = [t for t in hits if re.search(r"SendUserFile|PushNotification|send", t.name or "", re.I)]
+    if not hits and category == "downloaded" and not PATH_IN_CLAIM.search(sentence):
+        shown = [t for t in tools if t.name == "Bash" and _shows_a_named_archive(t)]
+        if shown:   # the person downloaded it by hand, and the turn looked at that very file
+            last = shown[-1]
+            return "backed", f"file seen on disk: {last.name}: {(last.text or '')[:80]}", f"{last.name}: {(last.text or '')[:80]}", (last.result or "")[:300]
     if not hits and category in ("downloaded", "saved"):
         path = PATH_IN_CLAIM.search(sentence) or DIR_IN_CLAIM.search(sentence)
         base = path.group(1).rstrip("/").rsplit("/", 1)[-1].lower() if path else ""
@@ -202,6 +252,10 @@ def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: l
             last = ok[-1]; label = f"{last.name}: {(last.text or '')[:80]}"
         elif category in ("checked", "verified"):
             return "unverifiable", f"the only {spec.noun} call errored: {label}", label, (last.result or "")[:300]
+        elif category == "downloaded" and any(BROWSER_TOOL.search(t.name or "") for t in tools):
+            return "unverifiable", "a browser tool ran in this turn; a download there is not on the transcript", label, (last.result or "")[:300]
+        elif category == "downloaded" and _a_later_step_failed(spec, last):
+            pass
         else:
             return "contradicted", f"the {spec.noun} call errored: {label}", label, (last.result or "")[:300]
     if category in ("deployed", "downloaded") and DEPLOY_FAILED.search((last.result or "")[:600]) \

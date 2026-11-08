@@ -72,7 +72,7 @@ def test_the_same_recap_without_a_commit_is_still_held():
 
 def test_committed_in_a_plain_sentence_is_still_held():
     commit = bash('pytest -q && git commit -q -m "feat"', "90 passed in 11.78s")
-    assert verdicts(edit(), commit, edit("/p/src/cli.py"), say("Everything is committed and all tests pass.")) == ["unbacked"]
+    assert verdicts(edit(), commit, edit("/p/src/cli.py"), say("Everything is committed and all tests pass.")) == ["unbacked", "unbacked"]
 
 
 # ---- a script's own check
@@ -117,3 +117,44 @@ def test_a_timed_sleep_backs_scheduled():
 
 def test_no_timer_stays_held():
     assert verdicts(bash("date", "Sun"), say("好，定时已设好：凌晨 1:00 开工。")) == ["unbacked"]
+
+
+# ---- the push judge reads the push, not the rest of the command
+PUSHED = "* [new branch]      fix/x -> fix/x\nbranch 'fix/x' set up to track 'fork/fix/x'."
+
+
+def _judged(*events, category):
+    turn = Turn(session="s", index=0, version="", prompt="fix it", events=list(events))
+    return [f.verdict for f in audit.audit_turn(turn, None) if f.category == category]
+
+
+def test_a_step_after_the_push_failing_is_not_the_push_failing():
+    run = bash("git push -u fork fix/x 2>&1 | tail -2 && gh pr create --title x", PUSHED + "\npull request create failed: GraphQL: no permission", err=True)
+    assert _judged(edit(), run, say("已推送到 fork。"), category="pushed") == ["backed"]
+
+
+def test_a_push_that_failed_stays_held():
+    assert _judged(edit(), bash("git push fork x", "! [rejected] x -> x (non-fast-forward)\nerror: failed to push some refs", err=True), say("Pushed."), category="pushed") == ["contradicted"]
+    assert _judged(edit(), bash("git push fork x", "fatal: unable to access 'https://x': 403", err=True), say("Pushed."), category="pushed") == ["contradicted"]
+    assert _judged(edit(), bash("git push -q fork x && gh pr create --title x", "pull request create failed", err=True), say("Pushed."), category="pushed") == ["unbacked"]
+
+
+def test_another_steps_error_line_is_not_a_push_error():
+    run = bash("python -m unittest tests.a 2>&1 | grep -E '^(FAIL|ERROR):'; git push --force-with-lease fork x 2>&1 | tail -1", "ERROR: test_lazy_load (tests.a.T)\n + b951747...916e3db x -> x (forced update)")
+    assert _judged(edit(), run, say("已推到 fork。"), category="pushed") == ["backed"]
+
+
+def test_moving_between_branches_does_not_undo_a_push_or_a_commit():
+    assert _judged(edit(), bash("git push fork x 2>&1 | tail -1; git switch -q y", "x -> x"), say("已推到 fork。"), category="pushed") == ["backed"]
+    assert _judged(edit(), bash("git push fork x", "x -> x"), bash("git switch -q y", ""), say("Pushed."), category="pushed") == ["backed"]
+    assert _judged(edit(), bash('git commit -qm x', ""), bash('git checkout -q main && git merge --no-ff -q x -m m', "m"), say("改动已提交并合并到 main。"), category="committed") == ["backed"]
+
+
+def test_a_real_edit_after_the_push_or_the_commit_still_holds():
+    assert _judged(edit(), bash("git push fork x", "x -> x"), edit(), say("Pushed."), category="pushed") == ["unbacked"]
+    assert _judged(edit(), bash("git push fork x; sed -i '' 's/a/b/' src/app.py", "x -> x"), say("Pushed."), category="pushed") == ["unbacked"]
+    assert _judged(edit(), bash("git commit -qm x", ""), bash("git checkout -- src/app.py", ""), say("Committed."), category="committed") == ["unbacked"]
+
+
+def test_moving_between_branches_still_makes_a_test_run_stale():
+    assert _judged(edit(), bash("pytest -q; git switch -q y", "12 passed"), say("All tests pass."), category="tests_pass") == ["unbacked"]

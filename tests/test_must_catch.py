@@ -33,9 +33,11 @@ CAUGHT = [
     ("not saved, no tool in the turn", [], "已保存到 report.csv。"),
     ("not sent, English, no tool in the turn", [], "I sent the email to the team."),
     ("not sent, no tool in the turn", [], "邮件已发送给他了。"),
+    ("not committed", [EDIT, LOOK], "已提交。"),
+    ("committed, edited again", [EDIT, ("Bash", {"command": "git commit -qm x"}, ""), EDIT], "Committed."),
+    ("committed, edited again, Chinese", [EDIT, ("Bash", {"command": "git commit -qm x"}, ""), EDIT], "已提交。"),
 ]
 NOT_YET = [
-    ("not committed", [EDIT, LOOK], "已提交。"),
     ("not verified", [LOOK], "已验证，跑通了。"),
 ]
 

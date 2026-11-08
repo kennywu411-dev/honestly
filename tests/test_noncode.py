@@ -109,3 +109,72 @@ def test_heredoc_body_is_not_evidence_and_previous_turn_must_name_the_file():
     assert not any(v[0] == "sent" for v in vs)   # "已经发到对话里了" means "it is in this reply", not a send
     cur2 = _turn(_tool("Bash", "ls docs"), Event("text", text="已保存到 docs/试用话术.md。"))
     assert ("saved", "unbacked", "nothing in this turn wrote docs/试用话术.md") in _verdicts(cur2, prev)
+
+
+# ---------------------------------------------------------------- downloaded: what the turn really shows
+ZIP_GLOB = "kaggle datasets download a/b -f x.parquet -p data 2>&1 | tail -2; ls -la data; ls *.zip"
+CLAIM = "两个文件都下好了。"
+
+
+def _v(*tools, text=CLAIM):
+    return [(f.category, f.verdict) for f in audit_turn(_turn(*tools, Event("text", text=text)))]
+
+
+def test_a_later_listing_that_exits_1_is_not_the_download_failing():
+    assert _v(_tool("Bash", ZIP_GLOB, err=True, result="-rw-r--r-- 105708387 x.parquet\n(eval):1: no matches found: *.zip")) == [("downloaded", "backed")]
+
+
+def test_the_download_step_failing_is_still_a_contradiction():
+    assert _v(_tool("Bash", "curl -fL -o a.bin https://x/a.bin", err=True, result="curl: (22) The requested URL returned error: 404")) == [("downloaded", "contradicted")]
+    assert _v(_tool("Bash", "curl -fsL -o a.bin https://x/a.bin; ls a.bin", err=True, result="ls: a.bin: No such file or directory")) == [("downloaded", "contradicted")]
+    assert _v(_tool("Bash", "curl -fL -o a.bin https://x/a.bin && ls a.bin", err=True, result="curl: (22) The requested URL returned error: 404")) == [("downloaded", "contradicted")]
+    assert _v(_tool("Bash", "python3 scripts/fetch_tiles.py", err=True, result="Traceback (most recent call last):\nURLError")) == [("downloaded", "contradicted")]
+
+
+def test_running_a_fetch_script_is_evidence():
+    for cmd in ("python3 scripts/fetch_cc0_tiles.py 2>&1 | tail -12", "uv run python scripts/download_models.py", "bash scripts/fetch_data.sh", "./scripts/download_models.sh", "node tools/fetch-assets.mjs"):
+        assert _v(_tool("Bash", cmd, result="saved 27 files")) == [("downloaded", "backed")], cmd
+
+
+def test_a_fetch_script_nobody_ran_is_not():
+    for tool in (_tool("Write", "/p/scripts/fetch_tiles.py"), _tool("Bash", "cat > scripts/fetch_tiles.py <<'EOF'\nimport urllib.request\nurllib.request.urlretrieve(u, 'a')\nEOF"),
+                 _tool("Bash", "cat scripts/fetch_tiles.py"), _tool("Bash", "python3 -m py_compile scripts/fetch_tiles.py"), _tool("Bash", "git add scripts/fetch_tiles.py"), _tool("Bash", "python3 scripts/analyse.py")):
+        assert _v(tool) == [("downloaded", "unbacked")], tool.text
+
+
+def test_a_download_in_a_heredoc_that_ran_is_evidence():
+    for body in ("import urllib.request\nurllib.request.urlretrieve(u, 'a.jpg')", "import requests\nopen('a','wb').write(requests.get(u).content)", "from huggingface_hub import snapshot_download\nsnapshot_download('a/b')",
+                 "import urllib.request as r\nd = r.urlopen(u).read()"):
+        assert _v(_tool("Bash", f"python3 - <<'EOF'\n{body}\nEOF", result="ok")) == [("downloaded", "backed")], body
+    assert _v(_tool("Bash", "bash <<'EOF'\ncd data\ncurl -L -o a.zip https://x/a.zip\nEOF", result="ok")) == [("downloaded", "backed")]
+
+
+def test_a_heredoc_that_only_mentions_a_download_is_not():
+    for body in ("print('curl -o x')", "# urllib.request.urlretrieve(u, 'a')\nprint(1)", "print('urlretrieve(u)')", "import urllib.request\nprint(1)"):
+        assert _v(_tool("Bash", f"python3 - <<'EOF'\n{body}\nEOF", result="1")) == [("downloaded", "unbacked")], body
+
+
+def test_a_browser_in_the_turn_means_it_could_not_be_checked():
+    browser = _tool("mcp__claude-in-chrome__computer", "click Download")
+    assert _v(browser) == [("downloaded", "unverifiable")]
+    assert _v(browser, _tool("Bash", "curl -fL -o a.bin https://x/a.bin", err=True, result="curl: (22) error: 404")) == [("downloaded", "unverifiable")]
+
+
+def test_nothing_behind_it_stays_held():
+    assert _v(_tool("Bash", "ls ~/Downloads", result="a.zip")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "git status", result="clean"), text="下载好了。") == [("downloaded", "unbacked")]
+
+
+def test_a_manual_download_the_turn_shows_by_name_is_evidence():
+    assert _v(_tool("Bash", "unzip -l ~/Downloads/kb3d_pack.zip | head -15", result="Archive:  /Users/u/Downloads/kb3d_pack.zip\n  Length  Name\n  12 a.png")) == [("downloaded", "backed")]
+    assert _v(_tool("Bash", "ls -la ~/Downloads/kb3d_pack.zip", result="-rw-r--r-- 1 u s 1600000000 Oct 23 kb3d_pack.zip")) == [("downloaded", "backed")]
+    assert _v(_tool("Bash", "tar -tzf data/weights.tar.gz | head", result="weights/a.bin")) == [("downloaded", "backed")]
+
+
+def test_an_archive_the_turn_does_not_show_stays_held():
+    assert _v(_tool("Bash", "ls ~/Downloads/a.zip", err=True, result="ls: a.zip: No such file or directory")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "unzip -l a.zip", err=True, result="unzip:  cannot find or open a.zip")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -la ~/Downloads/a.zip", result="")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "echo a.zip", result="a.zip")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -lt ~/Downloads | head -4", result="b.pdf")) == [("downloaded", "unbacked")]
+    assert _v(_tool("Bash", "ls -la a.zip", result="-rw-r--r-- 1 u s 9 a.zip"), text="已下载 b.zip。") == [("downloaded", "unbacked")]
