@@ -1069,8 +1069,8 @@ def test_help_documents_the_exit_codes(tmp_path):
 
 
 def test_categories_are_listed_and_match_the_rules(tmp_path):
-    from honestly import config, rules
-    assert set(config.CATEGORIES) == {name for name, _, _ in rules.claim_patterns()}
+    from honestly import claims, config
+    assert set(config.CATEGORIES) == set(claims.EVIDENCE)
     home = tmp_path / "home"
     assert b"tests_pass" in _honestly(["config"], home).stdout
     r = _honestly(["config", "off", "nope"], home)
@@ -1468,13 +1468,13 @@ def test_a_command_without_a_pipe_loads_nothing_but_the_entry_point(tmp_path):
 def test_a_piped_command_does_not_load_the_audit_or_the_reports(tmp_path):
     loaded = _modules_after(["hook", "pre"], json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls | wc -l"}, "cwd": "/tmp", "session_id": "s"}).encode(), tmp_path)
     assert "honestly.rules" in loaded
-    assert not loaded & {"honestly.audit", "honestly.noncode", "honestly.report", "argparse", "honestly.prnote", "honestly.support", "honestly.update", "random"}
+    assert not loaded & {"honestly.audit", "honestly.claims", "honestly.noncode", "honestly.report", "argparse", "honestly.prnote", "honestly.support", "honestly.update", "random"}
 
 
 def test_a_refused_pipe_still_loads_no_more_than_it_needs(tmp_path):
     env_input = json.dumps({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": "/tmp", "session_id": "s"}).encode()
     loaded = _modules_after(["hook", "pre"], env_input, tmp_path)
-    assert not loaded & {"honestly.audit", "honestly.noncode", "honestly.report", "argparse"}
+    assert not loaded & {"honestly.audit", "honestly.claims", "honestly.noncode", "honestly.report", "argparse"}
 
 
 NOTHING_TO_REFUSE = ["pytest", "pytest -q && echo done", "npm test; echo done", "go test ./... 2>&1", "bash -c 'pytest'", "tox && make test", "(pytest)", "{ pytest; }", "pytest; true", "ls -la src", "git status"]
