@@ -268,6 +268,7 @@ RULE_TEXT = """## Verify before you claim (honestly)
 
 - Before writing "tests pass", "fixed", "builds", "pushed", "sent", "deployed", "saved" or "checked", run the matching command in this same turn and quote its real output. No command, no claim.
 - If you changed code and did not run the check, say exactly that: "changed, not yet verified".
+- Never send, deploy or push just to back up a sentence. If it did not happen, say so, and ask before doing anything hard to undo.
 - Do not pipe a test or build into `head`, `grep -c`, `wc` or a `grep` that drops the summary; a cut-off result hides failures. Use `set -o pipefail` when you must pipe.
 - When honestly stops you, start the next reply with one bold line: why you were stopped and what the check returned.
 - When you open or update a pull request, run `honestly pr-note --gh` after it (or put `honestly pr-note` output in the body) so the reviewer sees what ran after the last edit.
@@ -276,6 +277,7 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 
 - 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先在这一轮里跑对应的命令，并引用它的真实输出。没跑就不能说。
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
+- 不要为了让一句话成立去发送、部署或推送。没发生就照实说，任何难以撤销的操作都要先问用户。
 - 测试或构建命令不要接 `head`、`grep -c`、`wc` 或会滤掉汇总行的 `grep`，截断的结果会把失败藏起来；确实要用管道时加 `set -o pipefail`。
 - 被 honestly 拦截后，下一条回复第一行用加粗写明：被拦截的原因和补跑结果。
 - 开或更新 pull request 之后运行 `honestly pr-note --gh`（或把 `honestly pr-note` 的输出放进描述），让审阅者看到最后一次改动之后跑了什么。
