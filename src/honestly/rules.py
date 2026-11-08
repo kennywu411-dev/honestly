@@ -195,8 +195,8 @@ def path_is_doc(path: str) -> bool:
     if CODE_TXT.search(path):
         return False
     ext = os.path.splitext(path)[1].lower()
-    if ext in SOURCE_EXT or ext == ".sql":
-        return bool(re.search(r"(?:^|/)\.git/", path))   # source code is code in `src/memory/`, `src/docs/` or `src/计划/`
+    if ext in SOURCE_EXT or ext == ".sql":   # source code is code in `src/memory/`, `src/docs/` or `src/计划/`; a tool's own folder is the tool's
+        return bool(re.search(r"(?:^|/)\.(?:git|claude|vscode|idea|agent)/", path))
     return ext in DOC_EXT or bool(DOC_DIRS.search(path))
 
 
