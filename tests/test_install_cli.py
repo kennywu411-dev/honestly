@@ -103,6 +103,7 @@ def test_a_symlink_with_another_name_writes_the_real_program(tmp_path, monkeypat
     assert hooks._exe() == str(real.resolve())
 
 
+@posix_only
 def test_python_dash_m_writes_a_line_that_runs_the_module(tmp_path, monkeypatch):
     import honestly
     pkg = os.path.dirname(honestly.__file__)
@@ -422,7 +423,6 @@ def test_a_read_only_folder_gives_one_clear_line(where, agent):
 
 
 def test_a_file_where_the_folder_should_be_gives_one_clear_line(where):
-    _write(where["claude-code"].parent.with_name("x"), "")
     where["claude-code"].parent.write_text("a file")
     with pytest.raises(SystemExit) as e:
         hooks.guard("install")
@@ -789,6 +789,7 @@ def test_a_disabled_plugin_does_not_count(tmp_path, monkeypatch):
     assert problems
 
 
+@posix_only
 def test_doctor_with_only_another_assistant_is_happy(tmp_path, monkeypatch):
     home = _doctor_home(tmp_path, monkeypatch)
     exe = _script(tmp_path / "bin" / "honestly")
@@ -805,6 +806,7 @@ def test_doctor_with_nothing_installed_says_so(tmp_path, monkeypatch):
     assert "FAIL" in text and any("guard install" in p for p in problems)
 
 
+@posix_only
 @pytest.mark.parametrize("setup", [lambda c: c.set_value("strictness", "lenient"), lambda c: c.add_to("off", "tests_pass"), lambda c: c.add_to("off", "sent"), lambda c: c.add_to("ignore", "tests pass")])
 def test_your_own_settings_do_not_fail_the_self_test(tmp_path, monkeypatch, setup):
     from honestly import config
@@ -906,7 +908,7 @@ CATCH = json.dumps({"ts": "2026-11-08T00:00:00+00:00", "kind": "stop", "agent": 
 
 
 @pytest.mark.parametrize("args,code", [
-    (["audit", "--json", "/nonexistent/dir/x.jsonl"], 1), (["share", "--out", "/dev/null/x"], 1), (["catches", "--card", "--out", "/dev/null/x"], 1),
+    (["audit", "--json", "/nonexistent/dir/x.jsonl"], 1), (["share", "--out", "BLOCKED/x"], 1), (["catches", "--card", "--out", "BLOCKED/x"], 1),
     (["sample", "/nonexistent.jsonl"], 1), (["sample", "/etc/hosts"], 1), (["sample", "/"], 1),
     (["audit", "--since", "9999999d"], 0), (["audit", "--since", "99999999999d"], 0),
     (["config", "strictness", "bogus"], 2), (["config", "strictness"], 2), (["config", "language", "xx"], 2), (["config", "off", "nonexistentcat"], 2),
@@ -917,7 +919,8 @@ def test_bad_input_gets_one_line_and_the_right_exit_code(tmp_path, args, code):
     home = tmp_path / "home"
     _seed_session(home)
     _write(home / ".honestly" / "catches.jsonl", CATCH + "\n")
-    r = _honestly(args, home)
+    (home / "a-file").write_text("x")
+    r = _honestly([a.replace("BLOCKED", str(home / "a-file")) for a in args], home)   # a folder under a file cannot be made on any platform
     assert r.returncode == code, r.stderr
     assert b"Traceback" not in r.stdout + r.stderr
     if code:
@@ -1520,6 +1523,7 @@ def test_a_hook_that_takes_too_long_gives_up_quietly_and_exits_zero(tmp_path):
     assert "gave up" in (tmp_path / ".honestly" / "hook-errors.log").read_text()
 
 
+@posix_only
 def test_a_slow_regex_cannot_outlast_the_budget(tmp_path):
     code = ("import re, sys\n"
             "from honestly import hooks\n"
