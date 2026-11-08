@@ -37,6 +37,11 @@ class Turn:
     project: str = ""
 
 
+def _tool_name(name) -> str:
+    """The PowerShell tool takes the same `command` input as Bash and is Claude Code's main shell on Windows; the rules read one shell."""
+    return "Bash" if name == "PowerShell" else str(name or "")
+
+
 def _summarize_input(name: str, inp) -> str:
     if not isinstance(inp, dict):
         return ""
@@ -151,7 +156,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 if b.get("type") == "text":
                     cur.events.append(Event("text", text=str(b.get("text") or ""), ts=ts))
                 elif b.get("type") == "tool_use":
-                    cur.events.append(Event("tool", name=str(b.get("name") or ""), text=_summarize_input(str(b.get("name") or ""), b.get("input")),
+                    cur.events.append(Event("tool", name=_tool_name(b.get("name")), text=_summarize_input(_tool_name(b.get("name")), b.get("input")),
                                            tool_use_id=str(b.get("id") or ""), ts=ts))
     if cur is not None:
         turns.append(cur)
