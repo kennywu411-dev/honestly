@@ -687,14 +687,35 @@ def _last_run(hits: list) -> list:
     return [h for h in hits if h.at > earlier[-1].at] if earlier else hits
 
 
-def read(text: str, last_run_only: bool = False, later_steps: bool = False) -> Run:
+def _without_old_runs(hits: list, old_runs: list):
+    """Each run prints one summary, in the order they ran, or whose is whose cannot be told and this is None."""
+    counts = [h for h in hits if h.kind == COUNT]
+    twins = [h for h in counts if h.shape == counts[-1].shape] if counts else []
+    if not old_runs or len(twins) != len(old_runs):
+        return None
+    kept, start = [], -1
+    for twin, old in zip(twins, old_runs):
+        if not old:
+            kept += [h for h in hits if start < h.at <= twin.at]
+        start = twin.at
+    return kept + [h for h in hits if h.at > start]
+
+
+def read(text: str, last_run_only: bool = False, later_steps: bool = False, old_runs: list | None = None) -> Run:
     """Read a run from cleaned output. A failure anywhere in one run is a failure: a later target, workspace or package passing does not cancel it.
     `last_run_only`: the command ran the same tests again, so the earlier summary is history.
-    `later_steps`: other commands ran after the tests, so `make: ***` and `npm error` may be theirs: `npm test && npm run deploy`."""
+    `later_steps`: other commands ran after the tests, so `make: ***` and `npm error` may be theirs: `npm test && npm run deploy`.
+    `old_runs`: for each run of the command, whether it was on purpose on the old code, so its summary says nothing about the new code. Empty: some run was, and which line is its is unknown."""
     digest = _digest(text)
     hits = _adjust(_scan(digest))
     if later_steps:
         hits = [h for h in hits if h.runner not in WRAPPERS]
+    if old_runs is not None:
+        kept = _without_old_runs(hits, old_runs)
+        if kept is None:
+            last_run_only = False   # the last line may be the old code's
+        else:
+            hits = kept
     run = decide(_last_run(hits) if last_run_only else hits)
     if run.state:
         return run

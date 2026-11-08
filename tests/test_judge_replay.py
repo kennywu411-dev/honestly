@@ -155,3 +155,65 @@ TYPE_AND_LINT = "cd web && npx tsc --noEmit 2>&1 | head; npx eslint src --max-wa
 ])
 def test_a_checks_claim_is_not_judged_by_another_tools_test_summary(claim, cmd, out, err, want):
     assert judged(claim, bash(cmd, out, err)) == want, (claim, cmd, out)
+
+
+# ---------------------------------------------------------------- a run on purpose on the old code
+FAILED = "2 failed, 522 deselected in 0.32s"
+PASSED = "2 passed, 522 deselected in 0.27s"
+ON_MAIN = ("git stash -q 2>/dev/null; git show origin/main:a/b.py > $O/base_main.py; cp a/b.py $O/base_fix.py; cp $O/base_main.py a/b.py; "
+           'pytest tests/t.py -q -k new > $O/v2.txt 2>&1; echo "with main source exit $?"; tail -1 $O/v2.txt; cp $O/base_fix.py a/b.py; git status --short')
+REAL = (f'cd ~/astroid && git status --short && pytest tests/t.py -q -k new > $O/v1.txt 2>&1; echo "branch exit $?"; tail -1 $O/v1.txt\n{ON_MAIN}\n'
+        'cd ~/pint && git status --short && pytest pint/testsuite -q > $O/v3.txt 2>&1; echo "pint exit $?"; tail -1 $O/v3.txt\n'
+        'cd ~/pylint && git checkout -q fix/x && pytest tests/test_functional.py -q -k used > $O/v4.txt 2>&1; echo "pylint exit $?"; tail -1 $O/v4.txt')
+REAL_OUT = f"branch exit 0\n{PASSED}\nwith main source exit 1\n{FAILED}\npint exit 0\n2682 passed, 161 skipped in 20.72s\npylint exit 0\n32 passed, 962 deselected in 1.48s"
+
+
+def verdict_on_tests(cmd, out, err=False):
+    return audit.judge_output("tests_pass", rules.verifying_segments(cmd, {"test"})[-1].text, bash(cmd, out, err), "All 12 tests pass.")[0]
+
+
+@pytest.mark.parametrize("cmd,out", [
+    (REAL, REAL_OUT),
+    # the fix, then the old code by stash
+    ("pytest t -q > n.txt 2>&1; tail -1 n.txt; git stash -q; pytest t -q > o.txt 2>&1; tail -1 o.txt; git stash pop -q", f"{PASSED}\n{FAILED}"),
+    ("pytest t -q | tail -1; git stash push -q a/b.py; pytest t -q | tail -1; git stash pop -q", f"{PASSED}\n{FAILED}"),
+    # the old code first
+    ("git stash -q; pytest t -q | tail -1; git stash pop -q; pytest t -q | tail -1", f"{FAILED}\n{PASSED}"),
+    ("git stash -q; pytest t; git stash pop -q; pytest u", f"{FAILED}\n{PASSED}"),
+    # one file put back from main, then restored
+    ("pytest t -q | tail -1; git show origin/main:a.py > $O/m.py; cp a.py $O/f.py; cp $O/m.py a.py; pytest t -q | tail -1; cp $O/f.py a.py", f"{PASSED}\n{FAILED}"),
+    ("pytest t -q | tail -1; git checkout origin/main -- a.py; pytest t -q | tail -1; git checkout fix/x -- a.py", f"{PASSED}\n{FAILED}"),
+])
+def test_a_run_on_the_old_code_does_not_count_against_the_fix(cmd, out):
+    assert verdict_on_tests(cmd, out) in ("backed", "unverifiable"), cmd
+
+
+@pytest.mark.parametrize("cmd,out,err", [
+    # the fix itself fails, in every order
+    ("pytest t -q | tail -1; git stash -q; pytest t -q | tail -1; git stash pop -q", f"{FAILED}\n{PASSED}", False),
+    ("git stash -q; pytest t -q | tail -1; git stash pop -q; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    (REAL, REAL_OUT.replace("2682 passed, 161 skipped", "1 failed, 2681 passed, 161 skipped"), False),
+    # one run, or runs nothing says are on old code
+    ("pytest", "3 failed, 9 passed in 0.1s\n12 passed in 0.1s", True),
+    ("pytest t; pytest u", f"{FAILED}\n{PASSED}", False),
+    ("pytest t; pytest", f"{PASSED}\n{FAILED}", False),
+    # moving to a branch is not going back to old code: main may hold the merged fix
+    ("pytest t -q | tail -1; git checkout -q main; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q | tail -1; git switch -q main && git pull -q; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    # the stash is back before the failing run, or it only looks at the stash
+    ("pytest t -q | tail -1; git stash -q; git stash pop -q; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q | tail -1; git stash list; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q | tail -1; git stash show -p; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    # another repo, or a real edit, after the stash: the run is on new code
+    ("pytest t -q | tail -1; git stash -q; cd ../other; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q | tail -1; git stash -q; sed -i '' s/a/b/ a.py; pytest t -q | tail -1", f"{PASSED}\n{FAILED}", False),
+    # the only run is the one on the old code
+    ("git stash -q; pytest t -q | tail -1; git stash pop -q", FAILED, False),
+    # whose line is whose cannot be told
+    ("pytest t -q > n.txt 2>&1; git stash -q; pytest t -q > o.txt 2>&1; git stash pop -q; tail -1 o.txt; tail -1 n.txt", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q > n.txt 2>&1; git stash -q; pytest t -q > o.txt 2>&1; git stash pop -q; for f in o n; do tail -1 $f.txt; done", f"{PASSED}\n{FAILED}", False),
+    ("pytest t -q | grep -c x; git stash -q; pytest t -q | tail -1; git stash pop -q", FAILED, False),
+    ("for i in 1 2; do pytest t -q | tail -1; done; git stash -q; pytest t -q | tail -1; git stash pop -q", f"{FAILED}\n{PASSED}\n{PASSED}", False),
+])
+def test_what_a_before_and_after_must_not_let_through(cmd, out, err):
+    assert verdict_on_tests(cmd, out, err) == "contradicted", cmd

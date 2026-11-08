@@ -221,6 +221,55 @@ def _reruns(runs: list, cmd: str) -> bool:
     return True
 
 
+_GIT = r"\s*git(?:\s+-[cC]\s+\S+)*\s+"
+_BASE_REF = r"(?:(?:origin|upstream)/)?(?:main|master)"
+_STASH_AWAY = re.compile(_GIT + r"stash(?:\s+(?:push|save)\b|\s+-\S*|\s*(?:\d?>|$))")
+_STASH_BACK = re.compile(_GIT + r"stash\s+(?:pop|apply)\b")
+_SHOW_BASE = re.compile(_GIT + r"show\s+" + _BASE_REF + r":(\S+)\s*>\s*(\S+)\s*$")
+_CHECKOUT_FILES = re.compile(_GIT + r"checkout\s+(?:-\S+\s+)*(\S+\s+)?--\s+(.+)$")
+_COPY = re.compile(r"\s*cp\s+(?:-\S+\s+)*(\S+)\s+(\S+)\s*$")
+
+
+def _runs_on_old_code(cmd: str):
+    """For each test run of this command, in order: was it on purpose on the old code? After a `git stash`, or with a file put back from main, and not yet undone.
+    Moving to a branch does not count: main can hold the merged fix, and that is a real run. None if no run was, or all were.
+    Empty if one was and the lines of the output may not be in the order of the runs: `pytest > a; git stash; pytest > b; git stash pop; tail b a`."""
+    runs = [r.text for r in rules.verifying_segments(cmd, {"test"}) if not r.text.lstrip().startswith("gh ")] if "git" in cmd else []
+    if len(runs) < 2:
+        return None
+    flags, unread, in_order, stashed, put_back, copies = [], "", True, False, set(), set()
+    for part in rules.segments(cmd):
+        t = part.text
+        if t in runs:
+            in_order = in_order and not unread
+            flags.append(stashed or bool(put_back))
+            target = REDIRECT_OUT.search(t.split("|")[0])
+            unread = target.group(1) if target and not _TO_NULL.search(t) else ""
+            continue
+        if unread and unread in t:
+            unread = ""
+        show, files, copy = _SHOW_BASE.match(t), _CHECKOUT_FILES.match(t), _COPY.match(t)
+        if _STASH_AWAY.match(t):
+            stashed = True
+        elif _STASH_BACK.match(t):
+            stashed = False
+        elif show:
+            (put_back if show.group(1) == show.group(2) else copies).add(show.group(2))
+        elif files:
+            names = set(files.group(2).split())
+            put_back = put_back | names if files.group(1) and re.fullmatch(_BASE_REF, files.group(1).strip()) else put_back - names
+        elif copy and copy.group(1) in copies:
+            put_back.add(copy.group(2))
+        elif copy and copy.group(2) in put_back:
+            put_back.discard(copy.group(2))
+        elif re.match(r"\s*cd\b", t) or rules.segment_is_edit(part, cmd):   # another repo, or the code changed again
+            stashed = False
+            put_back = set()
+    if len(flags) != len(runs) or not any(flags) or all(flags):
+        return None
+    return flags if in_order else []
+
+
 def _piped(seg: str, cmd: str) -> bool:
     """A pipe's last command set the exit status, so a failure only shows in what got through."""
     return bool(rules.PIPE_SWALLOW.search(seg)) and not rules.PIPEFAIL_ON.search(cmd)
@@ -241,10 +290,12 @@ def _judge_run(category: str, seg: str, ev: Event, text: str, claim_text: str):
     """A test run: its own summary decides, its exit status can only take a pass away."""
     cmd = ev.text or seg
     status = _status(seg, cmd)
-    run = verdicts.read("" if _TO_NULL.search(status.run or seg) else text, last_run_only=status.rerun, later_steps=not status.own)
-    errored = bool(ev.is_error) and status.own
+    old_runs = _runs_on_old_code(cmd)
+    run = verdicts.read("" if _TO_NULL.search(status.run or seg) else text, last_run_only=status.rerun, later_steps=not status.own, old_runs=old_runs)
+    ended_on_old_code = bool(old_runs and old_runs[-1])   # the exit status is that run's, and says nothing about the new code
+    errored = bool(ev.is_error) and status.own and not ended_on_old_code
     piped = _piped(seg, cmd)
-    printed = _printed_status(cmd, verdicts.clean(ev.result or ""), status.run)
+    printed = None if ended_on_old_code else _printed_status(cmd, verdicts.clean(ev.result or ""), status.run)
     if printed is not None:
         errored, piped, status.hidden = printed != 0, False, False
         if errored and run.state != "fail" and run.state != "pass":
