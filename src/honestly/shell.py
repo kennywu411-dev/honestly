@@ -967,7 +967,6 @@ class Unit:
     level: int = 0           # 0: a command of the script itself; above: inside `bash -c`, `$(...)`, a heredoc given to a shell
     tail: list = field(default_factory=list)      # commands reading this one's output from an enclosing pipeline
     outer: list = field(default_factory=list)     # redirections of an enclosing group or loop
-    own_echo: list = field(default_factory=list)  # text the same command line prints by itself afterwards, when that text is no proof
     reads_status: bool = False    # the very next command reads PIPESTATUS or $?
     cwd_after: str | None = ""    # the directory it leaves behind
 
@@ -1084,21 +1083,6 @@ def _status_masked(script: Script, i: int, inherited: bool, errexit: bool) -> bo
     if p.sep == "||":
         return not _reports_failure(script, nxt)
     return not errexit and not _STATUS_READ.search(_pipe_raw(script, nxt))
-
-
-def _own_echo(script: Script, i: int) -> list:
-    out = []
-    pipes = script.pipelines
-    for j in range(i + 1, min(len(pipes), i + 6)):
-        if pipes[j - 1].sep == "&&":
-            break
-        c = _single(pipes[j])
-        if not c or not c.words or _head(pipes[j]) not in ("echo", "printf", "Write-Output", "Write-Host"):
-            continue
-        words = [a for a in c.argv[1:] if not re.fullmatch(r"-[neE]+", a)]
-        if words and "$" not in " ".join(words):
-            out.append(" ".join(words).replace("\\n", "\n").strip())
-    return out
 
 
 def _set_options(st: _State, argv: list):
@@ -1226,7 +1210,6 @@ def _walk_pipeline(script: Script, idx: int, p: Pipeline, g: str, masked: bool, 
         nxt = pipes[idx + 1] if idx + 1 < len(pipes) else None
         unit = Unit(script, p, text_of(script, p), g, st.cwd, st.env, st.pipefail, masked,
                     ctx.dropped or bool(only and stdout_dropped(only)), ctx.level, list(ctx.tail), list(ctx.outer),
-                    _own_echo(script, idx) if masked else [],
                     bool(nxt and p.sep in (";", "\n", "&&", "||") and _STATUS_READ.search(_pipe_raw(script, nxt))))
         out.append(unit)
     else:

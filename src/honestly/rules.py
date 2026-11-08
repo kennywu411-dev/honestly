@@ -1596,29 +1596,9 @@ def bash_verifies(cmd: str, kinds: set, after_edit_only: bool = False) -> bool:
     return bool(verifying_segments(cmd, kinds, after_edit_only))
 
 
-def _unit_named(cmd: str, seg_text: str):
-    head = seg_text.split("\n", 1)[0]
-    for u in _units(cmd):
-        if u.text == seg_text or u.text.split("\n", 1)[0] == head:
-            return u
-    return None
-
-
-def run_unproven(cmd: str, seg_text: str) -> bool:
-    """For judge_output. The exit status says nothing about this run (`|| true`, `; echo done`, `[ -f x ] && pytest`): only a pass/fail line in its output can."""
-    u = _unit_named(cmd, seg_text)
-    return bool(u and (u.masked or u.guard == "maybe"))
-
-
-def without_own_echo(out: str, cmd: str, seg_text: str) -> str:
-    """For judge_output. `./run_tests.sh || echo ok`: the `ok` comes from the command line itself and proves nothing about the run."""
-    u = _unit_named(cmd, seg_text)
-    if not u or not u.own_echo:
-        return out
-    lines = (out or "").split("\n")
-    for text in u.own_echo:
-        for i in range(len(lines) - 1, -1, -1):
-            if lines[i].strip() == text:
-                del lines[i]
-                break
-    return "\n".join(lines)
+def run_unproven(cmd: str, seg_text: str = "") -> bool:
+    """The exit status says nothing about this test or build run, so only a pass/fail line in its output can: a later step replaced it
+    (`|| true`, `; echo done`, `> /dev/null || echo ok`, `x=$(pytest); echo "$x"`), or the run may never have happened (`[ -f x ] && pytest`)."""
+    runs = [u for u in _units(cmd) if u.guard != "no" and stage_kinds(u, {"test", "build"}) and not u.text.lstrip().startswith("gh ")]   # reading CI: no exit status carries its result anyway
+    named = [u for u in runs if u.text == seg_text or (seg_text and u.text in seg_text)] or runs
+    return bool(named) and (named[-1].masked or named[-1].guard == "maybe")

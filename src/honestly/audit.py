@@ -150,19 +150,20 @@ def _status(seg: str, cmd: str) -> _Status:
     """Whose exit status this is. `pytest && git push` with the push rejected is still a test run that passed; `pytest` exiting 1 is not."""
     parts = rules.segments(cmd)
     runs = rules.verifying_segments(cmd, {"test"}) or rules.verifying_segments(cmd, {"build"})
+    lost = rules.run_unproven(cmd, seg)   # `> /dev/null || echo ok`, `[ -f x ] && pytest`, `x=$(pytest); echo "$x"`
     if not runs or len(parts) < 2:
-        return _Status(run=runs[-1].text if runs else "", rerun=bool(_RETRY_LOOP.search(cmd)))
+        return _Status(run=runs[-1].text if runs else "", rerun=bool(_RETRY_LOOP.search(cmd)), hidden=lost)
     texts = [p.text for p in parts]
     last = runs[-1].text
     rerun = _reruns(runs, cmd)
     if last not in texts or texts[-1] != last:
         after = cmd[cmd.rfind(last) + len(last):].lstrip(" \t")
-        return _Status(own=last not in texts, hidden=last in texts and not after.startswith("&&"), rerun=rerun, run=last)
+        return _Status(own=last not in texts, hidden=lost or (last in texts and not after.startswith("&&")), rerun=rerun, run=last)
     checks = {r.text for r in runs}
     first = texts.index(runs[0].text) if runs[0].text in texts else 0
     # `pytest && git push && gh run list`: the push can be what failed, and then the last check never ran
     own = all(t in checks or _HARMLESS_STEP.match(t) for t in texts[first:])
-    return _Status(own=own, rerun=rerun, run=last)
+    return _Status(own=own, rerun=rerun, run=last, hidden=lost)
 
 
 _HARMLESS_STEP = re.compile(r"^\s*(?:cd|echo|printf|export|source|\.|true|:|sleep|set)\b|^\s*\w+=\S*\s*$")

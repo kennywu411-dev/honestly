@@ -203,6 +203,31 @@ def test_output_and_status_both_gone(cmd, held):
     assert held([EDIT, bash(cmd, "ok")])
 
 
+LOST_STATUS = ["./run_tests.sh || echo ok", "./run_tests.sh || true", "./run_tests.sh; true", "./run_tests.sh; exit 0", "bash scripts/test.sh || true", "make test || true", "make test; true", "pytest -q > out.log 2>&1 || true",
+               "pytest -q > out.log 2>&1; echo done", "pytest -q &> out.log; echo done", "pytest -q > /tmp/out.log 2>&1 || true", "pytest -q >/dev/null 2>&1 || echo ok", "pytest -q >/dev/null 2>&1; echo OK", "pytest -q & sleep 1"]
+NOT_SURE_IT_RAN = ["[ -f x ] && pytest", "test -f x && pytest", "if [ -f x ]; then pytest; fi", "while read f; do pytest $f; done < list", "grep -q x y && pytest -q", "x=$(pytest -q); echo \"$x\"", "echo \"$(pytest -q)\""]
+
+
+@pytest.mark.parametrize("cmd", LOST_STATUS + NOT_SURE_IT_RAN, ids=ids(LOST_STATUS + NOT_SURE_IT_RAN))
+@pytest.mark.parametrize("out", ["", "boom", "done"])
+def test_with_the_status_lost_only_a_result_line_can_back_a_claim(cmd, out, held):
+    assert held([EDIT, bash(cmd, out)])
+
+
+@pytest.mark.parametrize("cmd,out", [("./run_tests.sh || echo ok", "ok"), ("./run_tests.sh || echo ok", "boom\nok"), ("pytest -q >/dev/null 2>&1 || echo ok", "ok"), ("pytest -q >/dev/null 2>&1; echo OK", "OK"), ("make test; echo 'tests passed'", "tests passed")])
+def test_what_the_command_line_printed_itself_is_no_result(cmd, out, held):
+    assert held([EDIT, bash(cmd, out)])
+
+
+@pytest.mark.parametrize("cmd", NOT_SURE_IT_RAN + ["./run_tests.sh || true", "make test; true", "pytest -q || echo ok"], ids=ids(NOT_SURE_IT_RAN + ["./run_tests.sh || true", "make test; true", "pytest -q || echo ok"]))
+def test_a_result_line_in_the_output_still_backs_it(cmd, held):
+    assert not held([EDIT, bash(cmd, OK)])
+
+
+def test_reading_ci_has_no_exit_status_to_lose():
+    assert not rules.run_unproven("gh run view 1; echo done", "gh run view 1")
+
+
 def test_a_silent_run_whose_status_still_shows_is_left_alone():
     for cmd in ["pytest -q > /dev/null", "pytest -q >/dev/null 2>&1; echo $?", "pytest -q >/dev/null 2>&1 && echo ok || echo bad", "pytest -q >/dev/null 2>&1 && echo ok",
                 "pytest -q > /dev/null || exit 1", "pytest -q > /dev/null || echo FAILED", "set -e; pytest -q > /dev/null; echo done", "pytest -q > out.log 2>&1", "pytest -q || true", "pytest -q; true"]:
