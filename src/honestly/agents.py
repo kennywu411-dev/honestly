@@ -44,13 +44,28 @@ def _tool_event(name: str, inp, ts: str = "") -> Event:
     return Event("tool", name=name or "tool", text=str(path or inp.get("query") or inp.get("prompt") or ""), ts=ts)
 
 
-def cursor_parse(path: str):
+CURSOR_USER = re.compile(rb'"role":\s*"user"')
+GEMINI_USER = re.compile(rb'"type":\s*"user"')
+
+
+def _cursor_prompt_row(line: bytes) -> bool:
+    return CURSOR_USER.search(line) is not None and b'"tool_result"' not in line
+
+
+def _gemini_prompt_row(line: bytes) -> bool:
+    return GEMINI_USER.search(line) is not None and b"functionResponse" not in line and b"<session_context>" not in line
+
+
+def cursor_parse(path: str, start: int = 0):
     """Cursor's hook-visible transcript: one JSON object per line with role and message; tool inputs are kept, tool outputs are not."""
     session = os.path.splitext(os.path.basename(path))[0][:40]
     turns: list[Turn] = []
     cur: Turn | None = None
     project = re.split(r"[\\/]agent-transcripts", path)[0].split(os.sep)[-1] if "agent-transcripts" in path else ""
     with open(path, encoding="utf-8", errors="ignore") as fh:
+        if start > 0:
+            fh.seek(start)
+            fh.readline()   # drop the partial line
         for line in fh:
             try:
                 r = json.loads(line)
@@ -104,7 +119,7 @@ def _parts_text(content) -> str:
     return ""
 
 
-def _gemini_records(path: str):
+def _gemini_records(path: str, start: int = 0):
     if path.endswith(".json"):
         try:
             with open(path, encoding="utf-8", errors="ignore") as fh:
@@ -116,6 +131,9 @@ def _gemini_records(path: str):
                 yield r
         return
     with open(path, encoding="utf-8", errors="ignore") as fh:
+        if start > 0:
+            fh.seek(start)
+            fh.readline()   # drop the partial line
         for line in fh:
             try:
                 r = json.loads(line)
@@ -168,14 +186,14 @@ def _gemini_project(path: str) -> str:
         return ""
 
 
-def gemini_parse(path: str):
+def gemini_parse(path: str, start: int = 0):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
     model = ""
     project = _gemini_project(path)
-    records = list(_gemini_records(path))
+    records = list(_gemini_records(path, start))
     latest = {r["id"]: i for i, r in enumerate(records) if isinstance(r.get("id"), str)}   # a record is updated by appending it again under the same id
     for i, r in enumerate(records):
         if "$patch" in r or "$set" in r or "$rewindTo" in r or latest.get(r["id"] if isinstance(r.get("id"), str) else "", i) != i:
@@ -275,20 +293,21 @@ def warn(agent: str, plain: str) -> dict | None:
     return {"systemMessage": plain}
 
 
-def parser_for(agent: str, tail: bool = False):
-    """Transcript parser for an agent; tail=True asks for the cheap end-of-file read used by the hooks."""
-    if agent == "claude-code" and tail:
-        from .claude_code import parse_session
-        return lambda p: parse_session(p, tail=True)
-    if agent == "codex":
-        from .codex import parse_session
-        return parse_session
-    if agent == "cursor":
-        return cursor_parse
-    if agent == "gemini":
-        return gemini_parse
-    from .claude_code import parse_session
-    return parse_session
+def parser_for(agent: str, tail: bool = False, light: bool = False):
+    """Transcript parser for an agent. tail=True (the Stop hook) reads a big file from its last two prompts on;
+    light=True reads a fixed tail, for when only the names in a message are wanted."""
+    from . import claude_code, codex
+    if agent == "claude-code" or agent not in ("codex", "cursor", "gemini"):
+        if light:
+            return lambda p: claude_code.parse_session(p, light=True)
+        return (lambda p: claude_code.parse_session(p, tail=True)) if tail else claude_code.parse_session
+    parse, is_prompt = {"codex": (codex.parse_session, codex.is_prompt_row), "cursor": (cursor_parse, _cursor_prompt_row), "gemini": (gemini_parse, _gemini_prompt_row)}[agent]
+    if not (tail or light):
+        return parse
+    def parse_tail(path: str):
+        whole_json = agent == "gemini" and path.endswith(".json")
+        return parse(path, 0 if whole_json else claude_code.tail_start(path, is_prompt, light=light))
+    return parse_tail
 
 
 # --------------------------------------------------------------- installers

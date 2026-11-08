@@ -73,7 +73,7 @@ hook 往聊天窗口写一句清楚的说明，用对话本身的语言，写明
 
 第二个 hook 在每条 shell 命令执行前检查，只在管道会让助手看不到一次完整运行的结果时才介入：`pytest | head` 截掉了末尾的汇总，`| grep -c`、`| wc` 吞掉了输出，`npm run build | head` 截掉了最后的报错，`npm test --workspaces | tail` 可能把前面失败的 workspace 挤出去。这些命令会被拒绝，并附上一行改法。只是找某一样东西的不拦：`pytest -rs | grep SKIP`、`pytest -k spikes | head`、`pytest tests/test_a.py | head`；如果回复接着说测试通过，而屏幕上没有结果，就会被拦。下面这些也放行：`pytest | tail`、`go test ./... | tail`（Go 会在最后一行重复失败）、`| tee log`、保留失败行的 `grep`、编译器和 lint 输出接 `head`，以及加了 `set -o pipefail` 或读取 `${PIPESTATUS[0]}` 的命令；助手要说测试通过之前，回复检查仍会读取那一行汇总。一条回复里有好几句没依据时，提示会说明还有几句。
 
-hook 不影响正常使用：超过 8 MB 的记录只从末尾读（200 MB 的会话和小会话一样快）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
+hook 不影响正常使用：超过 8 MB 的记录从最后两条提示开始读（200 MB 的会话只花最后几轮的时间；一轮本身特别长时仍要几秒）；它自己出了任何内部错误都只写进 `~/.honestly/hook-errors.log` 然后放行，`honestly doctor` 会显示出来。
 
 ```bash
 honestly catches --lang zh    # 本周拦截记录，按项目和助手汇总

@@ -5,6 +5,7 @@ Events are kept in order: text blocks, tool calls (with result status),
 so rules can ask "what happened after the last edit?".
 """
 from __future__ import annotations
+import bisect
 import glob
 import json
 import os
@@ -234,12 +235,29 @@ def _iso_epoch(ts: str) -> float:
         return 0.0
 
 
+def _merged_by_time(events: list, incoming: list) -> list:
+    """`incoming` placed among `events`, each before the first event with a later timestamp. One pass: a subagent can make thousands of calls."""
+    incoming = sorted(incoming, key=lambda e: e.ts)
+    out, j = [], 0
+    for x in events:
+        if x.ts:
+            while j < len(incoming) and incoming[j].ts < x.ts:
+                out.append(incoming[j])
+                j += 1
+        out.append(x)
+    out.extend(incoming[j:])
+    return out
+
+
 def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
     """Put every tool call a subagent made into the parent turn, in timestamp order, so a test the subagent ran counts and an
     edit it made is seen. The Agent call that spawned it is then no longer opaque. Returns the number of merged events."""
     merged = 0
     by_tool_use = {}
     since = _iso_epoch(since_ts) - 120 if since_ts else 0.0
+    starts = sorted((t.ts, i) for i, t in enumerate(turns) if t.ts)
+    keys = [ts for ts, _ in starts]
+    arriving: dict[int, list] = {}
     for f in subagent_files(path):
         if since and os.path.getmtime(f) < since:
             continue   # finished before the window we hold: nothing of it can land in these turns
@@ -254,19 +272,15 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
         if not events:
             continue
         bg = str(meta.get("requestShape") or "") == "background"
-        for e in events:
-            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
         by_tool_use[str(meta.get("toolUseId") or "")] = len(events)
         for e in events:
-            turn = None
-            for t in turns:
-                if t.ts and t.ts <= e.ts:
-                    turn = t
-            if turn is None:
-                continue   # earlier than every turn we hold (tail parse): not ours to place
-            pos = next((i for i, x in enumerate(turn.events) if x.ts and x.ts > e.ts), len(turn.events))
-            turn.events.insert(pos, e)
-            merged += 1
+            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
+            at = bisect.bisect_right(keys, e.ts) - 1
+            if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
+                arriving.setdefault(starts[at][1], []).append(e)
+                merged += 1
+    for i, incoming in arriving.items():
+        turns[i].events = _merged_by_time(turns[i].events, incoming)
     if by_tool_use:
         for t in turns:
             for e in t.events:
@@ -277,6 +291,8 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
 
 TAIL_THRESHOLD = 8 * 1024 * 1024
 TAIL_WINDOW = 3 * 1024 * 1024
+SCAN_CHUNK = 4 * 1024 * 1024
+USER_ROW = re.compile(rb'"type":\s*"user"')   # inside a tool's output these quotes are escaped, so a quoted transcript does not match
 
 
 SESSION_SCAN_LIMIT = 200 * 1024 * 1024
@@ -312,25 +328,66 @@ def session_tools(path: str):
     return events
 
 
-def parse_session(path: str, subagents: bool = True, tail: bool = False, min_turns: int = 2):
-    """All turns of a session. tail=True (the hooks) reads only the end of a big file: a window from the end, doubled
-    until it holds min_turns user turns, so a 200 MB session costs the same as a small one."""
-    start = 0
-    if tail:
-        size = os.path.getsize(path)
-        if size > TAIL_THRESHOLD:
-            window = TAIL_WINDOW
-            while True:
-                start = max(0, size - window)
-                turns = _parse(path, start=start)
-                if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
-                    break
-                window *= 2
-            if start > 0 and turns and not turns[0].prompt:
-                turns = turns[1:]   # the first turn in the window began before it: incomplete, drop it
-            if subagents and turns:
-                _merge_subagents(path, turns, turns[0].ts)
-            return turns
+def _claude_prompt_row(line: bytes) -> bool:
+    return USER_ROW.search(line) is not None and b'"tool_result"' not in line
+
+
+def prompt_offset(path: str, is_prompt, count: int) -> int:
+    """Where the `count`-th last prompt's line starts, found by walking the file backwards without decoding any JSON; 0 when it has fewer."""
+    found, pos, partial = 0, os.path.getsize(path), b""
+    with open(path, "rb") as fh:
+        while pos > 0:
+            step = min(SCAN_CHUNK, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + partial
+            if pos > 0:
+                first = buf.find(b"\n")
+                if first < 0:
+                    partial = buf
+                    continue
+                partial, body, base = buf[:first], buf[first + 1:], pos + first + 1
+            else:
+                body, base, partial = buf, 0, b""
+            end = len(body)
+            while end > 0:
+                start = body.rfind(b"\n", 0, end - 1) + 1
+                if is_prompt(body[start:end]):
+                    found += 1
+                    if found >= count:
+                        return base + start
+                end = start
+    return 0
+
+
+def tail_start(path: str, is_prompt, count: int = 2, light: bool = False) -> int:
+    """The `start` to give a parser: 0 for a file small enough to read whole. `light` is a fixed tail, for when only names are wanted."""
+    size = os.path.getsize(path)
+    if light:
+        return max(0, size - TAIL_WINDOW)
+    if size <= TAIL_THRESHOLD:
+        return 0
+    return max(0, prompt_offset(path, is_prompt, count) - 1)   # the parser drops what comes before the next newline
+
+
+def parse_session(path: str, subagents: bool = True, tail: bool = False, min_turns: int = 2, light: bool = False):
+    """All turns of a session. tail=True (the Stop hook) reads a big file from its min_turns-th last prompt: the turns themselves are read
+    whole, however long, because the edit a claim is judged against can be anywhere in them. light=True reads a fixed tail, for names only."""
+    if light:
+        return _parse(path, start=tail_start(path, _claude_prompt_row, light=True))
+    if tail and os.path.getsize(path) > TAIL_THRESHOLD:
+        want = min_turns
+        while True:
+            start = tail_start(path, _claude_prompt_row, want)
+            turns = _parse(path, start=start)
+            if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
+                break
+            want *= 4   # some user rows are not prompts: read further back
+        if start > 0 and turns and not turns[0].prompt:
+            turns = turns[1:]
+        if subagents and turns:
+            _merge_subagents(path, turns, turns[0].ts)
+        return turns
     turns = _parse(path)
     if subagents and turns:
         _merge_subagents(path, turns)

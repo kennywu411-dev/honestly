@@ -925,7 +925,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     tp = data.get("transcript_path") or ""
     if tp and os.path.exists(tp):
         try:
-            turns = agents.parser_for(agent, tail=True)(tp)
+            turns = agents.parser_for(agent, light=True)(tp)   # the verdict is in: this is only to name the model and the conversation
             turn = turns[-1] if turns else None
         except Exception:
             turn = None
