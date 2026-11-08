@@ -81,7 +81,7 @@ def test_project_config_merges_on_top_of_user_config(tmp_path, monkeypatch):
 def test_doctor_self_test_blocks_and_report_lists_problems(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "settings_path", lambda: str(tmp_path / "settings.json"))
     results = support.self_test()
-    assert [n for n, ok, _ in results if ok] == ["code", "non-code"]
+    assert [n for n, ok, _ in results if ok] == ["code"]
     text = support.doctor()
     assert "self-test" in text and "blocked" in text
     assert "guard hooks not installed" in text and "honestly guard install" in text

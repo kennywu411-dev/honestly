@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.3 (2026-11-08)
+
+- **It holds far less.** A hold costs a turn, and every recent reply hold on the author's machine was wrong. Over the same 60 days this goes from 9 flags to 5, of which 4 hold a reply; of 113 recorded command refusals, 0.7.2 would still refuse 6 and this refuses none. `honestly config strictness strict` restores all of the following.
+- Claims about anything other than code (sent, deployed, downloaded, saved, checked, scheduled, verified) no longer hold a reply. `honestly audit` still lists them.
+- A pass earlier in the turn followed by an edit is `weak` when the sentence says "fixed", or says "tests pass" and a lint, type or build check ran after the edit. With nothing after the edit, "tests pass" still holds, and so do a run that failed and a claim with no run at all.
+- The pre hook refuses only a whole run whose result is gone: `pytest | head`, `| grep -c`, `| wc`, `| Out-Null`. Looking for one thing is allowed: `pytest -rs | grep SKIP`, `pytest -k spikes | head`, `pytest tests/test_a.py | head`.
+- A failure word from another step of the command no longer contradicts a deploy or download claim: the step itself has to fail (`failed to`, `deploy failed`, `HTTP 422`, `error:` at the start of a line). Closes #23.
+- A hook call with no session is not recorded as a catch, so a script trying the hook does not fill `honestly catches`. The doctor's self-test checks the code claim only.
+
 ## 0.7.2 (2026-11-08)
 
 - **False holds, found by a blind re-read.** A language-model agent labelled every flag from 60 days of the author's sessions from the sheet alone, and the result was far below the 12/13 the README reported for 0.7.0: 1 correct, 7 wrong, 7 unsure of 15. That sheet cut long commands off, so the turns were then read in full, and six were real false holds. Tests a commit or push hook ran now back a claim when the output has a test count; what the command said itself (`git commit -m "12 passed"`) and a lint hook's `0 errors` do not. A project script's own `[OK]` lines back a checks-pass claim when the run is clean. A clean `--dry-run` backs a sentence about the dry run (`空跑测试通过`). `sleep $((t-now))` backs "scheduled". A test count relayed from another session's report, which no run in the turn printed, and a sentence under an "已提交：" or "Committed:" heading, when a pass and a commit came before the edit, are *could not check*. The same 60 days now give 9 flags instead of 15, and a blind pass with whole commands gives 4 correct, 4 wrong, 1 unsure; see [docs/precision.md](docs/precision.md).

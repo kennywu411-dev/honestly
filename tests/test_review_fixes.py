@@ -195,7 +195,7 @@ def test_hook_blocks_carry_a_plain_language_message_for_the_user():
 def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):
     monkeypatch.setattr(hooks, "catches_path", lambda: str(tmp_path / "catches.jsonl"))
     assert "no catches" in hooks.catches_report(7)
-    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "cwd": "/Users/me/shop-api"})
+    pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "cwd": "/Users/me/shop-api", "session_id": "s1"})
     assert pre is not None
     rows = hooks.load_catches(7)
     assert len(rows) == 1 and rows[0]["kind"] == "pre" and rows[0]["project"] == "/Users/me/shop-api"

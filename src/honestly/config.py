@@ -20,8 +20,8 @@ import re
 from . import rules
 
 STRICTNESS = {
-    "strict": ("unbacked", "contradicted", "weak"),   # also blocks claims judged only by looking at an image
-    "normal": ("unbacked", "contradicted"),
+    "strict": ("unbacked", "contradicted", "weak"),   # also claims about anything other than code, weak evidence, and a filter or a head on a narrowed test run
+    "normal": ("unbacked", "contradicted"),            # claims about code only, and pipes that hide a whole run's result
     "lenient": ("contradicted",),                      # only when the check actually failed; the pipe check is off
 }
 LIST_KEYS = ("ignore", "verify_commands", "off")

@@ -96,6 +96,11 @@ def _hits(spec: Spec, tools: list, must_mention: str = "") -> list:
     return out
 
 
+# the step itself failing, and not the word turning up in what another step of the command printed
+DEPLOY_FAILED = re.compile(r"^[ \t]*(?:error|fatal)\b|Traceback \(most recent|\bfailed to\b|\b(?:deploy(?:ment)?|upload|download|publish|release|push|build)(?:ing)? failed\b"
+                           r"|\b(?:permission|access) denied\b|\bHTTP(?:/\S+)? ?[45]\d\d\b|\bERROR [45]\d\d\b|\breturned error\b|\b404 not found\b", re.I | re.M)
+
+
 def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: list | None = None, remote=None, automated: bool = False) -> tuple[str, str, str, str]:
     """Return (verdict, reason, verified_by, output) for a non-code claim given the tool events earlier in the turn
     (and the previous turn's tools: a reply often opens by summarising what the previous turn did).
@@ -178,7 +183,7 @@ def _judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: l
             return "unverifiable", f"the only {spec.noun} call errored: {label}", label, (last.result or "")[:300]
         else:
             return "contradicted", f"the {spec.noun} call errored: {label}", label, (last.result or "")[:300]
-    if category in ("deployed", "downloaded") and re.search(r"(Traceback|\berror\b|failed|denied|not found|404|403|500)", (last.result or "")[:600], re.I) \
+    if category in ("deployed", "downloaded") and DEPLOY_FAILED.search((last.result or "")[:600]) \
             and not re.search(r"(0 errors?|no errors?|successfully|success)", (last.result or "")[:600], re.I):
         return "contradicted", f"the {spec.noun} output reports an error: {label}", label, (last.result or "")[:300]
     return "backed", f"{spec.noun} confirmed by: {label}", label, (last.result or "")[:300]
