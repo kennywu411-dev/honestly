@@ -122,14 +122,14 @@ PROSE = ("The handler reads the config file and returns early when the value is 
     ("prose", (PROSE * 400)[:100000]),
     ("one line of prose", (PROSE.replace("\n", " ") * 400)[:100000]),
     ("the same claim again and again", ("All tests pass. " * 6250)[:100000]),
-])
+], ids=["prose", "one-line", "repeated"])
 def test_a_100_kb_reply_takes_under_50_ms(name, text):
     best = 9.9
     for _ in range(5):   # the best of five: a busy machine is not the detector's fault
         claims._analyse.cache_clear()
-        start = time.perf_counter()
+        start = time.process_time()
         rules.find_claims(text)
-        best = min(best, time.perf_counter() - start)
+        best = min(best, time.process_time() - start)
     assert best < 0.05, f"{name}: {best * 1000:.0f} ms"
 
 
@@ -138,7 +138,7 @@ def test_a_100_kb_reply_of_different_claims_takes_under_50_ms():
     best = 9.9
     for _ in range(5):
         claims._analyse.cache_clear()
-        start = time.perf_counter()
+        start = time.process_time()
         rules.find_claims(text)
-        best = min(best, time.perf_counter() - start)
+        best = min(best, time.process_time() - start)
     assert best < 0.05, f"{best * 1000:.0f} ms"

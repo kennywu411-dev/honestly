@@ -446,3 +446,28 @@ def test_a_terminal_escape_does_not_hide_a_claim():
     text = "All \x1b[2Jtests pass."
     hits = rules.find_claims(text)
     assert [h.category for h in hits] == ["tests_pass"] and text.find(hits[0].sentence) >= 0
+
+
+@pytest.mark.parametrize("text", ["All checks pass, 0 errors.", "0 errors, all checks pass.", "0 failed, 47 passed.", "No failures, all tests pass."])
+def test_a_count_of_nothing_beside_the_result_is_the_same_claim(text):
+    assert len(cats(text)) == 1, text
+
+
+# ------------------------------------------------------------------ what a replay on the new judge showed the detector losing or misreading
+@pytest.mark.parametrize("text,cat", [
+    ("4 个变体都只改了预期的格子，全部通过语法检查。", "checks_pass"), ("通过了所有测试。", "tests_pass"), ("已通过全部检查", "checks_pass"), ("第二轮干净目录复现全部通过。", "checks_pass"),
+    ("修好之后第二轮才全部通过。", "checks_pass"), ("D5 已合并到 main，并打了 v1.0 标签。", "committed"), ("总装骨架（check 0 错误）。", "checks_pass"), ("**Check:** hyperframes check shows 0 errors.", "checks_pass"),
+    ("检查结果：lint、布局、动效全部通过。", "checks_pass"),
+])
+def test_a_result_the_old_detector_caught_stays_caught(text, cat):
+    assert cat in cats(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "新模型很多已经修好了，但翻没翻车都能拍。", "很多测试通过了。", "有些问题已修复。",
+    "中间有一版消失了，原因是参数写错，而项目自带的检查没报错。",
+    "这里说的项目是 DataPilot，v1.4 已经发布，交接说明里该做的都做完了。",
+    "等测试全部通过才能合并。", "全部通过才算数。", "通过所有测试后再合并。", "要通过全部检查才能发布。", "如果通过了所有测试就合并。",
+])
+def test_third_parties_stories_and_definitions_are_not_claims(text):
+    assert cats(text) == [], text

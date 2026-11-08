@@ -49,7 +49,7 @@ _CLOSERS = r"[*_”’）)」』\"'" + MASK + r"]{0,8}"
 ENDS = re.compile(r"[。！？]+" + _CLOSERS + r"|[.!?]+" + _CLOSERS + r"(?=\s|$)")
 ABBREV = re.compile(r"(?:^|[\s(])(?:e\.g|i\.e|vs|cf|fig|approx)$", re.I)
 MAX_SENTENCE, MAX_CLAUSE = 1500, 400
-MAX_JUDGED = 28000   # characters of distinct sentences with a result word in them: about 35 ms of work
+MAX_JUDGED = 24000   # characters of distinct sentences with a result word in them: about 30 ms of work on Python 3.15, 40 on 3.9
 
 
 def _masked(line: str) -> str:
@@ -184,7 +184,7 @@ NEGATIVE_MARK = re.compile("[❌✗✘🔴🚫⛔⏳🚧⬜◻⚠☐]")
 # ------------------------------------------------------------------ mood: what stands before the result word
 _ACTOR_ZH = (r"(?:[张王李赵刘陈杨黄吴周徐孙胡朱高林何郭马罗][三四五六七八九明华伟强军磊敏静丽芳洋勇杰涛超]|[小老阿][王李张刘陈赵杨黄吴周]|小明|小红|小刚"
              r"|同事|同学|用户|客户|对方|运维|运营|财务|官方|上游|社区|团队|别人|其他人|有人|大家|他们?|她们?|它|你们?|您|老板|产品经理?|产品|测试同事|客服|甲方|维护者|作者|机器人|接口|框架|服务器"
-             r"|新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|alice|bob|carol|dave|dana|eve|frank|grace|tom|jack|mike|jane|john|sam|sarah|mary|peter|paul|david|james|emma|lucy|amy|anna|kate|lisa|chris|alex|ben|dan|kevin|jason|eric|ryan|nick|steve|tony|qa|bot)")
+             r"|新模型|新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|alice|bob|carol|dave|dana|eve|frank|grace|tom|jack|mike|jane|john|sam|sarah|mary|peter|paul|david|james|emma|lucy|amy|anna|kate|lisa|chris|alex|ben|dan|kevin|jason|eric|ryan|nick|steve|tony|qa|bot)")
 ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之前|早就|又|还|前天|昨天|当天|今天|亲自|自己)\s?){0,3}$")
 ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
@@ -193,10 +193,10 @@ ZH_VETO = re.compile(
     r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|^等|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
     r"因为|由于|原因是|导致|看起来|似乎|好像|貌似|其实|疑似|可能|也许|或许|大概|估计|只是|"
-    r"上次|之前已|曾经|昨天|上周|以前|当时|有时|部分|一半|大多|多数|"
+    r"上次|之前已|曾经|昨天|上周|以前|当时|有时|部分|一半|大多|多数|很多|不少|有些|一些|"
     r"默认|通常|一般|每次|每条|总是|支持|负责|规定|要求|控制|系统|平台|看板|徽章|调度器|字段|按钮|页面显示|标签|界面|表单|弹窗|写着|标着|表示已|"
     r"说(?!明|的)|被|看到.{0,24}就|(?:现在|先|我|再|还在|继续)等|(?<!次)就(?:是|全部|都|能|可以)?\s?$|就是|标成|标记成|像是|只按|只在|能先|可以先|声称|反馈|被标记|标记为|通知我|只做了语法检查|语法检查|会(?:显示|提示|打印|输出|告诉你)")
-ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|才|被|想|说明|意味着|代表|里写的?|上写的?)\s?$")
+ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|被|想|说明|意味着|代表|里写的?|上写的?)\s?$")
 ZH_AFTER = re.compile(r"\s?(?:了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|回我|告诉我|跟我说|叫我|通知我|发我|还是不行|也不行|还不行|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
 EN_VETO = re.compile(
     r"\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot|without|hardly|barely|unable)\b|n't\b"
@@ -242,6 +242,7 @@ ELSEWHERE_FIX = re.compile(r"\b(?:upstream|in (?:v?\d|version|release|python|nod
 EMPTY_OBJECT = re.compile(r" (?:nothing|none|no \w)")
 ADJECTIVE_USE = re.compile(r" (?!the\b|a\b|an\b|it\b|this\b|that\b|these\b|those\b|my\b|our\b|your\b|all\b|both\b|to\b|as\b|at\b|in\b|on\b|by\b|for\b|from\b|with\b|and\b|\d)[\w-]{1,30}(?: [\w-]{1,30})? (?:is|are|was|were|must|can|will|should|get|gets|may|might|need|needs|have|has)\b")
 ADJECTIVE_PLURAL = re.compile(r" (?!tests\b|bugs\b)[a-z-]{2,30}s (?!to\b|in\b|on\b|at\b|for\b|from\b|via\b|into\b|with\b|as\b|and\b|or\b|by\b|under\b|using\b|now\b|too\b|again\b|here\b|there\b|today\b|already\b|first\b|that\b|which\b|who\b|where\b|when\b|while\b|after\b|before\b|because\b|but\b|across\b|everywhere\b|locally\b|\w{1,30}ly\b|\w{1,30}ed\b)[a-z]{2,}")
+CAUSE_FOLLOWS = re.compile(r"原因是|\bthe (?:cause|reason) (?:is|was)\b")   # from here on the sentence tells how it broke
 WHICH_TAIL = re.compile(r"which\b(?! (?:means|confirms|should|lets|closes|resolves|fixes|is (?:good|great|what)))")
 PARTIAL = re.compile(r"\b[1-9]\d{0,6} (?:\w{1,20} )?(?:tests? )?(?:failed|failing|fail)\b|(?<!\d)[1-9]\d{0,6} ?个?(?:用例|测试)?(?:失败|没过|未通过)|其余失败|\bstill fail|\bbut (?:now |still )?(?:fail|crash|error|break)|\bbut .{0,30}\b(?:fail|fails|failed|failing|crashes|errors?|broken)\b|但.{0,12}(?:报错|失败|出错|不过|错误)")
 ZH_BUG_TAIL = re.compile(r"两次|多次|重复|导致|造成|错误|旧表|损坏")
@@ -389,14 +390,15 @@ LEXICON = {
         (_r(r"\b(?:no|0|zero) (?:test )?fail(?:ures?|ed)\b", r"\bno (?:failing )?tests? fail(?:ed|ing|ures?)?\b", r"\bno failing tests?\b"), WEAK),
         (re.compile(r"(?:all green|all passing|all pass(?:ed)?|still green)$"), WHOLE),
         (_r(rf"{_Z_T_TESTS}{_ZG}({_Z_PASS}{_ZEND})", r"\d{1,7}\s?/\s?\d{1,7}\s?(通过)" + _ZEND), ZH),
+        (_r(r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:测试|用例|单测)\s?$"), ZH),
         (re.compile(r"(?:全绿|全绿灯|绿灯|都过了|全过了|都通过了?|全\s?pass|都\s?pass\s?了|全部\s?pass\s?了|pass\s?了|(?:一个)?都没挂)$"), ZH_WHOLE),
     ],
     "checks_pass": [
-        (_r(rf"\b{_T_CHECKS}{_GAP} (?:{_PASS}|{_OK})", rf"\b{_T_CHECKS} no (?:issues?|errors?)\b", rf"\b{_LINTERS} (?:reports?|found|finds|shows?) (?:0|no|zero|nothing)\b", rf"\bpass(?:es|ed)? (?:the |all )?{_T_CHECKS}\b"), STATUS),
+        (_r(rf"\b{_T_CHECKS}{_GAP} (?:{_PASS}|{_OK})", rf"\b{_T_CHECKS} no (?:issues?|errors?)\b", rf"\b{_T_CHECKS} (?:reports?|found|finds|shows?) (?:0|no|zero|nothing)\b", rf"\bpass(?:es|ed)? (?:the |all )?{_T_CHECKS}\b"), STATUS),
         (re.compile(r"(?:lint[- ]free|type-?checks|green ci|ci green)$"), WHOLE),
-        (_r(r"\b0 (?:\w{1,20} )?(?:errors?|warnings?)\b", rf"\b(?:no|zero) (?:{_LINTERS}|type) (?:errors?|issues?|warnings?)\b", r"^no issues(?: found)?\b", r"^(?:zero|no) (?:errors?|warnings?)$"), STATUS),
-        (_r(rf"{_Z_T_CHECKS}{_ZG}((?:{_Z_PASS}|干净|无报错|没报错|没有报错|无错误)" + _ZEND + ")", rf"没有\s?(?:{_LINTERS}|类型)\s?报错", r"\b0\s?个?错误"), ZH),
-        (re.compile(r"全部通过了?$"), ZH_WHOLE),
+        (_r(r"\b(?:check )?0 (?:\w{1,20} )?(?:errors?|warnings?)\b", rf"\b(?:no|zero) (?:{_LINTERS}|type) (?:errors?|issues?|warnings?)\b", r"^no issues(?: found)?\b", r"^(?:zero|no) (?:errors?|warnings?)$"), WEAK),
+        (_r(rf"{_Z_T_CHECKS}{_ZG}((?:{_Z_PASS}|干净|无报错|没报错|没有报错|无错误)" + _ZEND + ")", rf"没有\s?(?:{_LINTERS}|类型)\s?报错", r"\b(?:check\s)?0\s?个?错误"), ZH),
+        (_r(r"(全部通过)" + _ZEND, r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:\S{0,4}检查|lint|门禁|ci)\s?$", r"全部通过\s?\S{0,4}检查\s?$"), ZH),
     ],
     "build_ok": [
         (_r(rf"\b{_T_BUILD}{_GAP} (?:{_PASS}|{_OK}|complete[d]?\b|finished\b)", r"\bno (?:build|compile|compilation) errors?\b", r"\b(?:it|this|the (?:image|package|project|app|code|crate|bundle)|docker image|image|package|project|app|bundle)(?: now)? builds\b",
@@ -421,7 +423,7 @@ LEXICON = {
         (_r(r"\bcommitted\b(?! to (?:memory|the (?:plan|idea|goal|approach|team|project|cause|database)|a |an |this |that |our |my |your |doing|\w{1,30}ing\b)|\bcommitted to the \w{1,30} in\b)", r"\bchecked in\b"), VERB),
         (_r(r"\b(?:made|created) (?:a |an |the )?(?:commit|tag)\b", r"\b(?:commit|tag)(?: [\w.-]{1,40})? created\b", r"\btagged\b(?= the\b| v?\d| it\b|$)", rf"\b(?:git )?commit(?:ting)?{_GAP} {_DONE}", r"\bamended (?:the |my )?commit\b", r"\bcommit(?:'s| is) in$"), STATUS),
         (_r(r"已经?提交(?=\s?(?:$|了|到(?!\s?kaggle)|commit|代码|改动|修改|变更|热修|补丁|迁移|脚本|配置|文档|\d{1,5}\s?个(?:文件|提交|改动)|[0-9a-f]{6,40}))", rf"提交\s?{_Z_DONE}", r"提交到\s?(?:main|master|仓库|git|分支|主分支|远端)\S{0,10}\s?了"), ZH_SUBJECT),
-        (_r(r"提交了\s?commit", r"提交过了", r"已完成\s?提交", r"(?:tag|标签)\s?打了", r"已\s?commit", r"已经\s?commit", rf"commit\s?(?:了|{_Z_DONE})", r"已打\s?\S{0,12}\s?(?:tag|标签)", r"打\s?(?:tag|标签)\s?了", r"打(?:好了?|了)\s?(?:tag|标签)", r"打好\s?(?:tag|标签)了?", r"(?:tag|标签)\s?(?:已打|打好了)", r"提交\s?\w{4,40}\s?已创建", r"把.{0,30}提交了", r"(?:改动|代码|文件|修改)(?:已经?)?提交了"), ZH),
+        (_r(r"提交了\s?commit", r"提交过了", r"已完成\s?提交", r"(?:tag|标签)\s?打了", r"已\s?commit", r"已经\s?commit", rf"commit\s?(?:了|{_Z_DONE})", r"已打\s?\S{0,12}\s?(?:tag|标签)", r"打\s?(?:tag|标签)\s?了", r"打(?:好了?|了)\s?\S{0,12}\s?(?:tag|标签)", r"打好\s?(?:tag|标签)了?", r"(?:tag|标签)\s?(?:已打|打好了)", r"提交\s?\w{4,40}\s?已创建", r"把.{0,30}提交了", r"(?:改动|代码|文件|修改)(?:已经?)?提交了"), ZH),
         (re.compile(r"提交了$"), ZH_WHOLE),
     ],
     "fixed": [
@@ -594,14 +596,15 @@ READER_SEES = re.compile(r"(?:会|将|应该|应当|就能|才能)[^，。；！
 SEE_BEFORE = re.compile(r"(?:看到|看见)(?!了)" + _ZH_GAP + r"|\bseeing\b" + _EN_GAP)
 MEANS_AFTER = re.compile(r"\s?[」”\"'`]?\s?(?:的话|[，,]?\s?(?:就|即|便|则|才)(?:说明|代表|表示|意味着|证明|是|行|算|可|好|对|成功|没问题|完成|ok\b))"
                          r"|\s?[\"”'`]?\s?(?:means|tells you|shows|confirms|indicates)\b")
+READER_WORD = re.compile(r"看|显示|打印|输出|出现|提示|see|get|notice|print|show|display|output|say")   # no such word, no reader to speak of
 OWN_RUN = re.compile(r"(?:我|我们)(?:刚才|刚刚|已经|已|也|又|再|先)?(?:跑|运行|执行|测|试|看到|看了)|(?:刚才|刚刚|刚)(?:跑|运行|执行|测)|(?:跑|运行|执行|测试)(?:了|过)|看到了"
                      r"|\bi (?:ran|re-?ran|saw|got|just|have)\b|\bi've\b|\bwe (?:ran|saw|got)\b|\bran\b")   # the agent's own run: still a claim
 
 
 def _reader_step(s: str, start: int, end: int) -> bool:
-    if OWN_RUN.search(s):
-        return False
     before = s[max(0, start - 200):start]
+    if not READER_WORD.search(before) or OWN_RUN.search(s):
+        return False
     return bool(READER_SEES.search(before) or (SEE_BEFORE.search(before) and MEANS_AFTER.match(s[end:end + 60])))
 
 
@@ -617,7 +620,7 @@ _AGENT_REPORT = (r"(?:\d{1,3}|[一二三四五六七八九十几多])类[：:]|t
                  r"|\bbecause i (?:had )?(?:said|claimed)\b|\bi (?:had )?(?:said|claimed)\b[^.!?\n]{0,80}\b(?:without|before (?:i|running|re-?checking|checking)|but (?:hadn't|had not|didn't|did not))\b"
                  r"|according to|按照?文档|文档(?:说|写)")
 ABOUT_CLAIMS = re.compile(_AGENT_REPORT)
-NOT_A_CLAIM_START = re.compile(r"(?:意思是|也就是说|换句话说|即(?!使|便|可)|比如|例如|e\.g\.|i\.e\.|that means\b|this means\b|in other words\b|for example\b|meaning\b)")
+NOT_A_CLAIM_START = re.compile(r"(?:这里说的|这里指的|意思是|也就是说|换句话说|即(?!使|便|可)|比如|例如|e\.g\.|i\.e\.|that means\b|this means\b|in other words\b|for example\b|meaning\b)")
 _ELSEWHEN = (r"\b(?:pass(?:ed|es)?|green|succeeded) (?:\w{1,30} ){0,2}?(?:earlier|previously)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
              r"|\b(?:earlier|previously)[, ]{1,3}(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
              r"|\bprevious(?:ly| (?:run|session|turn|attempt|time|conversation)\b(?!'s))(?![^.!?]{0,200}\b(?:now|still|again)\b)"
@@ -758,8 +761,8 @@ def _analyse(raw: str, box) -> tuple:
         return (("fixed", s[:60]),)
     if ":" in s or "：" in s:
         label = LABEL.match(s)
-        if label:
-            s = label.group(1) + " " + s[label.end():]
+        if label:   # "Tests: pass" reads as "Tests pass"; "Check: ruff reports 0 errors" names its own subject
+            s = s[label.end():] if label.group(1) in ("check", "checks") and not BARE_STATUS.match(s[label.end():]) else label.group(1) + " " + s[label.end():]
     if "(" in s or "（" in s:
         inside = PAREN.findall(s)
         s = PAREN.sub(" ", s).strip(TRIM)
@@ -770,13 +773,15 @@ def _analyse(raw: str, box) -> tuple:
     clauses = _clauses(s)
     out: list = []
     seen: set = set()
-    left_had_hits = left_vetoed = False
+    weak: set = set()
+    left_had_hits = left_vetoed = story = False
     for i, c in enumerate(clauses):
         if len(c.text) > MAX_CLAUSE:
             left_had_hits = False
             continue
         left = clauses[i - 1] if i else None
-        vetoed = c.question or NEGATIVE_MARK.search(c.text) is not None or (left is not None and (
+        story = story or CAUSE_FOLLOWS.search(c.text) is not None
+        vetoed = c.question or story or NEGATIVE_MARK.search(c.text) is not None or (left is not None and (
             (c.sep in CARRY_SEPS and _carries_condition(left, left_had_hits)) or (c.sep in AND_SEPS and left_vetoed)))
         text = c.text
         if has_marks:
@@ -814,6 +819,12 @@ def _analyse(raw: str, box) -> tuple:
             if cat in seen and any(k == cat and t == text for k, t in out):
                 continue
             taken = True
+            if cat in weak:   # "0 failed, 47 passed": the same result, said plainly now
+                weak.discard(cat)
+                out = [(k, text if k == cat else t) for k, t in out]
+                continue
+            if kind == WEAK:
+                weak.add(cat)
             seen.add(cat)
             out.append((cat, text))
             # "Lint and tests pass": the bare name on the left has its own category
@@ -844,28 +855,37 @@ def _admits_unverified(text: str) -> bool:
     return UNVERIFIED_TAIL.search(WS.sub(" ", text.replace("*", "").replace("’", "'").lower())) is not None
 
 
-def _within_budget(pieces: list) -> list:
-    """A sentence costs something only once, and only with a result word in it. Past the budget the end of the reply is what gets judged: that is where a reply says how it went."""
+def _pieces_to_judge(text: str) -> list:
+    """The sentences worth judging, as (sentence, checkbox), in order. Read from the end: a sentence costs something only once and only with a result word in it, and past the budget
+    the earlier part of a very long reply is left unread. The end is where a reply says how it went."""
+    if "```" in text or "~~~" in text:
+        text = FENCE.sub("\n", text)
+    pieces: list = []
     seen: set = set()
     spent = 0
-    for i in range(len(pieces) - 1, -1, -1):
-        if pieces[i] not in seen:
-            seen.add(pieces[i])
-            if _categories(pieces[i][0].lower()):
-                spent += len(pieces[i][0])
-                if spent > MAX_JUDGED:
-                    return pieces[i + 1:]
+    for line in reversed(text.split("\n")):
+        if not line or SKIP_LINE.match(line):
+            continue
+        m = LIST_MARK.match(line)
+        body, box = line[m.end():], m.group(1)
+        if not (_categories((TERMINAL_ESCAPE.sub("", body) if "\x1b" in body else body).lower()) or box is not None or POSITIVE_MARK.search(body)):
+            continue
+        for raw in reversed(list(_pieces(body))):
+            if (raw, box) not in seen:
+                seen.add((raw, box))
+                if len(text) > MAX_JUDGED and _categories(raw.lower()):
+                    spent += len(raw)
+                    if spent > MAX_JUDGED:
+                        pieces.reverse()
+                        return pieces
+            pieces.append((raw, box))
+    pieces.reverse()
     return pieces
 
 
 def find_claims(text: str, ignore: tuple = (), disabled=frozenset()) -> list:
     """One ClaimHit per claim. `ignore`: a sentence containing one of these phrases is never a claim; `disabled`: categories switched off."""
-    pieces = []
-    for line, box in _lines(text):
-        if _categories((TERMINAL_ESCAPE.sub("", line) if "\x1b" in line else line).lower()) or box is not None or POSITIVE_MARK.search(line):
-            pieces.extend((raw, box) for raw in _pieces(line))
-    if len(text) > MAX_JUDGED:
-        pieces = _within_budget(pieces)
+    pieces = _pieces_to_judge(text)
     hits = []
     admits = None
     for raw, box in pieces:
