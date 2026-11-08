@@ -320,13 +320,13 @@ def cmd_pr_note(a):
     from . import prnote
     agents = tuple(a.agent) if a.agent else None
     ev, block = prnote.run(os.getcwd(), base=a.base, since=a.since, agents=agents, claude_root=a.root, codex_root=a.codex_root)
-    if a.gh:
-        print(prnote.update_pr(prnote.repo_root(os.getcwd()), block, a.pr))
-    elif a.out:
+    if a.out:
         with open(a.out, "w", encoding="utf-8") as fh:
             fh.write(block)
         print(f"wrote {a.out}", file=sys.stderr)
-    else:
+    if a.gh:
+        print(prnote.update_pr(prnote.repo_root(os.getcwd()), block, a.pr))
+    elif not a.out:
         print(block, end="")
     if a.check and ev.status not in ("pass", "no-edit"):
         sys.exit(1)

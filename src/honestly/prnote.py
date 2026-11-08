@@ -12,9 +12,10 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 
-from . import audit, claude_code, codex, rules, verdicts
+from . import audit, claude_code, codex, config, rules, verdicts
 from . import agents as _ag
 from .programs import program
 
@@ -41,6 +42,8 @@ def base_ref(root: str, base: str | None) -> str:
     if base:
         if base.startswith("-"):
             raise SystemExit(f"honestly pr-note: --base takes a branch, not {base!r}")
+        if not _git(["rev-parse", "--verify", "--quiet", base + "^{commit}"], root):
+            raise SystemExit(f"honestly pr-note: --base {base!r} is not a branch or commit here. See `git branch -a`.")
         return base
     head = _git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], root)   # origin/main
     if head and not head.startswith("-"):   # a ref can be named like an option, and this name goes on a git command line
@@ -71,13 +74,33 @@ def window_start(root: str, base: str, since: str | None) -> tuple[str, str]:
             return _utc(since), f"since {since}"
         except ValueError:
             raise SystemExit("honestly pr-note: --since takes 30m, 2h, 3d, 1w or an ISO time such as 2026-10-31T09:00") from None
-    mb = _git(["merge-base", "HEAD", base], root) if base else ""
-    ref = mb or "HEAD"
-    when = _git(["log", "-1", "--format=%cI", ref], root)
-    if not when:
+    head = _git(["rev-parse", "--verify", "--quiet", "HEAD"], root)
+    if not head:
         return "1970-01-01T00:00:00", "all history"
-    label = f"since the branch left {base}" if mb and mb != _git(["rev-parse", "HEAD"], root) else "since the last commit"
-    return _utc(when), label
+    left = [f for f in _fork_points(root, base) if f != head]
+    if left:
+        return min(_utc(_git(["log", "-1", "--format=%cI", f], root)) for f in left), f"since the branch left {base}"
+    # no commit of its own: on the base itself, or no base known. The last commit may hold all the work, so the window starts before it.
+    pushed = _git(["merge-base", "HEAD", "@{u}"], root)
+    if pushed and pushed != head:
+        return _utc(_git(["log", "-1", "--format=%cI", pushed], root)), "since the last push"
+    parent = _git(["rev-parse", "--verify", "--quiet", "HEAD~1"], root)
+    if parent:
+        return _utc(_git(["log", "-1", "--format=%cI", parent], root)), "since the commit before HEAD"
+    return "1970-01-01T00:00:00", "all history"
+
+
+def _fork_points(root: str, base: str) -> list:
+    """Where this branch left its base, now and at every earlier position of the branch. Merging the base in or rebasing on
+    it moves the merge base past the work already done, so the earliest one still seen in the reflog is the branch's start."""
+    if not base:
+        return []
+    refs = ["HEAD"]
+    branch = _git(["symbolic-ref", "-q", "--short", "HEAD"], root)
+    if branch and base not in (branch, f"origin/{branch}"):
+        refs += _git(["reflog", "show", "--format=%H", branch], root).split()[:200]
+    points = [_git(["merge-base", ref, base], root) for ref in dict.fromkeys(refs)]
+    return list(dict.fromkeys(p for p in points if p))
 
 
 # ------------------------------------------------------------- transcripts
@@ -159,10 +182,14 @@ def collect_turns(root: str, cutoff: str, agents=("claude-code", "codex", "curso
     if "cursor" in agents:
         for path in _ag.cursor_sessions():
             if _recent(path, cutoff) and _file_mentions(path, root):
-                sessions.append(_ag.cursor_parse(path))
+                turns = _ag.cursor_parse(path)
+                stamp = dt.datetime.fromtimestamp(os.path.getmtime(path), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+                for t in turns:
+                    t.ts = t.ts or stamp   # Cursor's transcripts keep no times: the file's time places the session
+                sessions.append(turns)
     if "gemini" in agents:
         for path in _ag.gemini_sessions():
-            if _recent(path, cutoff) and _file_mentions(path, root):
+            if _recent(path, cutoff) and (_inside(_ag._gemini_project(path), root) or _file_mentions(path, root)):
                 sessions.append(_ag.gemini_parse(path))
     out = []
     for turns in sessions:
@@ -349,7 +376,7 @@ def _summary_line(kind: str, out: str) -> str:
 CI_READ = re.compile(r"\bgh (?:pr checks|run (?:view|list|watch))\b|statusCheckRollup", re.I)   # a remote run's status, not a run on this tree
 
 
-def _judge(kind: str, seg: str, e, root: str = "") -> str:
+def _judge(kind: str, seg: str, e, root: str = "", custom=()) -> str:
     if CI_READ.search(seg):
         return "no result line"
     verdict, why = audit.judge_output("tests_pass" if kind == "test" else "build_ok", seg, e)
@@ -361,7 +388,10 @@ def _judge(kind: str, seg: str, e, root: str = "") -> str:
         if "no tests" in why:
             return "no tests"
         return "failed" if e.is_error or "errored" in why else "no result line"   # a pipe that hid the result says nothing either way
-    return "narrowed" if why.startswith("narrowed") else "no result line"
+    if why.startswith("narrowed"):
+        return "narrowed"
+    # a command the user named as their test run, exiting clean, with no output this tool can read
+    return "passed" if kind == "test" and e.is_error is False and any(c in seg for c in custom) else "no result line"
 
 
 CD = re.compile(r"(?:^|[;{]|\bdo|\bthen|\belse)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)")
@@ -436,11 +466,12 @@ def edit_in_repo(e, turn, root: str) -> str | None:
     return "a shell edit" if mentions(e.text, root) else None   # `for d in repo other; do cd $d && …`
 
 
-def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidence:
+def gather(root: str, cutoff: str, window: str, sessions_turns: list, custom=()) -> Evidence:
     ev = Evidence(root=root, window=window, cutoff=cutoff, sessions=len(sessions_turns))
     events = []          # (ts, event, edited file or None) across sessions, in time order
     owner = {}           # id(event) -> its turn
     findings = []
+    seen_calls = set()   # a forked session repeats its parent's tool calls under the same ids
     for turns in sessions_turns:
         ag = turns[0].agent
         if ag not in ev.agents:
@@ -450,6 +481,10 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
             for e in t.events:
                 if e.kind != "tool":
                     continue
+                call = (e.tool_use_id, e.ts, e.name, e.text)
+                if e.tool_use_id and call in seen_calls:
+                    continue
+                seen_calls.add(call)
                 owner[id(e)] = t
                 target = edit_in_repo(e, t, root) if audit._is_edit(e) else None
                 if target is not None or relevant(e, t, root):
@@ -467,7 +502,8 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
     for i, (ts, e, _) in enumerate(events):
         if e.name not in SHELL or not e.text:
             continue
-        if e.is_error is None and not e.result:
+        no_output = owner[id(e)].agent == "cursor"   # Cursor's transcripts keep what ran, never what it printed
+        if e.is_error is None and not e.result and not no_output:
             continue   # still running (or never returned): nothing to report yet
         same = i == last_edit_i   # `sed -i … && pytest` / `python - <<EOF (writes) … && ruff check`: only what follows the edit counts
         turn = owner[id(e)]
@@ -484,13 +520,19 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
             if hooked is not None:   # `ruff check x && git commit`: the test summary in the output is the commit hook's
                 break
             runner, scope = scope_of(seg, root) if kind == "test" else ("", ())
-            ev.checks.append(Check(kind, _show(seg)[:160], _judge(kind, seg, e, root), _summary_line(kind, e.result), ts, after_edit, runner, scope))
+            result = "no output" if no_output else _judge(kind, seg, e, root, custom)
+            ev.checks.append(Check(kind, _show(seg)[:160], result, _summary_line(kind, e.result), ts, after_edit, runner, scope))
             found = True
             break   # one row per command; a test run counts before a build
         if not found and hooked is not None:
             ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", hooked), _summary_line("test", hooked.result), ts, after_edit, "git commit"))
     decided = {"backed": "verified", "unbacked": "unverified", "contradicted": "contradicted", "unverifiable": "could not check"}
+    seen_claims = set()
     for f in findings:
+        key = audit.finding_key(f)
+        if key in seen_claims:
+            continue
+        seen_claims.add(key)
         if f.verdict in decided:
             ev.claims[decided[f.verdict]] = ev.claims.get(decided[f.verdict], 0) + 1
             if f.verdict in ("unbacked", "contradicted"):
@@ -576,11 +618,20 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
             if c.command in seen:
                 continue
             seen.add(c.command); uniq.append(c)
-        uniq = list(reversed(uniq))[-max_rows:]
+        uniq = list(reversed(uniq))
+        hidden = 0
+        if len(uniq) > max_rows:   # a failure is never the row that gets cut
+            failed = [c for c in uniq if c.result == "failed"]
+            others = [c for c in uniq if c.result != "failed"]
+            keep = {id(c) for c in failed + others[-max(0, max_rows - len(failed)):]} if max_rows > len(failed) else {id(c) for c in failed}
+            hidden = len(uniq) - len(keep)
+            uniq = [c for c in uniq if id(c) in keep]
         lines += ["", "| Check after the last edit | Result | Output |", "|---|---|---|"]
-        icon = {"passed": "✅ passed", "narrowed": "⚠️ narrowed run", "failed": "❌ failed", "no tests": "⚠️ no tests collected", "no result line": "⚠️ no pass/fail line"}
+        icon = {"passed": "✅ passed", "narrowed": "⚠️ narrowed run", "failed": "❌ failed", "no tests": "⚠️ no tests collected", "no result line": "⚠️ no pass/fail line", "no output": "⚠️ no output recorded"}
         for c in uniq:
             lines.append(f"| {_code(_redact(c.command))} | {icon.get(c.result, c.result)} | {_code(_redact(c.line))} |")
+        if hidden:
+            lines += ["", f"{hidden} more check{'s' if hidden != 1 else ''} not shown."]
     before = len([c for c in ev.checks if not c.after_edit])
     if before and not ev.last_edit:
         lines += ["", f"{before} check run{'s' if before != 1 else ''} in this window, none of them after an agent's code edit."]
@@ -591,9 +642,12 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
         order = ["verified", "unverified", "contradicted", "could not check"]
         lines += ["", "Agent claims in this work: " + ", ".join(f"{ev.claims.get(k, 0)} {k}" for k in order) + "."]
     if ev.flagged:
-        lines += ["", "<details><summary>Claims with nothing behind them</summary>", ""]
+        title = "Claims with nothing behind them, or a failed check" if any(item[0] == "contradicted" for item in ev.flagged) else "Claims with nothing behind them"
+        lines += ["", f"<details><summary>{title}</summary>", ""]
         for item in ev.flagged[:6]:
             lines.append(_flagged_line(item, _redact))
+        if len(ev.flagged) > 6:
+            lines.append(f"- and {len(ev.flagged) - 6} more.")
         lines += ["", "</details>"]
     who = ", ".join(names.get(a, a) for a in ev.agents)
     src = (f"Read from {ev.sessions} local {who} session{'s' if ev.sessions != 1 else ''} that worked in this repository"
@@ -644,10 +698,14 @@ def update_pr(root: str, block: str, pr: str | None = None) -> str:
 def run(cwd: str, base: str | None = None, since: str | None = None, agents=None, claude_root=None, codex_root=None):
     from . import __version__
     root = repo_root(cwd)
+    cfg = config.load(root)
+    config.apply(cfg)   # the same ignore list, switched-off categories and custom checks as the hooks
     b = base_ref(root, base)
     cutoff, window = window_start(root, b, since)
+    if not b and not since:
+        print(f"honestly pr-note: no base branch found (origin/HEAD, main, master), so the window is: {window}. Pass --base <branch> for the whole branch.", file=sys.stderr)
     turns = collect_turns(root, cutoff, agents or ("claude-code", "codex", "cursor", "gemini"), claude_root, codex_root)
-    ev = gather(root, cutoff, window, turns)
+    ev = gather(root, cutoff, window, turns, cfg.get("verify_commands", ()))
     status, decisive = ev.verdict
     if status in ("pass", "narrowed"):
         ev.changed = changed_after(root, decisive.ts)

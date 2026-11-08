@@ -142,7 +142,7 @@ def test_cli_check_exit_code(tmp_path, monkeypatch, capsys):
 def test_window_defaults_to_where_the_branch_left_its_base(tmp_path):
     root = _repo(tmp_path)
     cutoff, label = prnote.window_start(root, "", None)
-    assert label == "since the last commit" and cutoff.startswith("20")
+    assert label == "all history" and cutoff.startswith("19")   # one commit: a window starting at it would hide the work it holds
     assert prnote.window_start(root, "", "2h")[1] == "last 2h"
     with pytest.raises(SystemExit):
         prnote.window_start(root, "", "yesterday")

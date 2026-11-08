@@ -310,3 +310,169 @@ def test_switching_branch_rewrites_what_differs_and_is_called_out(tmp_path):
     git(root, "commit", "-qam", "a", when="2026-02-01T10:30:00Z")
     git(root, "checkout", "-q", "main")
     assert note(root, cr)[0].status == "stale"
+
+
+# ------------------------------------------------------------------ the window
+def branch_with_failing_work(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    git(root, "checkout", "-qb", "feature")
+    session(cr, root, [EDIT, FAIL, ("say", "Fixed.")])
+    git(root, "commit", "-qm", "work", "--allow-empty", when="2026-02-01T10:30:00Z")
+    git(root, "checkout", "-q", "main")
+    (tmp_path / "app" / "m.py").write_text("m = 1\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "main moves", when="2026-02-01T11:00:00Z")
+    git(root, "checkout", "-q", "feature")
+    return root, cr
+
+
+def test_merging_the_base_in_does_not_erase_the_evidence(tmp_path):
+    root, cr = branch_with_failing_work(tmp_path)
+    git(root, "merge", "-q", "--no-edit", "main", when="2026-02-01T11:30:00Z")
+    ev, block = note(root, cr, since=None)
+    assert ev.status == "fail" and ev.sessions == 1, block
+    assert "No local agent session" not in block
+
+
+def test_rebasing_on_the_base_does_not_erase_the_evidence(tmp_path):
+    root, cr = branch_with_failing_work(tmp_path)
+    git(root, "rebase", "-q", "main")
+    ev, block = note(root, cr, since=None)
+    assert ev.status == "fail" and ev.sessions == 1, block
+
+
+def test_a_committed_failure_on_the_base_branch_is_still_seen(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    (tmp_path / "app" / "b.py").write_text("b = 1\n")
+    session(cr, root, [EDIT, FAIL])
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "work", when="2026-02-01T10:30:00Z")
+    ev, block = note(root, cr, since=None)
+    assert ev.status == "fail", block
+    assert "since the commit before HEAD" in block
+
+
+def test_a_wrong_base_is_an_error_not_a_quiet_other_window(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    with pytest.raises(SystemExit) as e:
+        note(root, cr, since=None, base="nope")
+    assert "nope" in str(e.value)
+
+
+def test_no_base_branch_found_says_so(tmp_path, capsys):
+    root = tmp_path / "t"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "trunk")
+    (root / "a.py").write_text("x\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "one", when="2026-02-01T08:00:00Z")
+    git(root, "commit", "-qm", "two", "--allow-empty", when="2026-02-01T09:00:00Z")
+    prnote.run(str(root), agents=("claude-code",), claude_root=str(tmp_path / "c"))
+    assert "--base" in capsys.readouterr().err
+
+
+# ------------------------------------------------------------------ nothing hidden, nothing counted twice
+def test_a_failure_is_never_cut_off_by_the_row_cap(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, FAIL] + [("bash", f"pytest tests/d{i}/ -q", f"{i + 1} passed\n") for i in range(9)])
+    ev, block = note(root, cr)
+    assert ev.status == "fail" and "| `pytest -q` | ❌ failed |" in block
+    assert "2 more checks not shown" in block
+
+
+def test_more_passes_than_rows_says_how_many_are_hidden(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT] + [("bash", f"pytest tests/d{i}/ -q", f"{i + 1} passed\n") for i in range(9)] + [PASS])
+    _, block = note(root, cr)
+    assert "| `pytest -q` | ✅ passed |" in block and block.count("| ✅ passed |") + block.count("narrowed run |") == 8
+    assert "2 more checks not shown" in block
+
+
+def test_flagged_claims_beyond_the_list_are_counted(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, ("say", "All tests pass. Build succeeded. Pushed to origin. Committed. Fixed the bug. It compiles cleanly. Render complete. Lint passes.")])
+    _, block = note(root, cr)
+    assert "8 unverified" in block and block.count("- *unverified*") == 6 and "and 2 more" in block
+
+
+def test_a_forked_session_is_counted_once(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, PASS, ("edit", "a.py"), ("say", "All tests pass.")], name="s1")
+    d = os.path.join(str(cr), prnote._encoded(root))
+    with open(os.path.join(d, "s1.jsonl"), encoding="utf-8") as src, open(os.path.join(d, "fork.jsonl"), "w", encoding="utf-8") as dst:
+        dst.write(src.read())
+    ev, block = note(root, cr)
+    assert ev.claims.get("unverified") == 1 and block.count("- *unverified*") == 1
+    assert "1 earlier check run before" in block
+
+
+def test_two_real_sessions_are_not_a_fork(tmp_path):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, ("say", "All tests pass.")], name="s1")
+    session(cr, root, [EDIT, ("say", "All tests pass.")], name="s2")
+    assert note(root, cr)[0].claims.get("unverified") == 2
+
+
+def test_the_users_config_reaches_the_note(tmp_path):
+    from honestly import config
+    root, cr = repo(tmp_path), tmp_path / "c"
+    session(cr, root, [EDIT, ("bash", "./ci.sh --all", "all good\n"), ("say", "All tests pass. I've emailed them.")])
+    assert note(root, cr)[0].status == "none"
+    config.add_to("verify_commands", "./ci.sh --all", project=True, cwd=root)
+    config.add_to("off", "sent", project=True, cwd=root)
+    ev, block = note(root, cr)
+    assert ev.status == "pass", block   # the user said this command is their test run, and it exited clean
+    assert "emailed" not in block
+    config.apply(config.load(str(tmp_path)))
+
+
+def test_a_custom_check_that_fails_is_a_failure(tmp_path):
+    from honestly import config
+    root, cr = repo(tmp_path), tmp_path / "c"
+    config.add_to("verify_commands", "./ci.sh --all", project=True, cwd=root)
+    session(cr, root, [EDIT, ("bash", "./ci.sh --all", "boom\n", True)])
+    assert note(root, cr)[0].status == "fail"
+    config.apply(config.load(str(tmp_path)))
+
+
+def test_a_cursor_session_says_it_cannot_tell(tmp_path, monkeypatch):
+    from honestly import rules
+    monkeypatch.setattr(rules, "path_is_doc", lambda p: p.endswith(".md"))
+    root = repo(tmp_path)
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    d = home / ".cursor" / "projects" / "x" / "agent-transcripts"
+    d.mkdir(parents=True)
+    rows = [{"role": "user", "message": {"content": [{"type": "text", "text": "fix"}]}},
+            {"role": "assistant", "message": {"content": [{"type": "tool_use", "name": "Edit", "input": {"file_path": os.path.join(root, "a.py")}}]}},
+            {"role": "assistant", "message": {"content": [{"type": "tool_use", "name": "Shell", "input": {"command": f"cd {root} && pytest -q"}}]}},
+            {"role": "assistant", "message": {"content": [{"type": "text", "text": "All tests pass."}]}}]
+    (d / "c.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    ev, block = prnote.run(root, agents=("cursor",), since="2026-02-01T09:00:00Z")
+    assert ev.sessions == 1 and ev.status == "unclear", block
+    assert "Cursor" in block and "no output recorded" in block and "Tests ran after" not in block
+
+
+def test_a_gemini_session_in_the_repo_counts_without_naming_it(tmp_path, monkeypatch):
+    root = repo(tmp_path)
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    d = home / ".gemini" / "tmp" / "abc"
+    (d / "chats").mkdir(parents=True)
+    (d / ".project_root").write_text(root, encoding="utf-8")
+    rows = [{"id": "1", "type": "user", "timestamp": TS.format(0, 1), "content": [{"text": "fix"}]},
+            {"id": "2", "type": "gemini", "timestamp": TS.format(0, 2), "model": "g", "content": "", "toolCalls": [{"name": "replace", "args": {"file_path": "a.py"}, "result": "ok", "status": "success"}]},
+            {"id": "3", "type": "gemini", "timestamp": TS.format(0, 3), "model": "g", "content": "", "toolCalls": [{"name": "run_shell_command", "args": {"command": "pytest -q"}, "result": "3 passed", "status": "success"}]}]
+    (d / "chats" / "session-1.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    ev, _ = prnote.run(root, agents=("gemini",), since="2026-02-01T09:00:00Z")
+    assert ev.sessions == 1 and ev.status == "pass"
+
+
+def test_gh_and_out_together_do_both(tmp_path, monkeypatch):
+    root, cr = repo(tmp_path), tmp_path / "c"
+    calls = []
+    monkeypatch.setattr(prnote, "update_pr", lambda r, b, p=None: calls.append(p) or "updated")
+    out = tmp_path / "n.md"
+    monkeypatch.chdir(root)
+    cli.main(["pr-note", "--gh", "--out", str(out), "--agent", "claude-code", "--root", str(cr)])
+    assert calls == [None] and out.exists()
