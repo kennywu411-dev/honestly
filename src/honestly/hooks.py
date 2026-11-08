@@ -554,8 +554,9 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
                 f'⚠️ honestly: this reply still says "{claim}" with nothing after the last edit to back it. It was not held a second time; treat it as unverified.')
         return agents.warn(agent, note)
     plain = _plain_stop(bad[0], zh, _who_where(data, turn, zh))
-    if len(bad) > 1:
-        plain += f"（这条回复里还有 {len(bad) - 1} 句同样没有依据。）" if zh else f" ({len(bad) - 1} more sentence{'s' if len(bad) > 2 else ''} in this reply {'have' if len(bad) > 2 else 'has'} the same problem.)"
+    others = len({f.claim for f in bad} - {bad[0].claim})   # one sentence can make several claims
+    if others:
+        plain += f"（这条回复里还有 {others} 句同样没有依据。）" if zh else f" ({others} more sentence{'s' if others > 1 else ''} in this reply {'have' if others > 1 else 'has'} the same problem.)"
     _record("stop", data, turn, plain, claim=bad[0].claim, reason=bad[0].reason, tools=bad[0].tools_after_edit)
     _notify("honestly", plain)
     # Claude Code shows `reason` to the user as "Stop hook feedback", so the plain sentence goes first and the

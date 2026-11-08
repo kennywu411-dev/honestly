@@ -364,3 +364,10 @@ def test_the_agent_own_claim_is_still_a_claim(tmp_path):
 def test_a_filter_is_refused_only_under_strict(cmd):
     assert hooks.find_hidden_status(cmd) is None, cmd
     assert hooks.find_hidden_status(cmd, strict=True) is not None, cmd
+
+
+def test_two_claims_in_one_sentence_are_not_two_sentences(tmp_path):
+    out = _stop(tmp_path, [EDIT], "Fixed the crash and pushed to main.")
+    assert "more sentence" not in out["systemMessage"]
+    out = _stop(tmp_path, [EDIT], "Fixed the crash and pushed to main. All tests pass.")
+    assert "1 more sentence in this reply has the same problem" in out["systemMessage"]
