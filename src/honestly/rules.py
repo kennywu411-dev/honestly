@@ -188,11 +188,17 @@ def pipe_stages(text: str) -> list:
     return re.split(r"(?<!\|)\|&?(?!\|)", text)
 
 
+NOTES_FOLDER = re.compile(r"(?:^|/)(?:docs?|memory)/", re.I)
+PROGRAM_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".rb", ".php", ".sh", ".zsh", ".sql", ".vue", ".svelte"}
+
+
 def path_is_doc(path: str) -> bool:
     if not path:
         return False
     path = path.replace("\\", "/")   # Claude Code on Windows writes native paths
     ext = os.path.splitext(path.strip())[1].lower()
+    if ext in PROGRAM_EXT:   # a docs/ or memory/ folder holds notes, and a program in it is still a program
+        return bool(DOC_DIRS.search(NOTES_FOLDER.sub("/", path)))
     return ext in DOC_EXT or bool(DOC_DIRS.search(path))
 
 
