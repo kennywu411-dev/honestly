@@ -471,3 +471,31 @@ def test_a_result_the_old_detector_caught_stays_caught(text, cat):
 ])
 def test_third_parties_stories_and_definitions_are_not_claims(text):
     assert cats(text) == [], text
+
+
+# ------------------------------------------------------------------ anchors in the middle of an alternation: they work, and CodeQL reads them as dead (py/regex/unmatchable-*)
+@pytest.mark.parametrize("text,cat", [
+    ("`npm test` passes.", "tests_pass"), ("`yarn run test` passes.", "tests_pass"), ("`go test ./...` passes.", "tests_pass"), ("`cargo test` passes.", "tests_pass"), ("`test_login` passes.", "tests_pass"),
+    ("`tests/test_auth.py` passes.", "tests_pass"), ("`foo_test.go` passes.", "tests_pass"), ("`src/mytest.py` passes.", "tests_pass"), ("`pytest -q` passes.", "tests_pass"),
+    ("`cargo clippy` is clean.", "checks_pass"), ("`go vet ./...` is clean.", "checks_pass"), ("`npm run lint` is clean.", "checks_pass"), ("`ruff check .` is clean.", "checks_pass"),
+])
+def test_a_command_in_inline_code_names_what_the_clause_is_about(text, cat):
+    assert cats(text) == [cat], text
+
+
+@pytest.mark.parametrize("text", ["计划保存到 report.csv。", "等检查全部通过再合并。", "出现中文就全部搞定。", "同事 pushed 了，计划 deployed。"])
+def test_a_chinese_opening_or_a_closing_word_still_vetoes(text):
+    assert cats(text) == [], text
+
+
+@pytest.mark.parametrize("text,cat", [("迁移计划已保存", "saved"), ("等了很久，测试全部通过。", "tests_pass"), ("第一次就构建成功了。", "build_ok")])
+def test_the_same_words_elsewhere_do_not_veto(text, cat):
+    assert cat in cats(text), text
+
+
+@pytest.mark.parametrize("name", ["TEST_CMD", "LINT_CMD", "ZH_VETO"])
+def test_an_anchor_stays_where_a_static_analyser_can_see_it(name):
+    # a `^` after the start or a `$` before the end of these patterns fails CodeQL's py/regex/unmatchable-caret and -dollar
+    from honestly import claims
+    pattern = getattr(claims, name).pattern
+    assert "^" not in pattern[1:].replace("[^", "") and "$" not in pattern[:-1], pattern

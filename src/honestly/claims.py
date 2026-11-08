@@ -92,8 +92,10 @@ def split_sentences(text: str) -> list:
 
 
 # ------------------------------------------------------------------ normalising a sentence
-TEST_CMD = re.compile(r"^(?:\S{0,60}/)?(?:python\d? -m )?(?:pytest|py\.test|jest|vitest|mocha|rspec|unittest|tox|nox|phpunit)\b|^(?:npm|pnpm|yarn|bun)(?: run)? test\b|^(?:go|cargo|deno|dotnet|swift|flutter|mix|make) test\b|^test_\w|^tests?/|_test\.\w{1,5}$|^[\w./-]{0,60}test[\w-]{0,40}\.\w{1,5}$")
-LINT_CMD = re.compile(r"^(?:\S{0,60}/)?(?:ruff|mypy|pyright|flake8|pylint|black|isort|eslint|prettier|biome|tsc|shellcheck|golangci-lint|pre-commit)\b|^cargo (?:clippy|check)\b|^go vet\b|^(?:npm|pnpm|yarn)(?: run)? (?:lint|typecheck)\b")
+TEST_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:python\d? -m )?(?:pytest|py\.test|jest|vitest|mocha|rspec|unittest|tox|nox|phpunit)\b|(?:npm|pnpm|yarn|bun)(?: run)? test\b|(?:go|cargo|deno|dotnet|swift|flutter|mix|make) test\b|test_\w|tests?/)")
+TEST_FILE_END = re.compile(r"_test\.\w{1,5}$")
+TEST_FILE = re.compile(r"[\w./-]{0,60}test[\w-]{0,40}\.\w{1,5}")   # fullmatch
+LINT_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:ruff|mypy|pyright|flake8|pylint|black|isort|eslint|prettier|biome|tsc|shellcheck|golangci-lint|pre-commit)\b|cargo (?:clippy|check)\b|go vet\b|(?:npm|pnpm|yarn)(?: run)? (?:lint|typecheck)\b)")
 BUILD_CMD = re.compile(r"^(?:npm|pnpm|yarn|bun)(?: run)? build\b|^(?:cargo|go|docker|swift|dotnet|vite|next) build\b|^make$|^make build\b")
 FILEISH = re.compile(r"^[\w./~-]{0,200}\.[a-z0-9]{1,6}$|/$")
 CSS_FIXED = re.compile(r"position: ?fixed;?")
@@ -107,7 +109,7 @@ TOKEN_QUOTE, TOKEN_LINK, TOKEN_STRUCK = " xquotex ", " xlinkx ", " xstruckx "   
 def _code_token(m) -> str:
     """Inline code is one opaque word: it can name what a clause is about, but what it says is not said by the reply."""
     body = m.group()[1:-1].strip().lower()
-    if TEST_CMD.search(body):
+    if TEST_CMD.search(body) or TEST_FILE_END.search(body) or TEST_FILE.fullmatch(body):
         return " xtestx "
     if LINT_CMD.search(body):
         return " xlintx "
@@ -189,13 +191,15 @@ ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之�
 ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
     r"没有?|未(?!来)|并非|不是|不能|不敢|不可|不要|不用|不必|没法|无法|难以|别|勿|"
-    r"接下来|下一步|然后再|准备|打算|^计划|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
-    r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|^等|"
+    r"接下来|下一步|然后再|准备|打算|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
+    r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
     r"因为|由于|原因是|导致|看起来|似乎|好像|貌似|其实|疑似|可能|也许|或许|大概|估计|只是|"
     r"上次|之前已|曾经|昨天|上周|以前|当时|有时|部分|一半|大多|多数|很多|不少|有些|一些|"
     r"默认|通常|一般|每次|每条|总是|支持|负责|规定|要求|控制|系统|平台|看板|徽章|调度器|字段|按钮|页面显示|标签|界面|表单|弹窗|写着|标着|表示已|"
-    r"说(?!明|的)|被|看到.{0,24}就|(?:现在|先|我|再|还在|继续)等|(?<!次)就(?:是|全部|都|能|可以)?\s?$|就是|标成|标记成|像是|只按|只在|能先|可以先|声称|反馈|被标记|标记为|通知我|只做了语法检查|语法检查|会(?:显示|提示|打印|输出|告诉你)")
+    r"说(?!明|的)|被|看到.{0,24}就|(?:现在|先|我|再|还在|继续)等|就是|标成|标记成|像是|只按|只在|能先|可以先|声称|反馈|被标记|标记为|通知我|只做了语法检查|语法检查|会(?:显示|提示|打印|输出|告诉你)")
+ZH_VETO_TAIL = re.compile(r"(?<!次)就(?:是|全部|都|能|可以)?\s?$")
+ZH_VETO_OPENERS = ("计划", "等")   # 计划保存到…, 等检查通过再合并; elsewhere they are nouns and verbs of their own (迁移计划, 等了很久)
 ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|被|想|说明|意味着|代表|里写的?|上写的?)\s?$")
 ZH_AFTER = re.compile(r"\s?(?:了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|回我|告诉我|跟我说|叫我|通知我|发我|还是不行|也不行|还不行|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
 EN_VETO = re.compile(
@@ -223,11 +227,15 @@ PAST_FIRST_PERSON = re.compile(r"(?:once|after|when|before) (?:i|we)\b")
 OTHER_SUBJECT = re.compile(r"(?:the|a|an|this|that|these|those|he|she|they|you|someone|somebody|everyone|nobody|his|her|their|your)\b|(?!i\b|we\b|also\b|then\b|just\b|now\b)[a-z][\w-]{0,30} [a-z]{1,30}ed\b")
 
 
+def _zh_vetoed(prefix: str) -> bool:
+    return prefix.startswith(ZH_VETO_OPENERS) or ZH_VETO.search(prefix) is not None or ZH_VETO_TAIL.search(prefix) is not None
+
+
 def _before_vetoed(prefix: str) -> bool:
     """Does what stands before a result word in its clause keep that word from being a claim?"""
     if not prefix:
         return False
-    if EN_VETO.search(prefix) or (not prefix.isascii() and ZH_VETO.search(prefix)):
+    if EN_VETO.search(prefix) or (not prefix.isascii() and _zh_vetoed(prefix)):
         return True
     m = REPORTED.search(prefix)
     if m and m.start() > 0 and not TOOL_SUBJECT.search(prefix[:m.start()]):
@@ -661,7 +669,7 @@ def _accept(category: str, kind: str, clause: Clause, m, blocked_left: bool) -> 
         return False
     if kind == ZH_SUBJECT and not _zh_subject_ok(category, text[:m.start()]):
         return False
-    if ZH_VETO.search(before) or ZH_ADJ.search(before) or EN_VETO.search(before):
+    if _zh_vetoed(before) or ZH_ADJ.search(before) or EN_VETO.search(before):
         return False
     if ZH_BUG_TAIL.search(text, m.end()):
         return False
