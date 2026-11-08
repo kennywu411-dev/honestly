@@ -1344,10 +1344,24 @@ def command_kinds(argv: list) -> set:
     return set(_command_kinds_of(tuple(argv), VERIFY["test"].pattern))
 
 
+_MODULE_CHECKS = {"mypy", "dmypy", "ruff", "pylint", "flake8", "pyright", "basedpyright", "black", "isort"}
+
+
+def _module_tool(real: list) -> list:
+    """`python -m mypy src` is `mypy src`, whatever it then asks mypy to do."""
+    if real and re.fullmatch(r"python[\d.]*", _sh.head_name(real[0]).lower()):
+        for i, word in enumerate(real[1:], 1):
+            if word == "-m":
+                return real[i + 1:] if real[i + 1:i + 2] and real[i + 1] in _MODULE_CHECKS else real
+            if not word.startswith("-"):
+                break
+    return real
+
+
 @functools.lru_cache(maxsize=2048)
 def _command_kinds_of(words: tuple, _pattern: str) -> set:
     argv = list(words)
-    real = _sh.unwrap(argv)
+    real = _module_tool(_sh.unwrap(argv))
     if not real:
         return set()
     line = command_line(real)
