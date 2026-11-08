@@ -251,7 +251,7 @@ def gemini_parse(path: str, start: int = 0, subagents: bool = True):
             if text.startswith(GEMINI_INJECTED):   # a compression or a loop warning happens inside the turn
                 compressed = compressed or text.startswith("<state_snapshot>")
                 if cur is not None:
-                    cur.events.append(Event("mark", name="notice" if text.startswith("<state_snapshot>") else "meta", text=text[:1500], ts=ts))
+                    cur.events.append(Event("mark", name="compact" if text.startswith("<state_snapshot>") else "aside", text=text[:1500], ts=ts))
                 continue
             if compressed and cur is not None and _parts_text(content)[:200] == cur.prompt:
                 compressed = False   # compression records the prompt it is answering again

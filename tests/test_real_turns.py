@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from honestly import agents, audit, claude_code, codex, hooks
+from honestly import agents, audit, claude_code, hooks
 from real_fixture import cut, load
 
 
@@ -224,3 +224,19 @@ def test_codex_a_repeated_claim_gets_the_notice(tmp_path):
         fh.write(json.dumps(hook) + "\n" + json.dumps(again) + "\n")
     out = stop(p, "All tests pass.", "codex", stop_hook_active=True)
     assert not held(out) and "not held a second time" in out["systemMessage"]
+
+
+# ---------------------------------------------------------------- compaction does not excuse a claim, and does not turn a recap into a lie
+COMPACT = {"type": "user", "isCompactSummary": True, "isVisibleInTranscriptOnly": True, "turnOrigin": "human", "timestamp": "2026-11-08T12:00:42.000Z", "message": {"role": "user", "content": "This session is being continued from a previous conversation that ran out of context."}}
+
+
+def test_a_claim_with_a_tool_after_compaction_and_no_action_is_held(tmp_path):
+    look = _call(50, "Read", {"file_path": "/work/proj/a.py"}, "x")
+    p = _session(tmp_path, _prompt("mail the maintainer"), COMPACT, *look, _say("I sent the email to the maintainer."))
+    assert held(stop(p, "I sent the email to the maintainer."))
+
+
+def test_a_recap_right_after_compaction_is_not_held(tmp_path):
+    look = _call(10, "Read", {"file_path": "/work/proj/a.py"}, "x")
+    p = _session(tmp_path, _prompt("go on"), *look, COMPACT, _say("I sent the email to the maintainer earlier."))
+    assert not held(stop(p, "I sent the email to the maintainer earlier."))

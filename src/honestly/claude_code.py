@@ -18,7 +18,7 @@ from .hookline import claude_dir
 
 @dataclass
 class Event:
-    kind: str            # text | tool | mark (something arrived mid-turn: name "report" is someone else's work, name "notice" this session's own)
+    kind: str            # text | tool | mark (something arrived mid-turn: see _mark)
     name: str = ""       # tool name for kind=tool
     text: str = ""       # text block, or command/path summary for tools
     tool_use_id: str = ""
@@ -219,15 +219,16 @@ def _is_prompt(r: dict, content, origin: dict) -> bool:
     return isinstance(content, str) and not NOT_TYPED.match(content)   # an older transcript: a list held only tool results and skill text
 
 
-def _mark(text: str, seen_calls: dict, peer: bool, compact: bool, ts: str) -> Event:
-    """What a record that is not a prompt leaves in the turn. "report": someone else's work, a wall for what follows. "notice": this session's
-    background task ended or its context was compacted, so the reply may sum up earlier work. "meta": anything else, a skill's text or a reminder."""
+def _mark(text: str, seen_calls: dict, peer: bool, compact: bool, ts: str, listed: bool = False) -> Event:
+    """What a record that is not a prompt leaves in the turn. "report": someone else's work, a wall for what follows. "notice": this session's own
+    background task ended. "compact": its context was compacted. "aside": the harness said something, a reminder or a command's echo. In these three a reply may
+    sum up earlier work. "meta": text that is part of the work itself, a skill's body."""
     head = text[:1500]
     task = head.lstrip().startswith("<task-notification>")
     own = OWN_TASK.search(head)
     if peer or OUTSIDE_REPORT.search(head) or (task and not (own and own.group(1) in seen_calls)):
         return Event("mark", name="report", text=head, ts=ts)
-    return Event("mark", name="notice" if task or compact else "meta", text=head, ts=ts)
+    return Event("mark", name="notice" if task else "compact" if compact else "meta" if listed else "aside", text=head, ts=ts)
 
 
 def _parse(path: str, sidechain: bool = False, start: int = 0):
@@ -268,7 +269,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 if cur is None:   # a transcript that starts here: a tail read drops it, a whole one judges it as before
                     cur = Turn(session=session, index=len(turns), version=version, prompt=text[:2000] if start == 0 else "", ts=ts, project=project)
                 else:
-                    cur.events.append(_mark(text, calls, origin.get("kind") == "peer", bool(r.get("isCompactSummary")) or text.lstrip().startswith("This session is being continued"), ts))
+                    cur.events.append(_mark(text, calls, origin.get("kind") == "peer", bool(r.get("isCompactSummary")) or text.lstrip().startswith("This session is being continued"), ts, isinstance(content, list)))
         elif t == "assistant" and isinstance(content, list):
             if cur is None:
                 cur = Turn(session=session, index=0, version=version, prompt="", ts=ts)

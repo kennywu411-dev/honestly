@@ -598,22 +598,25 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None):
     names = _temp_project(getattr(turn, "project", ""))
     flags = [_is_edit(x, names) for x in ev]
     wall, answering = 0, turn.prompt or ""   # another session's report starts a stretch of its own: a reply to it is about that work
+    since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
     for i, e in enumerate(ev):
         if e.kind == "mark":
             automated = automated or e.name in ("report", "notice")   # the reply may sum up earlier work: a missing action there is not held, as for a turn a notification starts
             if e.name == "report":
                 wall, answering = i + 1, e.text
+            if e.name != "meta":
+                since = i + 1
             continue
         if e.kind != "text":
             continue
         for hit in rules.find_claims(e.text):
-            before = ev[wall:i]
+            before = ev[since:i]
             if hit.category in noncode.SPECS:
-                prev_ev = ev[:wall] if wall else (prev.events if prev is not None else None)
+                prev_ev = ev[:since] if since else (prev.events if prev is not None else None)
                 verdict, reason, vb, out_snip = noncode.judge(hit.category, hit.sentence, before, rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated, session_tools)
                 if verdict == "unbacked" and any(x.kind == "tool" for x in ev[i + 1:]):
                     # a progress note ("saved, now checking") is judged on everything the turn did before it ended
-                    v2 = noncode.judge(hit.category, hit.sentence, ev[wall:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
+                    v2 = noncode.judge(hit.category, hit.sentence, ev[since:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
                     if v2[0] != "unbacked":
                         verdict, reason, vb, out_snip = v2
                 tools_in_turn = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in before if x.kind == "tool"]
