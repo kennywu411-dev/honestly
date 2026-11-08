@@ -45,7 +45,8 @@ def _is_edit(e: Event) -> bool:
 
 
 TEST_PASS = re.compile(r"\b(\d+) passed\b|\bOK\b(?! to)|tests? passed|\bPASS(ED)?\b|✓|全部通过|fail(ed|ures)?[: ]+0\b|\b0 failed|\bpass \d+"
-                       r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b", re.I | re.M)
+                       r"|test result: ok|\b\d+ passing\b|Tests run: \d+, Failures: 0, Errors: 0|Passed!|^ok\s+\S+|All checks passed|No issues found|\b0 errors?\b"
+                       r"|\b[1-9]\d* examples?,\s*0 failures\b", re.I | re.M)  # rspec: 5 examples, 0 failures
 TEST_FAIL = re.compile(r"\b[1-9]\d* failed\b|\bFAILED\b|^ERROR:|\bERROR\b(?! 0)|Traceback|AssertionError|\berror\[|errors? occurred|npm ERR|\bFAIL\b(?![: ]+0)|fail(ed|ures)?[: ]+[1-9]"
                        r"|test result: FAILED|\b[1-9]\d* failing\b|Failures: [1-9]|Errors: [1-9]|Failed: [1-9]|^FAIL\s|panic:|build failed|compilation failed|error TS\d+|\[error\]", re.I | re.M)
 SUMMARY_LINE = re.compile(r"((?<!Found )\b\d+ (passed|failed|error)s?\b[^\n]*|\bRan \d+ tests?[^\n]*\n?\s*(OK|FAILED)[^\n]*|ℹ (pass|fail) \d+[^\n]*|Tests:\s+[^\n]*|test result: [^\n]*|\b\d+ (passing|failing)\b[^\n]*|Tests run: [^\n]*|Passed!|Failed![^\n]*)", re.I)
@@ -89,10 +90,14 @@ def _last_summary(out: str) -> str:
     # a pytest summary like "2 failed, 17 passed" spans one line: take everything from the last summary start
     tail = out[out.rfind(hits[-1]):]
     return tail[:400]
-# a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet
+# a run that found nothing to test: pytest, unittest, cargo, go, jest/vitest, mocha, JUnit/Maven, dotnet, PHPUnit, Deno, RSpec
 ZERO_TESTS = re.compile(r"\bno tests? ran\b|collected 0 items|^Ran 0 tests|\brunning 0 tests\b|\[no tests to run\]|\bno test files\b"
                         r"|No tests? (were )?found|Tests:\s+0 total|Tests run: 0\b|\b0 passing\b(?![^\n]*[1-9]\d* (failing|pending))|\bTotal tests: 0\b"
-                        r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))", re.I | re.M)
+                        r"|\btest result: ok\. 0 passed\b|^=+ \d+ deselected(?: in [\d.]+s)? =+$|\b0 passed\b(?![^\n]*\b[1-9]\d* (?:passed|failed))"
+                        r"|\bNo tests executed\b"  # phpunit: No tests executed!
+                        r"|\bNo test is available\b"  # dotnet test: No test is available in ...
+                        r"|\bok\s*\|\s*0 passed\s*\|\s*0 failed\b"  # deno test: ok | 0 passed | 0 failed
+                        r"|\b0 examples,\s*0 failures\b", re.I | re.M)  # rspec: 0 examples, 0 failures
 PUSH_FAIL = re.compile(r"(rejected|fatal:|error:|denied|failed to push)", re.I)
 
 
@@ -117,7 +122,7 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
             return "contradicted", "last test summary shows failures"
         if TEST_FAIL.search(summ) and TEST_PASS.search(summ) and re.search(r"\b[1-9]\d* failed", summ):
             return "contradicted", "last test summary shows failures alongside passes"
-        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|^ok\s+\S+(?![^\n]*\[no tests to run\])", out, re.M):
+        if category == "tests_pass" and ZERO_TESTS.search(out) and not re.search(r"\b[1-9]\d* passed\b|^ok\s+[^\s|]\S*(?![^\n]*\[no tests to run\])", out, re.M):
             return "unbacked", "the test command collected no tests (a green exit code with nothing run)"
         if category == "tests_pass" and ev.is_error and not SUMMARY_LINE.search(out) and not re.search(r"(?m)^ok\s+\S+(?![^\n]*\[no tests to run\])|^OK \(\d+ tests?", out):
             return "unbacked", "test command errored and printed no pass/fail summary"
