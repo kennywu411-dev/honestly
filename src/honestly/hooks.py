@@ -28,7 +28,7 @@ MARKS = (MARK,) + LEGACY_MARKS
 
 
 def _ours(h: dict) -> bool:
-    return any(m in h.get("command", "") for m in MARKS)
+    return agents.OUR_COMMAND.search(str(h.get("command", ""))) is not None
 
 
 def _read_stdin():

@@ -18,6 +18,8 @@ import re
 from .claude_code import Event, Turn, clip_output
 
 MARK = "honestly hook"
+# An entry this tool wrote runs honestly's own `hook stop` or `hook pre`. Mentioning the words is not enough: that could be another tool's hook.
+OUR_COMMAND = re.compile(r"""(?:^|[\s/\\"'])(?:honestly|sober)(?:\.exe)?["']?\s+hook\s+(?:stop|pre)\b""", re.I)
 NAMES = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
 SUPPORTED = tuple(NAMES)
 SHELL_TOOLS = {"Bash", "shell", "shell_command", "exec", "exec_command", "local_shell", "container.exec", "run_shell_command", "Shell", "run_terminal_cmd", "terminal"}
@@ -319,7 +321,7 @@ def config_path(agent: str) -> str:
 
 
 def _is_ours(h) -> bool:
-    return isinstance(h, dict) and MARK in str(h.get("command", ""))
+    return isinstance(h, dict) and OUR_COMMAND.search(str(h.get("command", ""))) is not None
 
 
 def entries(agent: str, exe: str) -> dict:

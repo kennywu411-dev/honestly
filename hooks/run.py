@@ -8,10 +8,12 @@ the plugin's hooks step aside so a reply is not checked twice.
 """
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
+OUR_COMMAND = re.compile(r"""(?:^|[\s/\\"'])(?:honestly|sober)(?:\.exe)?["']?\s+hook\s+(?:stop|pre)\b""", re.I)   # the same as agents.OUR_COMMAND
 
 
 def _command_works(command: str) -> bool:
@@ -37,7 +39,7 @@ def _guard_installed() -> bool:
             for group in groups or []:
                 for h in (group or {}).get("hooks") or []:
                     cmd = str(h.get("command", "")) if isinstance(h, dict) else ""
-                    if ("honestly hook" in cmd or "sober hook" in cmd) and _command_works(cmd):
+                    if OUR_COMMAND.search(cmd) and _command_works(cmd):
                         return True
     except Exception:
         return False
