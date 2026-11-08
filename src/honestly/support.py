@@ -247,10 +247,10 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     lines.append(f"{ok}" + L(f"strictness {cfg['strictness']}, {len(cfg['ignore'])} ignored phrase(s), {len(cfg['verify_commands'])} custom verify command(s), off: {', '.join(cfg['off']) or 'none'}",
                              f"严格度 {cfg['strictness']}，忽略短语 {len(cfg['ignore'])} 条，自定义验证命令 {len(cfg['verify_commands'])} 条，关闭类别：{', '.join(cfg['off']) or '无'}"))
     try:
-        from .update import latest_version, _parse
+        from .update import latest_version, upgrade_command, _parse
         latest = latest_version()
         if latest and _parse(latest) > _parse(__version__):
-            lines.append(f"{warn}" + L(f"newer release on PyPI: {latest} (pip install -U honestly)", f"PyPI 有新版 {latest}（pip install -U honestly）"))
+            lines.append(f"{warn}" + L(f"newer release on PyPI: {latest} ({upgrade_command()})", f"PyPI 有新版 {latest}（{upgrade_command()}）"))
         elif latest:
             lines.append(f"{ok}" + L(f"up to date ({latest}; pypi.org is asked once a day, HONESTLY_NO_UPDATE_CHECK=1 turns this off)",
                                      f"已是最新（{latest}；每天问一次 pypi.org，HONESTLY_NO_UPDATE_CHECK=1 可关闭）"))
@@ -328,39 +328,58 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 RULE_FILES = {"claude-code": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.md", "cursor": os.path.join(".cursor", "rules", "honestly.mdc")}
 
 
+def _rule_read(path: str) -> str:
+    try:
+        with open(path, encoding="utf-8", newline="") as fh:   # newline="": the file keeps its own line endings
+            return fh.read()
+    except (FileNotFoundError, NotADirectoryError):
+        return ""
+    except UnicodeDecodeError:
+        raise SystemExit(f"honestly rule: {path} is not UTF-8 text, so it was left untouched.") from None
+    except OSError as e:
+        raise SystemExit(f"honestly rule: cannot read {path}: {e.strerror}") from None
+
+
 def rule(action: str, agent: str = "claude-code", cwd: str | None = None, zh: bool = False) -> str:
     """Add or remove a short 'verify before you claim' section in the project's instructions file, between markers."""
     if cwd and not os.path.isdir(cwd):
         raise SystemExit(f"honestly rule: no such directory: {cwd}")
-    path = os.path.join(cwd or os.getcwd(), RULE_FILES[agent])
-    text_block = RULE_TEXT_ZH if zh else RULE_TEXT
-    block = RULE_START + "\n" + text_block + RULE_END + "\n"
-    if agent == "cursor":
-        block = "---\ndescription: verify before claiming (honestly)\nalwaysApply: true\n---\n" + block
-    text = ""
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as fh:
-            text = fh.read()
+    base = cwd or os.getcwd()
+    path = os.path.join(base, RULE_FILES[agent])
+    text = _rule_read(path)
     if action == "status":
         return f"honestly rule: {'present' if RULE_START in text else 'absent'} in {path}"
-    stripped = re.sub(re.escape(RULE_START) + r".*?" + re.escape(RULE_END) + r"\n?", "", text, flags=re.S)
+    real, root = os.path.realpath(path), os.path.realpath(base)
+    if real != root and not real.startswith(root.rstrip(os.sep) + os.sep):   # a repository can make CLAUDE.md a link to a file in the user's home
+        raise SystemExit(f"honestly rule: {path} points outside this project (to {real}), so it was left untouched.")
+    nl = "\r\n" if "\r\n" in text else "\n"
+    text_block = (RULE_TEXT_ZH if zh else RULE_TEXT).replace("\n", nl)
+    front = "---\ndescription: verify before claiming (honestly)\nalwaysApply: true\n---\n".replace("\n", nl)
+    block = RULE_START + nl + text_block + RULE_END + nl
     if agent == "cursor":
-        stripped = re.sub(r"\A---\ndescription: verify before claiming \(honestly\)\nalwaysApply: true\n---\n", "", stripped)
+        block = front + block
+    stripped = re.sub(re.escape(RULE_START) + r".*?" + re.escape(RULE_END) + r"(?:\r?\n)?", "", text, flags=re.S)
+    if agent == "cursor" and stripped.startswith(front):
+        stripped = stripped[len(front):]
+    has_content = stripped.strip("\ufeff \t\r\n")
     if action == "install":
-        new = (stripped.rstrip("\n") + "\n\n" if stripped.strip() else "") + block
-        if agent == "cursor":
-            new = block if not stripped.strip() else stripped.rstrip("\n") + "\n\n" + RULE_START + "\n" + text_block + RULE_END + "\n"
+        new = (stripped.rstrip("\r\n") + nl + nl if has_content else "") + block
+        if agent == "cursor" and has_content:
+            new = stripped.rstrip("\r\n") + nl + nl + RULE_START + nl + text_block + RULE_END + nl
     else:
-        new = stripped.rstrip("\n") + "\n" if stripped.strip() else ""
+        new = stripped.rstrip("\r\n") + nl if has_content else ""
     if action == "install" and new == text:
         return f"honestly rule: already present, nothing changed: {path}"
     if action == "uninstall" and RULE_START not in text:
         return f"honestly rule: not present, nothing to remove: {path}"
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    if action == "uninstall" and not new.strip():
-        if os.path.exists(path):
-            os.remove(path)
-        return f"honestly rule: removed (file deleted, it held nothing else): {path}"
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(new)
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        if action == "uninstall" and not new.strip():
+            if os.path.exists(path):
+                os.remove(path)
+            return f"honestly rule: removed (file deleted, it held nothing else): {path}"
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(new)
+    except OSError as e:
+        raise SystemExit(f"honestly rule: cannot write {e.filename or path}: {e.strerror}. Nothing changed.") from None
     return f"honestly rule: {'added to' if action == 'install' else 'removed from'} {path}"

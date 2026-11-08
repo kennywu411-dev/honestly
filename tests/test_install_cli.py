@@ -1201,3 +1201,135 @@ def test_a_catches_log_it_cannot_open_is_one_line(tmp_path, args, kind):
     assert r.returncode == 1 and b"Traceback" not in r.stderr and b"catches.jsonl" in r.stderr
     d = _honestly(["doctor"], home)
     assert b"Traceback" not in d.stderr and b"catches.jsonl" in d.stdout
+
+
+# ---------------------------------------------------------------- rule
+def _rule(*a, **k):
+    from honestly import support
+    return support.rule(*a, **k)
+
+
+@pytest.mark.parametrize("original", ["# mine\r\nline2\r\n", "# mine\nline2\n", "﻿# mine\n"])
+def test_rule_install_then_uninstall_gives_back_the_same_bytes(tmp_path, original):
+    p = tmp_path / "CLAUDE.md"
+    p.write_bytes(original.encode("utf-8"))
+    _rule("install", cwd=str(tmp_path))
+    data = p.read_bytes()
+    assert b"honestly:start" in data
+    if "\r\n" in original:
+        assert b"\n" not in data.replace(b"\r\n", b"")   # one newline style in the file
+    _rule("uninstall", cwd=str(tmp_path))
+    assert p.read_bytes().decode("utf-8") == original
+
+
+def test_rule_on_a_file_it_cannot_read_stops_with_one_line(tmp_path):
+    p = tmp_path / "CLAUDE.md"
+    p.write_bytes(b"# mine\xff\n")
+    for action in ("status", "install", "uninstall"):
+        with pytest.raises(SystemExit) as e:
+            _rule(action, cwd=str(tmp_path))
+        assert "UTF-8" in str(e.value) and str(p) in str(e.value)
+    assert p.read_bytes() == b"# mine\xff\n"
+
+
+def test_rule_when_the_file_is_a_folder_stops_with_one_line(tmp_path):
+    (tmp_path / "CLAUDE.md").mkdir()
+    for action in ("status", "install"):
+        with pytest.raises(SystemExit) as e:
+            _rule(action, cwd=str(tmp_path))
+        assert "CLAUDE.md" in str(e.value)
+
+
+@posix_only
+def test_rule_on_a_read_only_file_or_folder_stops_with_one_line(tmp_path):
+    if os.geteuid() == 0:
+        pytest.skip("root ignores file modes")
+    p = tmp_path / "CLAUDE.md"
+    p.write_text("# mine\n")
+    p.chmod(0o444)
+    with pytest.raises(SystemExit) as e:
+        _rule("install", cwd=str(tmp_path))
+    assert "cannot write" in str(e.value) and p.read_text() == "# mine\n"
+    p.chmod(0o644)
+    d = tmp_path / "ro"
+    d.mkdir()
+    d.chmod(0o555)
+    with pytest.raises(SystemExit) as e:
+        _rule("install", agent="cursor", cwd=str(d))
+    d.chmod(0o755)
+    assert "cannot write" in str(e.value)
+
+
+def test_rule_when_dot_cursor_is_a_file_stops_with_one_line(tmp_path):
+    (tmp_path / ".cursor").write_text("x")
+    with pytest.raises(SystemExit) as e:
+        _rule("install", agent="cursor", cwd=str(tmp_path))
+    assert "cannot write" in str(e.value)
+
+
+@posix_only
+def test_rule_does_not_write_through_a_link_out_of_the_project(tmp_path):
+    victim = tmp_path / "zshrc"
+    victim.write_text("export KEEP=1\n")
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "CLAUDE.md").symlink_to(victim)
+    with pytest.raises(SystemExit) as e:
+        _rule("install", cwd=str(proj))
+    assert "outside" in str(e.value) and victim.read_text() == "export KEEP=1\n"
+    (proj / ".cursor").symlink_to(tmp_path)
+    with pytest.raises(SystemExit):
+        _rule("install", agent="cursor", cwd=str(proj))
+    assert not (tmp_path / "rules").exists()
+
+
+@posix_only
+def test_rule_follows_a_link_that_stays_inside_the_project(tmp_path):
+    (tmp_path / "AGENTS.md").write_text("# shared\n")
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    _rule("install", cwd=str(tmp_path))
+    assert "honestly:start" in (tmp_path / "AGENTS.md").read_text() and (tmp_path / "CLAUDE.md").is_symlink()
+
+
+# ---------------------------------------------------------------- the update note
+def test_the_upgrade_command_matches_how_it_was_installed(tmp_path, monkeypatch):
+    from honestly import update
+    pipx = tmp_path / "pipx"
+    pipx.mkdir()
+    (pipx / "pipx_metadata.json").write_text("{}")
+    uv = tmp_path / "uv"
+    uv.mkdir()
+    (uv / "uv-receipt.toml").write_text("")
+    plain = tmp_path / "venv"
+    plain.mkdir()
+    assert update.upgrade_command(str(pipx), "/x/bin/honestly") == "pipx upgrade honestly"
+    assert update.upgrade_command(str(uv), "/x/bin/honestly") == "uv tool upgrade honestly"
+    assert update.upgrade_command(str(plain), "/x/bin/honestly") == "pip install -U honestly"
+    assert update.upgrade_command(str(plain), "/plugins/honestly/hooks/run.py") == "claude plugin update honestly@honestly"
+    monkeypatch.setattr(update.sys, "prefix", str(pipx))
+    monkeypatch.setattr(update, "latest_version", lambda: "9.9.9")
+    assert "pipx upgrade honestly" in update.update_note("0.1.0") and "pipx upgrade honestly" in update.update_note("0.1.0", zh=True)
+
+
+def test_offline_is_only_tried_once_in_a_while(tmp_path, monkeypatch):
+    from honestly import update
+    monkeypatch.setattr(update, "cache_path", lambda: str(tmp_path / "u.json"))
+    monkeypatch.delenv("HONESTLY_NO_UPDATE_CHECK", raising=False)
+    calls = []
+    def fetch(timeout=2.0):
+        calls.append(1)
+        raise OSError("offline")
+    monkeypatch.setattr(update, "_fetch_latest", fetch)
+    t = 1000000.0
+    assert update.latest_version(now=t) == "" and update.latest_version(now=t + 60) == ""
+    assert len(calls) == 1   # each `honestly catches` used to wait 2 s offline
+    assert update.latest_version(now=t + update.RETRY_AFTER_FAILURE + 1) == "" and len(calls) == 2
+
+
+def test_a_cache_timestamp_in_the_future_does_not_stop_checking_forever(tmp_path, monkeypatch):
+    from honestly import update
+    monkeypatch.setattr(update, "cache_path", lambda: str(tmp_path / "u.json"))
+    monkeypatch.delenv("HONESTLY_NO_UPDATE_CHECK", raising=False)
+    monkeypatch.setattr(update, "_fetch_latest", lambda timeout=2.0: "9.9.9")
+    (tmp_path / "u.json").write_text(json.dumps({"ts": 9e12, "latest": "0.0.1"}))
+    assert update.latest_version(now=1000.0) == "9.9.9"
