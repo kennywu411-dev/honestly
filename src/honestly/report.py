@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import shutil
 import subprocess
+import tempfile
 from collections import Counter, defaultdict
 
 GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}
@@ -296,6 +298,9 @@ def write_card(findings, sessions: int, out_dir: str) -> list[str]:
     return written
 
 
+_run = subprocess.run   # one name, so the test suite can keep a real browser from starting
+
+
 def svg_to_png(svg_path: str, png_path: str) -> bool:
     """rsvg-convert, else a headless Chrome/Edge screenshot; False when neither is available."""
     pf, pf86, lad = os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), os.environ.get("LOCALAPPDATA", "")
@@ -305,24 +310,31 @@ def svg_to_png(svg_path: str, png_path: str) -> bool:
                 os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"), os.path.join(pf86, "Microsoft", "Edge", "Application", "msedge.exe"),
                 "/usr/bin/google-chrome", "/usr/bin/microsoft-edge",
                 "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "google-chrome", "chromium", "chromium-browser", "msedge"]
+    # A profile of its own and a mock keychain: the user's Chrome profile is not ours to open, and on macOS a Chrome that wants a
+    # keychain it cannot find shows the user a system popup.
+    profile = tempfile.mkdtemp(prefix="honestly-card-")
     attempts = [["rsvg-convert", "-w", "1200", "-o", png_path, svg_path]]
     for b in browsers:
         if not b:
             continue
-        attempts.append([b, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--screenshot={png_path}", "--window-size=1200,630", pathlib.Path(svg_path).resolve().as_uri()])
+        attempts.append([b, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--use-mock-keychain", "--no-first-run", f"--user-data-dir={profile}",
+                         f"--screenshot={png_path}", "--window-size=1200,630", pathlib.Path(svg_path).resolve().as_uri()])
     try:
         if os.path.exists(png_path):
             os.remove(png_path)   # a stale file must not pass as this run's output
     except Exception:
         pass
-    for cmd in attempts:
-        try:
-            subprocess.run(cmd, check=False, capture_output=True, timeout=90)
-        except Exception:
-            continue
-        if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
-            return True   # a first-run Chrome exits non-zero and still writes the screenshot: the file decides
-    return False
+    try:
+        for cmd in attempts:
+            try:
+                _run(cmd, check=False, capture_output=True, timeout=90)
+            except Exception:
+                continue
+            if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
+                return True   # a first-run Chrome exits non-zero and still writes the screenshot: the file decides
+        return False
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
 
 
 def want_color(stream=None) -> bool:
