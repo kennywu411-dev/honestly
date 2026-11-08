@@ -217,3 +217,42 @@ def test_a_run_on_the_old_code_does_not_count_against_the_fix(cmd, out):
 ])
 def test_what_a_before_and_after_must_not_let_through(cmd, out, err):
     assert verdict_on_tests(cmd, out, err) == "contradicted", cmd
+
+
+# ---------------------------------------------------------------- what came after the check
+RUN = bash("pytest -q", "132 passed in 2.6s")
+
+
+@pytest.mark.parametrize("cmd", [
+    """sed -i '' 's/^version = "0.6.0"/version = "0.6.1"/' pyproject.toml""",
+    """sed -i 's/__version__ = "0.6.0"/__version__ = "0.6.1"/' src/honestly/__init__.py""",
+])
+def test_a_version_bump_is_an_edit_like_any_other(cmd):
+    assert judged("132 tests all pass.", RUN, bash(cmd)) == "unbacked", cmd
+
+
+CI = bash('id=1; gh run watch $id --exit-status >/dev/null 2>&1; echo "ci exit=$?"; curl -s https://pypi.org/x | jq .', "ci exit=0")
+
+
+def test_a_later_ci_read_does_not_undo_the_run_in_the_edits_own_command():
+    assert judged("132 tests all pass.", bash("sed -i '' s/a/b/ src/app.py; pytest -q 2>&1 | tail -1; git add -A", "132 passed in 2.6s"), CI) == "backed"
+
+
+@pytest.mark.parametrize("edit", [
+    bash("sed -i '' s/a/b/ src/app.py; pytest -q 2>&1 | tail -1; git add -A", "3 failed, 129 passed in 2.6s"),
+    bash("pytest -q 2>&1 | tail -1; sed -i '' s/a/b/ src/app.py", "132 passed in 2.6s"),   # that run was before the edit
+])
+def test_it_still_has_to_be_a_pass_and_after_the_edit(edit):
+    assert judged("132 tests all pass.", edit, CI) == "unbacked"
+
+
+def test_only_a_read_of_ci_is_passed_over_and_only_for_tests():
+    edit = bash("sed -i '' s/a/b/ src/app.py; pytest -q 2>&1 | tail -1; git add -A", "132 passed in 2.6s")
+    assert judged("132 tests all pass.", edit, bash("pytest -q 2>&1 | tail -1", "")) == "unbacked"   # a test run that showed nothing
+    assert judged("Fixed.", bash("sed -i '' s/a/b/ src/app.py; ruff check .", "All checks passed!"), bash("gh run view 1 | tail -1", "")) != "backed"
+
+
+def test_a_named_check_in_the_edits_own_command_counts_after_later_commands():
+    edit = bash("sed -i '' s/a/b/ src/app.py; uv run ruff check . | tail -1 && pytest -q | tail -1", "All checks passed!\n3 passed in 0.1s")
+    assert judged("ruff is clean.", edit, bash("pytest -q", "3 passed in 0.1s")) == "backed"
+    assert judged("ruff is clean.", bash("sed -i '' s/a/b/ src/app.py; ruff check .", "Found 4 errors.", True), bash("pytest -q", "3 passed in 0.1s")) == "contradicted"

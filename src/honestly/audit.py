@@ -596,18 +596,19 @@ def _ran_out_of_sight(rx, tools: frozenset, commands: list) -> bool:
     return False
 
 
-def _named_checks(hit, ev: list, edit_idx: int, end: int, verifying: list):
+def _named_checks(hit, ev: list, edit_idx: int, end: int, verifying: list, own_run):
     """`mypy passes`, `type check and lint are clean`: the latest run of each check the sentence names decides, from its own part of the output.
     Returns (verdict, reason, seg, last) or None, and the runs left for the rest of the claim to be judged on."""
+    runs = verifying if own_run is None or own_run in verifying else [own_run] + verifying
     named = [(word, rx, tools) for word, rx, tools in verdicts.named_checks(hit.sentence)
-             if word not in verdicts.ORDINARY_WORDS or any(rules.tools_run(s.text) & tools for _x, segs in verifying for s in segs)]
+             if word not in verdicts.ORDINARY_WORDS or any(rules.tools_run(s.text) & tools for _x, segs in runs for s in segs)]
     if not named:
         return None, verifying
     commands = [x for x in ev[edit_idx:end] if x.kind == "tool" and x.name == "Bash"]
-    plain = all(rules.only_runs_tests(s.text) or rules.tools_run(s.text) & set(verdicts.CHECK_TOOLS) for _x, segs in verifying for s in segs)
+    plain = all(rules.only_runs_tests(s.text) or rules.import_only(s.text) or rules.tools_run(s.text) & set(verdicts.CHECK_TOOLS) for _x, segs in runs for s in segs)
     worst, inside_a_script = None, False
     for word, rx, tools in named:
-        run = next(((x, s.text) for x, segs in reversed(verifying) for s in reversed(segs) if rules.tools_run(s.text) & tools), None)
+        run = next(((x, s.text) for x, segs in reversed(runs) for s in reversed(segs) if rules.tools_run(s.text) & tools), None)
         if run is not None:
             verdict, reason = _judged_with_read_back(hit, run[1], run[0], ev, end)
         elif not plain:
@@ -649,10 +650,12 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     verifying = [(x, rules.verifying_segments(x.text, hit.evidence_kinds)) for x in after if x.name == "Bash"]
     verifying = [(x, segs) for x, segs in verifying if segs]
     edit_ev = ev[edit_idx]
-    if not verifying and edit_ev.name == "Bash":
+    own_run = None
+    if edit_ev.name == "Bash":
         segs = rules.verifying_segments(edit_ev.text, hit.evidence_kinds, after_edit_only=True, moves_count=moves_count)
-        if segs:
-            verifying = [(edit_ev, segs)]
+        own_run = (edit_ev, segs) if segs else None
+    if own_run and (not verifying or (hit.category == "tests_pass" and all(s.text.lstrip().startswith("gh ") for _x, segs in verifying for s in segs))):
+        verifying.insert(0, own_run)   # the tests ran in the edit's own command, and a later read of CI that shows nothing does not undo them
     if not verifying and hit.category in ("tests_pass", "checks_pass", "fixed"):
         hooked = _hook_run(after)
         if hooked is not None:
@@ -681,7 +684,7 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
             return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
     if hit.category == "checks_pass":
-        part, verifying = _named_checks(hit, ev, edit_idx, end, verifying)
+        part, verifying = _named_checks(hit, ev, edit_idx, end, verifying, own_run)
         if part:
             return part[0], ("the edits after this check were in another project; " if elsewhere else "") + part[1], part[2], part[3]
     last, segs = verifying[-1]
