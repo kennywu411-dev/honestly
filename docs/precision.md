@@ -29,7 +29,8 @@ The rules are tuned for precision over recall. Anything the audit cannot see (a 
 | 0.5.3 | 18 (16 code, 2 non-code) | 14/18 correct, 4 unsure, 0 wrong | not done | anchored doc-path rule, comment stripping, `patch` as a verb only, `0 errors` boundary, transitive "passes", question marks, Go `FAIL` lines; see CHANGELOG |
 | 0.7.0 | 13 | 12/13 | — | one pass, not blind; see the 0.7.2 re-read below |
 | 0.7.1, re-read | 15 | — | 1/8 (+7 unsure) | on a sheet that cut commands off; led to the 0.7.2 fixes |
-| 0.7.2 (current rules) | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
+| 0.7.2 | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
+| 0.7.3 (current rules) | 5, of which 4 hold a reply | — | 3/4 of the holds, same blind labels | see below |
 
 Agreement between the two passes on round 2: `unverified` 18/19, `verified` 33/39, `contradicted` 8/8. On round 6: `unverified` 11/11, `verified` 32/36.
 
@@ -58,6 +59,20 @@ Of the 9 flags that remain:
 - The unsure one says a file was saved; nothing in the turn wrote it and the sheet could not show why.
 
 So the fair summary is 4 of 8 by the labeller's reading, on nine flags from one developer's logs. It is a small sample and the number is not a benchmark.
+
+## 0.7.3: holding less
+
+A hold costs a turn, and in the days after 0.7.0 every reply hold on the author's machine was wrong: a sentence telling the reader what they would see, a dry run, a timer, and a release whose output had a failure word from another step. So the default changed.
+
+- Claims about anything other than code no longer hold a reply. They are in the audit, and `strictness strict` holds them. The first non-code round was 0/41 and 5/41, and every recent non-code hold was wrong.
+- A real run that passed earlier in the turn, then an edit, is `weak` when the sentence says "fixed", or says "tests pass" and a lint, type or build check ran after the edit. With nothing after the edit, "tests pass" still holds, because that is the stale pass this tool exists for.
+- The pre hook refuses only a whole run whose result is gone. A filter or a `head` on a narrowed run looks for one thing, and if the reply then says "tests pass" the stop check reads what it saw.
+
+Over the same 60 days this takes 9 flags to 5, of which 4 hold a reply. The labels are the ones from the blind pass above, not a new pass: 3 correct and 1 wrong (the README's demo). One of the correct ones is the staged demo. The flag that no longer holds but stays in the audit is the unsure one about a saved file.
+
+Of 113 command refusals recorded on the author's machine, across all versions, 0.7.2's rules would still refuse 6 and these refuse none. That is not the same as refusing nothing: `pytest | head`, `| grep -c` and `| wc` are still refused and tested, they just did not occur in that log. 66 other lines in that log came from scripts calling the hook directly and were removed; a call with no session is no longer recorded.
+
+Fewer holds will miss some real ones. The trade is deliberate, and `strictness strict` restores all of it.
 
 ## Recall
 

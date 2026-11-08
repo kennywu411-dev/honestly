@@ -193,23 +193,29 @@ def test_these_pipes_are_allowed(cmd):
 
 
 @pytest.mark.parametrize("cmd", [
-    "pytest -q | Select-String -Pattern 'foo', 'bar'",
-    "pytest -q | Select-String -Pattern:foo",
     "pytest -q | Select-String passed -Quiet:$true",
-    "pytest -q | findstr /VI failed",
-    "pytest -q | findstr /IC:foo",
-    "pytest -q | findstr /VC:warning",
     "$LASTEXITCODE = 0; pytest -q | Select-Object -First 5",
-    'pytest -q | find "foo"',
     "pytest -q |\n  Select-Object -First 5",
     "pytest -q |\n  head -5",
     "pytest -q `\n  | Select-Object -First 5",
     'pwsh -c "pytest -q | Select-Object -First 5"',
     'powershell -Command "pytest -q | Select-Object -First 5"',
-    'cmd /c "pytest -q | findstr foo"',
 ])
 def test_these_pipes_are_refused(cmd):
     assert pre(cmd) is not None, cmd
+
+
+@pytest.mark.parametrize("cmd", [
+    "pytest -q | Select-String -Pattern 'foo', 'bar'",
+    "pytest -q | Select-String -Pattern:foo",
+    "pytest -q | findstr /VI failed",
+    "pytest -q | findstr /IC:foo",
+    "pytest -q | findstr /VC:warning",
+    'pytest -q | find "foo"',
+    'cmd /c "pytest -q | findstr foo"',
+])
+def test_these_filters_are_read_right(cmd):
+    assert hooks.find_hidden_status(cmd, strict=True) is not None, cmd
 
 
 # ---- Gemini CLI results

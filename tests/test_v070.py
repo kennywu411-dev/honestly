@@ -10,8 +10,6 @@ from honestly import hooks, rules, config, prnote
 BLOCK = [   # each one keeps the pass/fail verdict from the agent
     "pytest tests/ \\\n  -q | head -5",                 # backslash continuation
     "pytest -q | head -20",                             # the summary is printed last; head cuts it
-    "pytest -rs | grep SKIP",                           # grep without the verdict words filters the summary out
-    "pytest | grep -v warning",                         # "2 failed, 1 warning" contains the excluded word
     "pytest | wc -l",                                   # nothing of the output is left
     "npm test | grep -q PASS",
     "npm test --workspaces | tail -5",                  # each workspace prints its own result; an early failure scrolls away
@@ -360,3 +358,9 @@ def test_reporting_what_an_agent_said_is_not_a_claim(tmp_path, reported):
 def test_the_agent_own_claim_is_still_a_claim(tmp_path):
     assert _stop(tmp_path, [EDIT], "Fixed. All 4 tests pass.") is not None
     assert _stop(tmp_path, [EDIT], "修好了，4 个测试都通过了。") is not None
+
+
+@pytest.mark.parametrize("cmd", ["pytest -rs | grep SKIP", "pytest | grep -v warning"])
+def test_a_filter_is_refused_only_under_strict(cmd):
+    assert hooks.find_hidden_status(cmd) is None, cmd
+    assert hooks.find_hidden_status(cmd, strict=True) is not None, cmd

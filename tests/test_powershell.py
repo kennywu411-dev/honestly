@@ -18,14 +18,9 @@ def pre(cmd, tool="Bash"):
     "dotnet test | Select-Object -SkipLast 3",     # drops the end, where the result is
     "pytest | Select-Object -Index 0,1",
     "npm test --workspaces | Select-Object -Last 5",   # like `| tail`: an early failure in a multi-package run scrolls away
-    "npm test | Select-String foo",                # drops the summary
-    "cargo test | sls -Pattern foo",
-    "pytest | Select-String -NotMatch warning",    # like `grep -v warning`: drops "1 failed, 2 passed, 1 warning"
     "pytest | Select-String passed -Quiet",        # prints True or False
     "pytest | Measure-Object -Line",               # a count
     "pytest | Out-Null",
-    "pytest | findstr foo",
-    "pytest | findstr /V warning",
 ])
 def test_a_cmdlet_that_hides_the_result_is_refused(cmd):
     assert pre(cmd) is not None, cmd
@@ -142,3 +137,15 @@ def _doctor_with(tmp_path, monkeypatch, matcher):
 def test_doctor_names_an_install_that_misses_the_powershell_tool(tmp_path, monkeypatch):
     assert "PowerShell" in _doctor_with(tmp_path, monkeypatch, "Bash")
     assert "PowerShell" not in _doctor_with(tmp_path, monkeypatch, "Bash|PowerShell")
+
+
+@pytest.mark.parametrize("cmd", [
+    "npm test | Select-String foo",                # drops the summary
+    "cargo test | sls -Pattern foo",
+    "pytest | Select-String -NotMatch warning",    # like `grep -v warning`: drops "1 failed, 2 passed, 1 warning"
+    "pytest | findstr foo",
+    "pytest | findstr /V warning",
+])
+def test_a_filtering_cmdlet_is_read_like_grep(cmd):
+    assert hooks.find_hidden_status(cmd) is None, cmd   # by default a filter looks for one thing
+    assert hooks.find_hidden_status(cmd, strict=True) is not None, cmd

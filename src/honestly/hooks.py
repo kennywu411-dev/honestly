@@ -4,15 +4,15 @@ Stop hook: if the reply the agent is about to send claims "tests pass / fixed / 
 this turn's transcript shows no matching check after the last code edit, ask the agent to run it
 (or say the work is unverified) before stopping. Fires once per turn (stop_hook_active guard).
 
-PreToolUse hook (Bash): refuses a pipeline that keeps a test or build verdict from the agent (the summary cut off,
-filtered out or discarded, or one suite's result scrolled away) and is not run with pipefail. The hook denies the call with a fix.
+PreToolUse hook (Bash): refuses a pipeline that keeps a whole run's test or build verdict from the agent (the summary cut off
+or discarded, or one suite's result scrolled away) and is not run with pipefail. The hook denies the call with a fix.
 """
 from __future__ import annotations
 import json
 import os
 import re
 import sys
-from . import rules, config, agents
+from . import rules, config, agents, noncode
 from .audit import audit_turn
 from .claude_code import Event, Turn
 
@@ -385,6 +385,14 @@ def _short(path: str) -> str:
     return parts[-1] if parts else ""
 
 
+def _holds(f, cfg: dict) -> bool:
+    """What stops the assistant. A hold costs a turn, so by default only claims about code do: the rules for sent, saved, deployed and the rest have been
+    wrong far more often than right on real sessions (docs/precision.md). The audit still lists them, and `strictness strict` holds them too."""
+    if f.verdict not in config.blocked_verdicts(cfg):
+        return False
+    return cfg.get("strictness") == "strict" or f.category not in noncode.SPECS
+
+
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
     second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
@@ -418,7 +426,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
         final = ""   # on a retry Gemini CLI's prompt_response repeats the held reply; the recording has the new one alone
     if final and not any(e.kind == "text" and final[:80] in e.text for e in turn.events):
         turn.events.append(Event("text", text=final))
-    bad = [f for f in audit_turn(turn, prev) if f.verdict in config.blocked_verdicts(cfg)]
+    bad = [f for f in audit_turn(turn, prev) if _holds(f, cfg)]
     if not bad:
         return None
     zh = _lang_zh(cfg, bad[0].claim)
@@ -763,13 +771,23 @@ def _consumer(stage: str) -> str:
     return "keep"   # tee, cat, sort, less, tr, jq, ...: the output still shows the result
 
 
-def _hides(kind: str, chain: list) -> bool:
-    """chain: consumer kinds in pipeline order after the verdict-printing stage."""
+PRE_NARROWED = re.compile(r"\s-k\s|--testNamePattern|\s-t\s+['\"]|\s-run\s|\s--grep\s|\bdotnet test\b[^|]*\s--filter\s|\bpytest\b[^|]*\s[\w./-]+\.py\b|\s[\w./-]+\.(?:test|spec)\.\w+\b")   # one test or one file
+
+
+def _hides(kind: str, chain: list, narrowed: bool = False, strict: bool = False) -> bool:
+    """chain: consumer kinds in pipeline order after the verdict-printing stage. By default only a whole run whose result is gone is refused:
+    `pytest -rs | grep SKIP` and `pytest -k spikes | head` look for one thing, and if the reply then says "tests pass" the stop hook judges that."""
     worst = max(chain, key=SEVERITY.get)
     if worst == "head" and "select" in chain[: chain.index("head")]:
         return False   # `pytest | grep -A20 FAILURES | head`, `cargo build | grep '^error' | head`: the failures are what is left
     if kind in ("test", "multi"):
-        return worst in ("silent", "head", "count", "filter") or (worst == "tail" and kind == "multi")
+        if strict:
+            return worst in ("silent", "head", "count", "filter") or (worst == "tail" and kind == "multi")
+        if narrowed:
+            return worst == "silent"
+        if "filter" in chain:
+            return worst == "silent" or worst == "count"
+        return worst in ("silent", "head", "count") or (worst == "tail" and kind == "multi")
     if kind == "build":
         return worst in ("silent", "head")
     return kind == "lint" and worst == "silent"
@@ -784,7 +802,7 @@ def _expand_groups(cmd: str) -> str:
     return cmd
 
 
-def find_hidden_status(cmd: str):
+def find_hidden_status(cmd: str, strict: bool = False):
     """The first pipeline that keeps a test or build result from the agent, as (segment, next command, why), or None.
 
     Not refused: a pipe that leaves the verdict visible (`pytest | tail`, `| tee log`, `grep -E "passed|failed"`), a pipeline
@@ -796,7 +814,7 @@ def find_hidden_status(cmd: str):
     if "<<" not in cmd:   # a pipe or a PowerShell backtick at the end of a line goes on to the next one
         cmd = re.sub(r"(\|&?)[ \t]*\r?\n[ \t]*", r"\1 ", re.sub(r"`[ \t]*\r?\n[ \t]*", " ", cmd))
     for body in re.findall(r"\$\(([^()]*)\)", cmd):   # `result=$(pytest -q | head -5)`
-        hit = find_hidden_status(body)
+        hit = find_hidden_status(body, strict)
         if hit:
             return hit
     pf = False
@@ -804,7 +822,7 @@ def find_hidden_status(cmd: str):
         if seg.heredoc:
             head, _, rest = seg.text.partition("\n")
             if SHELL_HEREDOC.match(head) and not pf and not rules.PIPEFAIL_ON.search(head):
-                hit = find_hidden_status(rest.rsplit("\n", 1)[0] if "\n" in rest else "")
+                hit = find_hidden_status(rest.rsplit("\n", 1)[0] if "\n" in rest else "", strict)
                 if hit:
                     return hit
             continue
@@ -821,7 +839,7 @@ def find_hidden_status(cmd: str):
                     continue
                 cons = [(_consumer(r), r) for _, r in stages[i + 1:]]
                 chain = [c for c, _ in cons]
-                if _hides(kind, chain):
+                if _hides(kind, chain, PRE_NARROWED.search(st) is not None, strict):
                     how, culprit = max(cons, key=lambda c: SEVERITY[c[0]])
                     words = STAGE_PREFIX.sub("", culprit).strip().split()
                     pipe = os.path.basename(words[0].strip("\"'")) if words else "tail"
@@ -848,7 +866,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     cmd = ti.get("command") if isinstance(ti, dict) else ""
     if not cmd or not isinstance(cmd, str):
         return None
-    hit = find_hidden_status(cmd)
+    hit = find_hidden_status(cmd, cfg.get("strictness") == "strict")
     if not hit:
         return None
     t, pipe, why, kind, tool = hit
@@ -864,7 +882,8 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     if turn is not None and not zh and cfg.get("language", "auto") == "auto":
         zh = _is_zh(turn.prompt)
     plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
-    _record("pre", data, turn, plain, command=t)
+    if data.get("session_id") or data.get("transcript_path") or data.get("conversation_id"):   # no session: someone trying the hook by hand or from a script, not a catch
+        _record("pre", data, turn, plain, command=t)
     last = "Select-Object -Last 40" if pipe.lower().replace(".exe", "") in PS_PIPES else "tail -n 40"
     fix = (f"给助手：请重新运行并让输出末尾可见（去掉 `| {pipe}`，或改用 `| {last}`），然后引用最后的汇总行。" if zh else
            f"To the agent: rerun it so the end of the output is visible (drop `| {pipe}`, or use `| {last}`), then quote the final summary line.")

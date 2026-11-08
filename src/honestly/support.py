@@ -55,8 +55,8 @@ def _fake_session(d: str, rows: list) -> str:
 
 
 def self_test() -> list:
-    """Feed guard two fake turns and see whether it blocks: a code claim ('All tests pass.' right after an edit, no test
-    run) and a non-code claim ('I've sent you the file.' with no send tool). Returns [(name, blocked, message)]."""
+    """Feed guard a fake turn and see whether it blocks: a code claim ('All tests pass.' right after an edit, no test run).
+    Claims about anything else do not hold a reply by default. Returns [(name, blocked, message)]."""
     d = tempfile.mkdtemp(prefix="honestly-doctor-")
     ts = "2026-01-01T00:00:0{}Z"
     code = _fake_session(d, [
@@ -66,19 +66,12 @@ def self_test() -> list:
         {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}, "cwd": d, "timestamp": ts.format(2)},
         {"type": "assistant", "message": {"role": "assistant", "model": "doctor", "content": [{"type": "text", "text": "Fixed. All tests pass."}]}, "cwd": d, "timestamp": ts.format(3)},
     ])
-    noncode = _fake_session(d, [
-        {"type": "user", "message": {"role": "user", "content": "send me the report"}, "origin": {"kind": "human"}, "cwd": d, "timestamp": ts.format(0)},
-        {"type": "assistant", "message": {"role": "assistant", "model": "doctor", "content": [
-            {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls reports/"}}]}, "cwd": d, "timestamp": ts.format(1)},
-        {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "report.pdf"}]}, "cwd": d, "timestamp": ts.format(2)},
-        {"type": "assistant", "message": {"role": "assistant", "model": "doctor", "content": [{"type": "text", "text": "I've sent you the report."}]}, "cwd": d, "timestamp": ts.format(3)},
-    ])
     saved = (hooks.catches_path, hooks._notify)
     hooks.catches_path = lambda: os.path.join(d, "catches.jsonl")   # never pollute the real log
     hooks._notify = lambda *a, **k: None
     results = []
     try:
-        for name, tp, last in (("code", code, "Fixed. All tests pass."), ("non-code", noncode, "I've sent you the report.")):
+        for name, tp, last in (("code", code, "Fixed. All tests pass."),):
             try:
                 out = hooks.stop_hook({"transcript_path": tp, "cwd": d, "last_assistant_message": last, "stop_hook_active": False})
             except Exception as e:
@@ -172,8 +165,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     lines.append((f"{ok}" if os.path.isdir(codex_dir) else "  -    ") + L(f"Codex sessions {'found' if os.path.isdir(codex_dir) else 'not found (fine if you do not use Codex)'}",
                                                                            f"Codex 会话记录{'已找到' if os.path.isdir(codex_dir) else '未找到（不用 Codex 就没关系）'}"))
     for name, passed, _msg in self_test():
-        what = {"code": L("a fake 'All tests pass.' right after an edit, no test run", "伪造一句改完代码就说「All tests pass.」，没跑测试"),
-                "non-code": L("a fake 'I've sent you the report.' with no send tool", "伪造一句「I've sent you the report.」，没有发送动作")}[name]
+        what = L("a fake 'All tests pass.' right after an edit, no test run", "伪造一句改完代码就说「All tests pass.」，没跑测试")
         lines.append(f"{ok if passed else bad}" + L(f"self-test ({name}): {what} → {'blocked' if passed else 'NOT blocked'}", f"自测（{'代码' if name == 'code' else '非代码'}）：{what} → {'已拦截' if passed else '未拦截'}"))
         if not passed:
             problems.append(L(f"the {name} self-test was not blocked; run `honestly feedback --issue` and attach this output", f"{name} 自测没被拦；运行 honestly feedback --issue 并附上这段输出"))
