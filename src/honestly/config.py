@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 
 from . import rules
 
@@ -27,6 +28,7 @@ STRICTNESS = {
 LIST_KEYS = ("ignore", "verify_commands", "off")
 DEFAULTS = {"strictness": "normal", "ignore": [], "verify_commands": [], "off": [], "language": "auto"}
 PROJECT_FILE = ".honestly.json"
+MAX_CONFIG_BYTES = 64 * 1024
 
 
 def user_path() -> str:
@@ -37,12 +39,40 @@ def project_path(cwd: str | None) -> str:
     return os.path.join(cwd or os.getcwd(), PROJECT_FILE)
 
 
-def _read(path: str) -> dict:
+def _read_small_file(path: str):
+    """The file's bytes, or None unless it is an ordinary file of a sensible size. A repository can ship a symlink to /dev/zero or
+    a FIFO under this name, so nothing is read before that is known, and opening never blocks."""
     try:
-        with open(path, encoding="utf-8") as fh:
-            d = json.load(fh)
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+    except (OSError, ValueError):
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_CONFIG_BYTES:
+            return None
+        chunks, left = [], MAX_CONFIG_BYTES + 1
+        while left > 0:
+            chunk = os.read(fd, left)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            left -= len(chunk)
+        data = b"".join(chunks)
+        return data if len(data) <= MAX_CONFIG_BYTES else None
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _read(path: str) -> dict:
+    data = _read_small_file(path)
+    if data is None:
+        return {}
+    try:
+        d = json.loads(data.decode("utf-8"))
         return d if isinstance(d, dict) else {}
-    except Exception:
+    except (ValueError, RecursionError):
         return {}
 
 
