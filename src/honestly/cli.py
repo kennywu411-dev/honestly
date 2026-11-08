@@ -458,12 +458,38 @@ def _run_hook(args: list) -> int:
             from .hooks import _note
             _note("args", f"hook started with arguments this version does not know: {args}; nothing checked")
             return 0
+        event = _take_event()
+        if parsed[0] == "pre" and event is not None and _no_pipe_in(event):
+            return 0
         from .hooks import run_hook
         run_hook(*parsed)
         _flush_stdout()
     except BaseException:
         _silence_stdout()
     return 0
+
+
+def _take_event():
+    """Read the hook's event, leaving it readable for the code that judges it. None when there is no stdin."""
+    stream = getattr(sys.stdin, "buffer", None)
+    if stream is None:
+        return None
+    import io
+    event = stream.read()
+    sys.stdin = io.TextIOWrapper(io.BytesIO(event), encoding="utf-8", errors="replace")
+    return event
+
+
+def _no_pipe_in(event: bytes) -> bool:
+    """The pre hook only ever refuses a pipeline, so a well-formed event with no `|` anywhere in it needs no rule table loaded. Most commands
+    are like this and it is what makes them cheap; tests/test_install_cli.py fails if the pre hook ever starts refusing a command without a pipe."""
+    if b"|" in event or b"\\u007c" in event.lower():
+        return False
+    import json
+    try:
+        return isinstance(json.loads(event), dict)
+    except (ValueError, RecursionError):
+        return False
 
 
 def _dispatch(args: list):

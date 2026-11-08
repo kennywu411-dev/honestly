@@ -19,6 +19,7 @@ import json
 import os
 import re
 import stat
+import sys
 import time
 
 from . import rules
@@ -366,10 +367,12 @@ def apply(cfg: dict) -> None:
     rules.DISABLED = frozenset(cfg.get("off", []))
     extra = [re.escape(c) for c in cfg.get("verify_commands", [])]
     rules.VERIFY["test"] = re.compile(_BASE_TEST.pattern + ("|" + "|".join(extra) if extra else ""), _BASE_TEST.flags)
-    from . import hooks, audit   # rebuilt tables that were derived from VERIFY at import time
+    from . import hooks   # rebuilt tables that were derived from VERIFY at import time
     hooks.TEST_LIKE = re.compile("|".join(p.pattern for k, p in rules.VERIFY.items() if k in ("test", "build")), re.I)
     hooks.PRE_EXTRA = re.compile("|".join(extra)) if extra else None
-    audit.rebuild_verified_spec()
+    audit = sys.modules.get(__package__ + ".audit")   # not loaded yet, it builds its table from the VERIFY set above; the pre hook never needs it
+    if audit is not None:
+        audit.rebuild_verified_spec()
 
 
 def blocked_verdicts(cfg: dict) -> tuple:

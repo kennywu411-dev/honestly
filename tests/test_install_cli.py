@@ -885,7 +885,7 @@ def _honestly(args, home, inp=b"", env=None, cwd=None):
     home.mkdir(parents=True, exist_ok=True)
     e = dict(os.environ, HOME=str(home), USERPROFILE=str(home), CLAUDE_CONFIG_DIR=str(home / ".claude"), HONESTLY_NO_UPDATE_CHECK="1", PYTHONPATH=os.path.join(ROOT, "src"))
     e.update(env or {})
-    return subprocess.run([sys.executable, "-m", "honestly", *args], input=inp, capture_output=True, env=e, cwd=cwd or str(home))
+    return subprocess.run([sys.executable, "-m", "honestly", *args], input=inp, capture_output=True, env=e, cwd=cwd or str(home), timeout=60)
 
 
 def _seed_session(home, n=3):
@@ -1052,7 +1052,7 @@ def test_help_documents_the_exit_codes(tmp_path):
 
 def test_categories_are_listed_and_match_the_rules(tmp_path):
     from honestly import config, rules
-    assert set(config.CATEGORIES) == {name for name, _, _ in rules.CLAIM_PATTERNS}
+    assert set(config.CATEGORIES) == {name for name, _, _ in rules.claim_patterns()}
     home = tmp_path / "home"
     assert b"tests_pass" in _honestly(["config"], home).stdout
     r = _honestly(["config", "off", "nope"], home)
@@ -1439,3 +1439,149 @@ def test_the_logs_stop_growing_and_keep_the_previous_part(tmp_path, monkeypatch)
     for _ in range(40):
         hooks._note("stdin", "x" * 100)
     assert errors.stat().st_size < 3000 and (tmp_path / "hook-errors.log.1").exists()
+
+
+# ---------------------------------------------------------------- a hook must not slow the assistant
+def _modules_after(args, inp, tmp_path):
+    code = ("import sys, runpy\n"
+            f"sys.argv = ['honestly'] + {args!r}\n"
+            "from honestly import cli\n"
+            "rc = cli.main()\n"
+            "print('\\nMODULES ' + ' '.join(sorted(m for m in sys.modules if m.startswith('honestly') or m in ('argparse', 'dataclasses', 'random', 'subprocess'))))\n")
+    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), CLAUDE_CONFIG_DIR=str(tmp_path / ".claude"), PYTHONPATH=os.path.join(ROOT, "src"))
+    r = subprocess.run([sys.executable, "-c", code], input=inp, capture_output=True, env=env)
+    assert r.returncode == 0, r.stderr
+    return set(r.stdout.decode().rsplit("MODULES ", 1)[1].split())
+
+
+def test_a_command_without_a_pipe_loads_nothing_but_the_entry_point(tmp_path):
+    loaded = _modules_after(["hook", "pre"], json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls -la src"}, "cwd": "/tmp", "session_id": "s"}).encode(), tmp_path)
+    assert loaded == {"honestly", "honestly.cli"}
+
+
+def test_a_piped_command_does_not_load_the_audit_or_the_reports(tmp_path):
+    loaded = _modules_after(["hook", "pre"], json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls | wc -l"}, "cwd": "/tmp", "session_id": "s"}).encode(), tmp_path)
+    assert "honestly.rules" in loaded
+    assert not loaded & {"honestly.audit", "honestly.noncode", "honestly.report", "argparse", "honestly.prnote", "honestly.support", "honestly.update", "random"}
+
+
+def test_a_refused_pipe_still_loads_no_more_than_it_needs(tmp_path):
+    env_input = json.dumps({"tool_name": "Bash", "tool_input": {"command": "pytest | head -5"}, "cwd": "/tmp", "session_id": "s"}).encode()
+    loaded = _modules_after(["hook", "pre"], env_input, tmp_path)
+    assert not loaded & {"honestly.audit", "honestly.noncode", "honestly.report", "argparse"}
+
+
+NO_PIPE = ["pytest", "pytest -q && echo done", "pytest > out.txt", "pytest > /dev/null 2>&1", "npm test; echo $?", "cargo test &> log", "go test ./... 2>&1", "bash -c 'pytest'",
+           "result=$(pytest -q)", "cat > a.py <<'EOF'\nprint(1)\nEOF", "bash <<'EOF'\npytest\nEOF", "tox && make test", "(pytest)", "{ pytest; }"]
+
+
+@pytest.mark.parametrize("cmd", NO_PIPE)
+def test_the_shortcut_is_only_true_because_a_command_without_a_pipe_is_never_refused(cmd):
+    # the hook skips loading the rules when the event holds no `|`. If the pre hook ever learns to refuse a command without a pipe, this fails and the shortcut in cli.py must go.
+    from honestly import cli
+    assert hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": "/tmp"}) is None
+    assert hooks.find_hidden_status(cmd, strict=True) is None
+    assert cli._no_pipe_in(json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}}).encode())
+
+
+def test_the_shortcut_never_skips_an_event_with_a_pipe_however_it_is_written():
+    from honestly import cli
+    assert not cli._no_pipe_in(json.dumps({"tool_input": {"command": "pytest | head"}}).encode())
+    assert not cli._no_pipe_in(b'{"tool_input": {"command": "pytest \\u007c head"}}')
+    assert not cli._no_pipe_in(b'{"tool_input": {"command": "pytest \\u007C head"}}')
+    assert not cli._no_pipe_in(b"not json")   # goes the long way, which notes that nothing was checked
+    assert not cli._no_pipe_in(b"[1]")
+    assert not cli._no_pipe_in('{"command": "pytest | head"}'.encode("utf-16"))
+
+
+def test_input_it_cannot_read_is_still_noted_for_doctor(tmp_path):
+    home = tmp_path / "home"
+    r = _honestly(["hook", "pre"], home, b"not json")
+    assert r.returncode == 0 and r.stdout == b""
+    assert "not JSON" in (home / ".honestly" / "hook-errors.log").read_text()
+
+
+@pytest.mark.parametrize("which,timeout", [("pre", 10), ("stop", 30)])
+def test_the_time_budget_is_inside_what_the_assistant_allows(which, timeout):
+    assert 0 < hooks.BUDGET[which] < timeout
+
+
+def test_a_hook_that_takes_too_long_gives_up_quietly_and_exits_zero(tmp_path):
+    code = ("import time, sys\n"
+            "from honestly import hooks\n"
+            "hooks.BUDGET['pre'] = 0.2\n"
+            "hooks.pre_hook = lambda **k: time.sleep(20)\n"
+            "sys.exit(hooks.run_hook('pre'))\n")
+    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=os.path.join(ROOT, "src"))
+    import time
+    t = time.time()
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env, timeout=15)
+    assert time.time() - t < 10 and r.returncode == 0 and r.stdout == b"" and r.stderr == b""
+    assert "gave up" in (tmp_path / ".honestly" / "hook-errors.log").read_text()
+
+
+def test_a_slow_regex_cannot_outlast_the_budget(tmp_path):
+    code = ("import re, sys\n"
+            "from honestly import hooks\n"
+            "hooks.BUDGET['pre'] = 0.2\n"
+            "hooks.pre_hook = lambda **k: re.match(r'(a+)+$', 'a' * 40 + 'b')\n"
+            "sys.exit(hooks.run_hook('pre'))\n")
+    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), PYTHONPATH=os.path.join(ROOT, "src"))
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, env=env, timeout=30)
+    assert r.returncode == 0 and r.stdout == b""
+
+
+def test_the_budget_is_off_once_the_answer_is_being_printed(capsys):
+    import io
+    hooks.BUDGET["pre"], saved = 5, hooks.BUDGET["pre"]
+    real = sys.stdin
+    sys.stdin = io.StringIO(PIPED)
+    try:
+        assert hooks.run_hook("pre") == 0
+    finally:
+        sys.stdin = real
+        hooks.BUDGET["pre"] = saved
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+    if hasattr(__import__("signal"), "getitimer"):
+        import signal
+        assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+
+
+@posix_only
+@pytest.mark.parametrize("which", ["stop", "pre"])
+def test_a_transcript_that_is_a_fifo_does_not_hang_the_hook(tmp_path, which):
+    fifo = tmp_path / "t.jsonl"
+    os.mkfifo(fifo)
+    event = {"tool_name": "Bash", "tool_input": {"command": "pytest | head -2"}, "cwd": "/tmp", "session_id": "s", "transcript_path": str(fifo), "last_assistant_message": "All tests pass."}
+    r = _honestly(["hook", which], tmp_path / "home", json.dumps(event).encode())
+    assert r.returncode == 0
+
+
+def test_a_giant_single_turn_does_not_read_the_whole_log_again_and_again(tmp_path, monkeypatch):
+    from honestly import claude_code
+    p = tmp_path / "t.jsonl"
+    filler = "y" * 200
+    with open(p, "w") as f:
+        f.write(json.dumps({"type": "user", "message": {"role": "user", "content": "start"}, "origin": {"kind": "human"}, "cwd": "/w", "timestamp": "2026-01-01T00:00:00Z"}) + "\n")
+        for i in range(3000):
+            f.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "tool_use", "id": f"t{i}", "name": "Bash", "input": {"command": "ls"}}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:01Z"}) + "\n")
+            f.write(json.dumps({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": filler}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:02Z"}) + "\n")
+        f.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "model": "m", "content": [{"type": "text", "text": "Done."}]}, "cwd": "/w", "timestamp": "2026-01-01T00:00:03Z"}) + "\n")
+    monkeypatch.setattr(claude_code, "TAIL_THRESHOLD", 1000)
+    monkeypatch.setattr(claude_code, "TAIL_WINDOW", 2000)
+    monkeypatch.setattr(claude_code, "TAIL_LIMIT", 20000)
+    reads = []
+    real = claude_code._parse
+    monkeypatch.setattr(claude_code, "_parse", lambda path, sidechain=False, start=0: reads.append(start) or real(path, sidechain, start))
+    turns = claude_code.parse_session(str(p), tail=True)
+    assert len(reads) <= 3 and min(reads) > 0   # it stops at the limit instead of working back to the start of the file
+    assert turns and turns[-1].events[-1].text == "Done."   # the turn in progress is kept, not dropped for having begun before the window
+
+
+def test_a_big_log_with_many_turns_still_gives_whole_turns(tmp_path, monkeypatch):
+    from honestly import claude_code
+    p = _seed_session(tmp_path / "home", 300)
+    monkeypatch.setattr(claude_code, "TAIL_THRESHOLD", 1000)
+    monkeypatch.setattr(claude_code, "TAIL_WINDOW", 4000)
+    turns = claude_code.parse_session(str(p), tail=True)
+    assert len(turns) >= 2 and all(t.prompt for t in turns)

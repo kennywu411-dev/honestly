@@ -10,13 +10,11 @@ Contracts (from the vendors' docs, 2026-10; marked experimental in the README un
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import re
 
 from . import hookline
-from .claude_code import Event, Turn, clip_output
 
 MARK = hookline.MARK
 NAMES = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
@@ -27,12 +25,14 @@ EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "write_file", "replace", "edit_file"
 
 # ------------------------------------------------------------ transcripts: Cursor
 def cursor_sessions(root: str | None = None):
+    import glob
     root = root or os.path.expanduser("~/.cursor/projects")
     yield from sorted(glob.glob(os.path.join(root, "*", "agent-transcripts", "*", "*.jsonl")) +
                       glob.glob(os.path.join(root, "*", "agent-transcripts", "*.jsonl")))
 
 
-def _tool_event(name: str, inp, ts: str = "") -> Event:
+def _tool_event(name: str, inp, ts: str = ""):
+    from .claude_code import Event
     inp = inp if isinstance(inp, dict) else {}
     cmd = inp.get("command") or inp.get("cmd") or inp.get("commandLine") or ""
     if isinstance(cmd, list):
@@ -59,6 +59,7 @@ def _gemini_prompt_row(line: bytes) -> bool:
 
 def cursor_parse(path: str, start: int = 0):
     """Cursor's hook-visible transcript: one JSON object per line with role and message; tool inputs are kept, tool outputs are not."""
+    from .claude_code import Event, Turn
     session = os.path.splitext(os.path.basename(path))[0][:40]
     turns: list[Turn] = []
     cur: Turn | None = None
@@ -106,6 +107,7 @@ def cursor_parse(path: str, start: int = 0):
 
 # --------------------------------------------------------- transcripts: Gemini CLI
 def gemini_sessions(root: str | None = None):
+    import glob
     root = root or os.path.expanduser("~/.gemini/tmp")
     yield from sorted(glob.glob(os.path.join(root, "*", "chats", "session-*.jsonl")) + glob.glob(os.path.join(root, "*", "chats", "session-*.json")))
 
@@ -189,6 +191,7 @@ def _gemini_project(path: str) -> str:
 
 def gemini_parse(path: str, start: int = 0):
     """Gemini CLI chat recording: message records (type user | gemini) with content parts and, for gemini, toolCalls[{name,args,result,status}]."""
+    from .claude_code import Event, Turn, clip_output
     session = os.path.splitext(os.path.basename(path))[0].replace("session-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None

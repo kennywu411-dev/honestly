@@ -18,11 +18,9 @@ import sys
 import threading
 import time
 import unicodedata
-from . import rules, config, agents, claude_code, saferegex, store, hookline
+from . import rules, config, agents, saferegex, store, hookline
 from . import shell as _sh
 from .programs import program
-from .audit import audit_turn
-from .claude_code import Event, Turn
 from .redact import redact, strip_controls
 
 MARK = hookline.MARK
@@ -446,13 +444,16 @@ def _session_tools(agent: str, path: str):
     """Every tool call in the session, or None if it cannot be known. A bad or unreadable file must not turn into a hold."""
     try:
         if agent == "claude-code":
-            return claude_code.session_tools(path)
+            from .claude_code import session_tools
+            return session_tools(path)
         return [e for t in agents.parser_for(agent)(path) for e in t.events if e.kind == "tool"]
     except Exception:
         return None
 
 
 def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | None:
+    from .audit import audit_turn
+    from .claude_code import Event, Turn
     data = agents.normalize(agent, "stop", data if data is not None else _read_stdin())
     second_pass = bool(data.get("stop_hook_active"))   # the agent is answering a block: warn, never block twice
     cfg = config.load(data.get("cwd") or None)
@@ -461,7 +462,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
     path = data.get("transcript_path") or ""
     turn = None
     prev = None
-    if path and os.path.exists(path):
+    if path and os.path.isfile(path):   # a folder or a named pipe is no transcript, and reading a pipe would wait for ever
         try:
             turns = agents.parser_for(agent, tail=True)(path)
         except Exception as e:
@@ -1134,7 +1135,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
     zh = _lang_zh(cfg, cmd)
     turn = None
     tp = data.get("transcript_path") or ""
-    if tp and os.path.exists(tp):
+    if tp and os.path.isfile(tp):
         try:
             turns = agents.parser_for(agent, light=True)(tp)   # the verdict is in: this is only to name the model and the conversation
             turn = turns[-1] if turns else None
@@ -1142,6 +1143,7 @@ def pre_hook(data: dict | None = None, agent: str = "claude-code") -> dict | Non
             turn = None
     if turn is not None and not zh and cfg.get("language", "auto") == "auto":
         zh = _is_zh(turn.prompt)
+    from .claude_code import Turn
     plain = _plain_pre(t, zh, _who_where(data, turn or Turn(session="live", index=0, version="", prompt="", agent=agent, model=str(data.get("model") or "")), zh), pipe=pipe, why=why, kind=kind, tool=tool)
     if data.get("session_id") or data.get("transcript_path") or data.get("conversation_id"):   # no session: someone trying the hook by hand or from a script, not a catch
         _record("pre", data, turn, plain, command=t)
@@ -1221,6 +1223,8 @@ def run_hook(which: str, agent: str = "claude-code") -> int:
         except Exception:
             pass
         return 0
+    finally:
+        disarm()
     if out:
         print(json.dumps(out, ensure_ascii=True))   # ASCII: a Windows pipe defaults to cp1252, and a character it cannot write would end the hook and lose the hold
     return 0
