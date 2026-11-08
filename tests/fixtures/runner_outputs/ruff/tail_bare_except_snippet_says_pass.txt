@@ -1,0 +1,5 @@
+4 | /     except:
+5 | |         pass
+  | |____________^
+
+Found 2 errors.

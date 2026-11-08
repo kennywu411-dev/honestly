@@ -1,0 +1,9 @@
+
+Running tests in #{"test"}
+
+Testing a-test
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+
+Ran 1 tests containing 1 assertions.
+0 failures, 0 errors.

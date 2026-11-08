@@ -1,0 +1,20 @@
+E722 Do not use bare `except`
+ --> a.py:4:5
+  |
+2 |     try:
+3 |         return 1
+4 |     except:
+  |     ^^^^^^
+5 |         pass
+  |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+ --> a.py:4:5
+  |
+2 |       try:
+3 |           return 1
+4 | /     except:
+5 | |         pass
+  | |____________^
+
+Found 2 errors.

@@ -1,0 +1,20 @@
+[32m.[0m[32m.[0m[32m.[0m[31mF[0m
+
+Failures:
+
+  1) bad wrong
+     [31mFailure/Error: it("wrong") { expect(1).to eq(2) }[0m
+     [31m[0m
+     [31m  expected: 2[0m
+     [31m       got: 1[0m
+     [31m[0m
+     [31m  (compared using ==)[0m
+     [36m# ./spec/a_spec.rb:7:in 'block (2 levels) in <top (required)>'[0m
+
+Finished in 0.02231 seconds (files took 0.08515 seconds to load)
+[31m4 examples, 1 failure[0m
+
+Failed examples:
+
+[31mrspec ./spec/a_spec.rb:7[0m [36m# bad wrong[0m
+

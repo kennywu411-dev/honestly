@@ -1,0 +1,39 @@
+
+While loading ./spec/a_spec.rb a `raise SyntaxError` occurred, RSpec will now quit.
+Failure/Error: __send__(method, file)
+
+SyntaxError:
+  --> /w/ruby/rspec/syntax/spec/a_spec.rb
+
+  Unmatched `(', missing `)' ?
+
+    1  RSpec.describe "x" do
+  [0m> 2  [1;3m  it("y") { expect(1).to eq(1 }
+  [0m  3  end
+  [0m
+  [1m/w/ruby/rspec/syntax/spec/a_spec.rb:2: syntax error found ([1;4mSyntaxError[m[1m)[m
+  [1m  1 | RSpec.describe "x" do[m
+  [1m> 2 | ... }[m
+  [1m    |     ^ unexpected '}'; expected a `)` to close the arguments[m
+  [1m  3 | end[m
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/configuration.rb:2144:in 'Kernel#load'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/configuration.rb:2144:in 'RSpec::Core::Configuration#load_file_handling_errors'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/configuration.rb:1643:in 'block in RSpec::Core::Configuration#load_spec_files'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/configuration.rb:1641:in 'Array#each'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/configuration.rb:1641:in 'RSpec::Core::Configuration#load_spec_files'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/runner.rb:102:in 'RSpec::Core::Runner#setup'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/runner.rb:86:in 'RSpec::Core::Runner#run'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/runner.rb:71:in 'RSpec::Core::Runner.run'
+# /usr/local/bundle/gems/rspec-core-3.13.7/lib/rspec/core/runner.rb:45:in 'RSpec::Core::Runner.invoke'
+# /usr/local/bundle/gems/rspec-core-3.13.7/exe/rspec:4:in '<top (required)>'
+# /usr/local/bundle/bin/rspec:25:in 'Kernel#load'
+# /usr/local/bundle/bin/rspec:25:in '<main>'
+# 
+#   Showing full backtrace because every line was filtered out.
+#   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+#   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+
+
+Finished in 0.00043 seconds (files took 0.34047 seconds to load)
+0 examples, 0 failures, 1 error occurred outside of examples
+

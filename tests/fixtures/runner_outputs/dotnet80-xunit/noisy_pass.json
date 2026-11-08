@@ -1,0 +1,8 @@
+{
+ "command": "dotnet test --logger \"console;verbosity=normal\"",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "dotnet 8.0.427 xunit",
+ "where": "mcr.microsoft.com/dotnet/sdk:8.0"
+}

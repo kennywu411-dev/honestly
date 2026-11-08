@@ -1,0 +1,7 @@
+py: install_deps> python -I -m pip install pytest
+py: commands[0]> pytest -q
+
+no tests ran in 0.00s
+py: exit 5 (0.59 seconds) /work/tox/empty> pytest -q pid=15264
+  py: FAIL code 5 (8.28=setup[7.69]+cmd[0.59] seconds)
+  evaluation failed :( (8.36 seconds)

@@ -1,0 +1,63 @@
+Scope: 3 of 4 workspace projects
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_first/packages/a[39m
+
+ [31m❯[39m a.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 9[2mms[22m[39m
+   [32m✓[39m one[32m 2[2mms[22m[39m
+   [32m✓[39m two[32m 0[2mms[22m[39m
+[31m   [31m×[31m bad[39m[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m a.test.ts[2m > [22mbad
+[31m[1mAssertionError[22m: expected 1 to be 2 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m a.test.ts:[2m4:31[22m[39m
+    [90m  2|[39m [34mtest[39m([32m'one'[39m[33m,[39m () [33m=>[39m { [34mexpect[39m([34m1[39m)[33m.[39m[34mtoBe[39m([34m1[39m)[33m;[39m })[33m;[39m
+    [90m  3|[39m [34mtest[39m([32m'two'[39m[33m,[39m () [33m=>[39m { [34mexpect[39m([34m2[39m)[33m.[39m[34mtoBe[39m([34m2[39m)[33m;[39m })[33m;[39m
+    [90m  4|[39m [34mtest[39m([32m'bad'[39m[33m,[39m () [33m=>[39m { [34mexpect[39m([34m1[39m)[33m.[39m[34mtoBe[39m([34m2[39m)[33m;[39m })[33m;[39m
+    [90m   |[39m                               [31m^[39m
+    [90m  5|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 23:58:13
+[2m   Duration [22m 220ms[2m (import 37%, tests 29%, transform 20%, worker 13%, environment 1%)[22m
+
+[ELIFECYCLE] Test failed. See above for more details.
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_first/packages/b[39m
+
+ [32m✓[39m b.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:13
+[2m   Duration [22m 200ms[2m (import 46%, transform 20%, worker 18%, tests 15%, environment 1%)[22m
+
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/work/mono2/vitest_first/packages/c[39m
+
+ [32m✓[39m c.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 23:58:14
+[2m   Duration [22m 226ms[2m (import 46%, worker 20%, transform 19%, tests 14%)[22m
+
+Error: [31mERR_PNPM_RECURSIVE_FAIL[0m
+
+  [31m×[0m "pnpm recursive run" failed in 1 packages
+

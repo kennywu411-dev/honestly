@@ -1,0 +1,5 @@
+[91m[-] bad.wrong[0m[90m 56ms[0m
+[91m Expected 2, but got 1.
+[91m at It 'wrong' { 1 | Should -Be 2 }, /w/pester/onebad/a.Tests.ps1:7[0m
+[97mTests completed in 772ms[0m
+[97mTests Passed: 3, [0m[91mFailed: 1, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m

@@ -1,0 +1,31 @@
+FFE.
+======================================================================
+ERROR: test_err (test_a.T.test_err)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/unittest/manybad/test_a.py", line 14, in test_err
+    raise ValueError("boom")
+ValueError: boom
+
+======================================================================
+FAIL: test_bad (test_a.T.test_bad)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/unittest/manybad/test_a.py", line 8, in test_bad
+    self.assertEqual(1, 2)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_bad2 (test_a.T.test_bad2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/unittest/manybad/test_a.py", line 11, in test_bad2
+    self.assertEqual(2, 3)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 2 != 3
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+FAILED (failures=2, errors=1)

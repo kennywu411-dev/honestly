@@ -1,0 +1,6 @@
+
+/work/lint/es_syntax/a.js
+  1:7  error  Parsing error: Unexpected token =
+
+✖ 1 problem (1 error, 0 warnings)
+

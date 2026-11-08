@@ -1,0 +1,24 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+(pass) one [0.06ms]
+(pass) two [0.03ms]
+(pass) three [0.01ms]
+1 | import { test, expect } from "bun:test";
+2 | test("one", () => { expect(1 + 1).toBe(2); });
+3 | test("two", () => { expect("a".toUpperCase()).toBe("A"); });
+4 | test("three", () => { expect(3).toBe(3); });
+5 | test("bad", () => { expect(1).toBe(2); });
+                                  ^
+error: expect(received).toBe(expected)
+
+Expected: 2
+Received: 1
+
+      at <anonymous> (/work/bun/onebad/a.test.ts:5:31)
+(fail) bad [0.92ms]
+
+ 3 pass
+ 1 fail
+ 4 expect() calls
+Ran 4 tests across 1 file. [6.00ms]

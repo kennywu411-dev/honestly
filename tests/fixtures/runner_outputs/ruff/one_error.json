@@ -1,0 +1,14 @@
+{
+ "command": "ruff check .",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "ruff 0.17.4",
+ "where": "macOS-arm64-local"
+}

@@ -1,0 +1,8 @@
+ok  	example.com/m/also	0.003s
+--- FAIL: TestBad (0.00s)
+    bad_test.go:24: got 1 want 2
+FAIL
+FAIL	example.com/m/bad	0.003s
+ok  	example.com/m/good	0.004s
+?   	example.com/m/notests	[no test files]
+FAIL

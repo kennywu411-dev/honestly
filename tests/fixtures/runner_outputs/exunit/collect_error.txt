@@ -1,0 +1,8 @@
+Generated m app
+Running ExUnit with seed: 126680, max_cases: 14
+
+
+== Compilation error in file test/broken_test.exs ==
+** (UndefinedFunctionError) function DoesNotExist.call/0 is undefined (module DoesNotExist is not available). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    DoesNotExist.call()
+    test/broken_test.exs:2: (module)

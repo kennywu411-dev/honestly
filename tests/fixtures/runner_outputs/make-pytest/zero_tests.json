@@ -1,0 +1,11 @@
+{
+ "command": "make test",
+ "exit_code": 2,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "version": "GNU Make 3.81",
+ "where": "macOS-arm64-local"
+}

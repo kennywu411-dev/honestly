@@ -1,0 +1,8 @@
+{
+ "command": "tox",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "4.67.13 from /home/user/honest",
+ "where": "macOS-arm64-local"
+}

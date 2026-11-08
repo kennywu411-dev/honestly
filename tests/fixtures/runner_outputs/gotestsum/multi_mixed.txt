@@ -1,0 +1,10 @@
+✓  also (cached)
+✓  good (cached)
+∅  notests
+✖  bad (4ms)
+
+=== Failed
+=== FAIL: bad TestBad (0.00s)
+    bad_test.go:24: got 1 want 2
+
+DONE 10 tests, 1 failure in 0.143s

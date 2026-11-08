@@ -1,0 +1,5 @@
+{"Time":"2026-11-08T12:50:38.282980232Z","Action":"start","Package":"example.com/m"}
+{"Time":"2026-11-08T12:50:38.285490676Z","Action":"output","Package":"example.com/m","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-11-08T12:50:38.285739252Z","Action":"output","Package":"example.com/m","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:38.286035734Z","Action":"output","Package":"example.com/m","Output":"ok  \texample.com/m\t0.003s [no tests to run]\n"}
+{"Time":"2026-11-08T12:50:38.286662053Z","Action":"pass","Package":"example.com/m","Elapsed":0.004}

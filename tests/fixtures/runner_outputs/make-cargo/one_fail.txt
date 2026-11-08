@@ -1,0 +1,29 @@
+cargo test
+   Compiling m v0.1.0 (/w/rust/mk_bad)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.18s
+     Running unittests src/lib.rs (target/debug/deps/m-caf2b80818c458fd)
+
+running 4 tests
+test tests::one ... ok
+test tests::two ... ok
+test tests::three ... ok
+test tests::bad ... FAILED
+
+failures:
+
+---- tests::bad stdout ----
+
+thread 'tests::bad' (4481) panicked at src/lib.rs:17:16:
+assertion `left == right` failed
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::bad
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+make: *** [Makefile:2: test] Error 101

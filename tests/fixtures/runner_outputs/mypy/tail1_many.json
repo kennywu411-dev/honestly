@@ -1,0 +1,11 @@
+{
+ "command": "mypy . 2>&1 | tail -1",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "mypy 2.4.1 (compiled: yes)",
+ "where": "macOS-arm64-local"
+}

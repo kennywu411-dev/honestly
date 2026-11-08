@@ -1,0 +1,23 @@
+
+[7m[1m[36m NX [39m[22m[27m  [36mRunning target [1mtest[22m for 3 projects:[39m
+
+[2m-[22m a
+[2m-[22m b
+[2m-[22m c
+
+[2m[36m[39m[22m
+[32m✔[39m  [2mnx run[22m b:test
+[32m✔[39m  [2mnx run[22m c:test
+[32m✔[39m  [2mnx run[22m a:test
+
+[2m[32m[39m[22m
+
+[7m[1m[32m NX [39m[22m[27m  [32mSuccessfully ran target [1mtest[22m for 3 projects[39m
+
+
+[2mOutput of 3 successful tasks were not shown. Run with[22m --verbose [2mor[22m --output-style=static [2mto see it.[22m
+
+  Run duration:      883ms
+  Cache:             0/3 hit (0%)
+  Critical path:     878ms (1 task)
+  Recoverable time:  <1ms

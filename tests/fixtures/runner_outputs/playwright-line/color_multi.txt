@@ -1,0 +1,33 @@
+
+[2mRunning [22m10[2m tests using [22m3[2m workers[22m
+
+[1A[2K[1/10] tests/c.spec.ts:2:1 › one
+[1A[2K[2/10] tests/b.spec.ts:2:1 › one
+[1A[2K[3/10] tests/a.spec.ts:2:1 › one
+[1A[2K[4/10] tests/c.spec.ts:3:1 › two
+[1A[2K[5/10] tests/b.spec.ts:3:1 › two
+[1A[2K[6/10] tests/a.spec.ts:3:1 › two
+[1A[2K[7/10] tests/c.spec.ts:4:1 › in browser
+[1A[2K[8/10] tests/b.spec.ts:4:1 › in browser
+[1A[2K[9/10] tests/a.spec.ts:4:1 › in browser
+[1A[2K[10/10] tests/b.spec.ts:5:1 › bad
+[1A[2K[31m  1) tests/b.spec.ts:5:1 › bad [2m─────────────────────────────────────────────────────────────────────[22m[39m
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m1[39m
+
+     [90m 3 |[39m test([32m'two'[39m[33m,[39m [36masync[39m () [33m=>[39m { expect([32m'a'[39m[33m.[39mtoUpperCase())[33m.[39mtoBe([32m'A'[39m)[33m;[39m })[33m;[39m
+     [90m 4 |[39m test([32m'in browser'[39m[33m,[39m [36masync[39m ({ page }) [33m=>[39m { [36mawait[39m page[33m.[39msetContent([32m'<h1>hi</h1>'[39m)[33m;[39m [36mawait[39m expect(page[33m.[39mlocator([32m'h1'[39m))[33m.[39mtoHaveText([32m'hi'[39m)[33m;[39m })[33m;[39m
+    [31m[1m>[22m[39m[90m 5 |[39m test([32m'bad'[39m[33m,[39m [36masync[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m2[39m)[33m;[39m })[33m;[39m
+     [90m   |[39m                                     [31m[1m^[22m[39m
+     [90m 6 |[39m
+    [2m    at /w/playwright/mixed/tests/b.spec.ts:5:37[22m
+
+[2m    Error Context: test-results/b-bad/error-context.md[22m
+
+
+[1A[2K[31m  1 failed[39m
+[31m    tests/b.spec.ts:5:1 › bad [2m──────────────────────────────────────────────────────────────────────[22m[39m
+[32m  9 passed[39m[2m (1.2s)[22m

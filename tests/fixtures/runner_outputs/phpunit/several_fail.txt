@@ -1,0 +1,32 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/manybad/phpunit.xml
+
+...FFE                                                              6 / 6 (100%)
+
+Time: 00:00.009, Memory: 20.00 MB
+
+There was 1 error:
+
+1) ATest::testErr
+RuntimeException: boom
+
+/w/php/phpunit/manybad/tests/ATest.php:11
+
+--
+
+There were 2 failures:
+
+1) ATest::testBad
+Failed asserting that 2 is identical to 1.
+
+/w/php/phpunit/manybad/tests/ATest.php:9
+
+2) ATest::testBad2
+Failed asserting that false is true.
+
+/w/php/phpunit/manybad/tests/ATest.php:10
+
+ERRORS!
+Tests: 6, Assertions: 5, Errors: 1, Failures: 2.

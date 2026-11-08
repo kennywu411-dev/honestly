@@ -1,0 +1,8 @@
+{
+ "command": "FORCE_COLOR=1 make test",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "GNU Make 3.81",
+ "where": "macOS-arm64-local"
+}

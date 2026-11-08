@@ -1,0 +1,12 @@
+yarn run v1.22.22
+$ jest
+PASS ./a.test.js
+  ✓ one (5 ms)
+  ✓ two (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.239 s, estimated 1 s
+Ran all test suites.
+Done in 0.80s.

@@ -1,0 +1,12 @@
+=== RUN   TestOne
+--- PASS: TestOne (0.00s)
+=== RUN   TestTwo
+--- PASS: TestTwo (0.00s)
+=== RUN   TestThree
+    a_test.go:20: fine
+--- PASS: TestThree (0.00s)
+=== RUN   TestLater
+    a_test.go:24: not now
+--- SKIP: TestLater (0.00s)
+PASS
+ok  	example.com/m	0.036s

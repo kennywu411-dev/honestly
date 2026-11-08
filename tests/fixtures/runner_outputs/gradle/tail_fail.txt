@@ -1,0 +1,5 @@
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 9s
+2 actionable tasks: 2 executed

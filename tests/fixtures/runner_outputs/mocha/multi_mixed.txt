@@ -1,0 +1,38 @@
+
+
+  math
+    ✔ one
+    ✔ two
+    ✔ three
+
+  math
+    ✔ one
+    ✔ two
+    ✔ three
+
+  bad
+    1) wrong
+
+  math
+    ✔ one
+    ✔ two
+    ✔ three
+
+
+  9 passing (17ms)
+  1 failing
+
+  1) bad
+       wrong:
+
+      AssertionError [ERR_ASSERTION]: 1 == 2
+      + expected - actual
+
+      -1
+      +2
+      
+      at Context.<anonymous> (test/b.spec.js:7:52)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+

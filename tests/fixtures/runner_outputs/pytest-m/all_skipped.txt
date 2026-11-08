@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pytest/allskip
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collected 2 items
+
+test_a.py ss                                                             [100%]
+
+============================== 2 skipped in 0.07s ==============================

@@ -1,0 +1,8 @@
+{
+ "command": "./build/t --colour-mode ansi",
+ "exit_code": 42,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "catch2 3.7.1-0.5",
+ "where": "gcc:14"
+}

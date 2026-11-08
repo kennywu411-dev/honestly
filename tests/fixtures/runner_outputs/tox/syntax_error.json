@@ -1,0 +1,11 @@
+{
+ "command": "tox",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "4.67.13 from /home/user/honest",
+ "where": "macOS-arm64-local"
+}

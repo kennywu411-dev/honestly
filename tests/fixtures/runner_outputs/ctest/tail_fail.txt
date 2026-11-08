@@ -1,0 +1,5 @@
+The following tests FAILED:
+	  4 - M.Bad (Failed)
+Errors while running CTest
+Output from these tests are in: /w/cpp/ct_onebad/build/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

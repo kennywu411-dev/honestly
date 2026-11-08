@@ -1,0 +1,35 @@
+FAIL sub/d.test.js
+  ● Test suite failed to run
+
+    Cannot find module 'does-not-exist-anywhere' from 'sub/d.test.js'
+
+    > 1 | require('does-not-exist-anywhere');
+        | ^
+      2 |
+
+      at Resolver._throwModNotFoundError (../_deps/node_modules/jest-resolve/build/index.js:1031:11)
+      at Object.require (sub/d.test.js:1:1)
+
+PASS ./a.test.js
+PASS sub/c.test.js
+FAIL ./b.test.js
+  ● bad
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 2
+
+      2 | test('two', () => { expect('a'.toUpperCase()).toBe('A'); });
+      3 | test('three', () => { expect([1][0]).toBe(1); });
+    > 4 | test('bad', () => { expect(1 + 1).toBe(3); });
+        |                                   ^
+      5 |
+
+      at Object.toBe (b.test.js:4:35)
+
+Test Suites: 2 failed, 2 passed, 4 total
+Tests:       1 failed, 9 passed, 10 total
+Snapshots:   0 total
+Time:        1.174 s
+Ran all test suites.

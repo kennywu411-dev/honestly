@@ -1,0 +1,5 @@
+   │ /w/php/phpunit/skip/tests/ATest.php:10
+   │
+
+OK, but there were issues!
+Tests: 5, Assertions: 3, Skipped: 1, Incomplete: 1.

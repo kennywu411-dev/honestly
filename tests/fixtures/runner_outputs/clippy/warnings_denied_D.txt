@@ -1,0 +1,32 @@
+    Checking m v0.1.0 (/w/rust/clip_warn)
+error: unneeded `return` statement
+ --> src/lib.rs:1:35
+  |
+1 | pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+  |                                   ^^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#needless_return
+  = note: `-D clippy::needless-return` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(clippy::needless_return)]`
+help: remove `return`
+  |
+1 - pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+1 + pub fn f(v: &Vec<i32>) -> usize { v.len()}
+  |
+
+error: writing `&Vec` instead of `&[_]` involves a new object where a slice will do
+ --> src/lib.rs:1:13
+  |
+1 | pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+  |             ^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#ptr_arg
+  = note: `-D clippy::ptr-arg` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(clippy::ptr_arg)]`
+help: change this to
+  |
+1 - pub fn f(v: &Vec<i32>) -> usize { return v.len(); }
+1 + pub fn f(v: &[i32]) -> usize { return v.len(); }
+  |
+
+error: could not compile `m` (lib) due to 2 previous errors

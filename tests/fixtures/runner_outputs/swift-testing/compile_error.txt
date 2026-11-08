@@ -1,0 +1,15 @@
+Building for debugging...
+[0/13] Write sources
+[2/13] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Emitting module M
+[5/15] Compiling M m.swift
+[6/16] Wrapping AST for M for debugging
+[8/18] Emitting module MTests
+[9/18] Compiling MTests a.swift
+/w/swift/t_compile/Tests/MTests/a.swift:4:31: error: cannot convert value of type 'String' to specified type 'Int'
+2 | @testable import M
+3 | 
+4 | @Test func x() { let i: Int = "s"; #expect(i == 1) }
+  |                               `- error: cannot convert value of type 'String' to specified type 'Int'
+5 | 
+error: fatalError

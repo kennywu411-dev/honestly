@@ -1,0 +1,8 @@
+{
+ "command": "prove -r t --color",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "TAP::Harness v3.52 and Perl v5.44.0",
+ "where": "perl:5"
+}

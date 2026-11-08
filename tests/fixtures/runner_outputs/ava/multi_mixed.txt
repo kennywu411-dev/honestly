@@ -1,0 +1,31 @@
+
+  ✔ a › one
+  ✔ a › two
+  ✔ a › three
+  ✔ c › one
+  ✔ c › two
+  ✔ c › three
+  ✔ b › one
+  ✔ b › two
+  ✔ b › three
+  ✘ [fail]: b › bad
+  ─
+
+  b › bad
+
+  test/b.js:5
+
+   4: test('three', t => { t.is(3, 3); });
+   5: test('bad', t => { t.is(1, 2); });  
+   6:                                     
+
+  Difference (- actual, + expected):
+
+  - 1
+  + 2
+
+  › file://test/b.js:5:22
+
+  ─
+
+  1 test failed

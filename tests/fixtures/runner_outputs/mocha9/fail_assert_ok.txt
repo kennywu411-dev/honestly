@@ -1,0 +1,25 @@
+
+
+  ✔ one
+  ✔ two
+  1) bad
+
+  2 passing (21ms)
+  1 failing
+
+  1) bad:
+
+      AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(false)
+
+      + expected - actual
+
+      -false
+      +true
+      
+      at Context.<anonymous> (test/a.js:4:26)
+      at process.processImmediate (node:internal/timers:483:21)
+
+
+

@@ -1,0 +1,5 @@
+expected: (= 1 2)
+  actual: (not (= 1 2))
+
+Ran 4 tests containing 4 assertions.
+1 failures, 0 errors.

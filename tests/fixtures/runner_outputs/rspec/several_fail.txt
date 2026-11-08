@@ -1,0 +1,43 @@
+...FFF
+
+Failures:
+
+  1) bad wrong a
+     Failure/Error: it("wrong a") { expect(1).to eq(2) }
+
+       expected: 2
+            got: 1
+
+       (compared using ==)
+     # ./spec/a_spec.rb:7:in 'block (2 levels) in <top (required)>'
+
+  2) bad wrong b
+     Failure/Error: it("wrong b") { expect({a: 1}).to eq({a: 2}) }
+
+       expected: {a: 2}
+            got: {a: 1}
+
+       (compared using ==)
+
+       Diff:
+       @@ -1 +1 @@
+       -:a => 2,
+       +:a => 1,
+     # ./spec/a_spec.rb:8:in 'block (2 levels) in <top (required)>'
+
+  3) bad wrong c
+     Failure/Error: it("wrong c") { raise "boom" }
+
+     RuntimeError:
+       boom
+     # ./spec/a_spec.rb:9:in 'block (2 levels) in <top (required)>'
+
+Finished in 0.02325 seconds (files took 0.11157 seconds to load)
+6 examples, 3 failures
+
+Failed examples:
+
+rspec ./spec/a_spec.rb:7 # bad wrong a
+rspec ./spec/a_spec.rb:8 # bad wrong b
+rspec ./spec/a_spec.rb:9 # bad wrong c
+

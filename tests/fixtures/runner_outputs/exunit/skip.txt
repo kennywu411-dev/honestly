@@ -1,0 +1,7 @@
+Generated m app
+Running ExUnit with seed: 707510, max_cases: 14
+
+**...
+Finished in 0.06 seconds (0.00s async, 0.06s sync)
+
+Result: 3 passed, 2 skipped

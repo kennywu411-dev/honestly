@@ -1,0 +1,38 @@
+   Compiling crate_b v0.1.0 (/w/rust/ws/crate_b)
+   Compiling crate_a v0.1.0 (/w/rust/ws/crate_a)
+   Compiling crate_c v0.1.0 (/w/rust/ws/crate_c)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.12s
+     Running unittests src/lib.rs (target/debug/deps/crate_a-8884714bacfcfb85)
+
+running 3 tests
+test tests::two ... ok
+test tests::one ... ok
+test tests::three ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/crate_b-fb26d2ee8e00b68c)
+
+running 4 tests
+test tests::one ... ok
+test tests::three ... ok
+test tests::two ... ok
+test tests::bad ... FAILED
+
+failures:
+
+---- tests::bad stdout ----
+
+thread 'tests::bad' (1093) panicked at crate_b/src/lib.rs:17:16:
+assertion `left == right` failed
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::bad
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p crate_b --lib`

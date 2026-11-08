@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pytest/noisy
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collected 2 items
+
+test_error_handling.py FAILED to reach upstream, retrying
+Traceback (most recent call last):
+  File "/work/pytest/noisy/test_error_handling.py", line 7, in test_error_path_raises_failed_state
+    1 / 0
+    ~~^~~
+ZeroDivisionError: division by zero
+ERROR: connection failed (expected in this test)
+..
+
+============================== 2 passed in 0.05s ===============================

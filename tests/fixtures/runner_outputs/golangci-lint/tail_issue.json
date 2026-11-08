@@ -1,0 +1,11 @@
+{
+ "command": "golangci-lint run ./... 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "golangci-lint has version 2.15.0 built with go1.27.3 from (unknown, modified: ?, mod sum: \"h1:w94zf8HAYI7hm3164kwKsvZRuqXvY+YxeFoTbu1OLg8=\") on (unknown)",
+ "where": "golang:1"
+}

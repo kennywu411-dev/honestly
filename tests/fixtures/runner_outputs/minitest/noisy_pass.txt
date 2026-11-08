@@ -1,0 +1,11 @@
+FAILED to reach upstream, 2 failed attempts
+Run options: --seed 56798
+
+# Running:
+
+ERROR: connection failed (expected)
+.
+
+Finished in 0.001224s, 816.8914 runs/s, 816.8914 assertions/s.
+
+1 runs, 1 assertions, 0 failures, 0 errors, 0 skips

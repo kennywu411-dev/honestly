@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/phpunit 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "PHPUnit 13.4.5 by Sebastian Bergmann and contributors.",
+ "where": "composer:2"
+}

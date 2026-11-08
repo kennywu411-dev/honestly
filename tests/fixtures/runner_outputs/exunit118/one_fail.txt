@@ -1,0 +1,17 @@
+Generated m app
+Running ExUnit with seed: 15804, max_cases: 14
+
+
+
+  1) test bad (ATest)
+     test/a_test.exs:9
+     Assertion with == failed
+     code:  assert 1 == 2
+     left:  1
+     right: 2
+     stacktrace:
+       test/a_test.exs:10: (test)
+
+..
+Finished in 0.08 seconds (0.00s async, 0.08s sync)
+3 tests, 1 failure

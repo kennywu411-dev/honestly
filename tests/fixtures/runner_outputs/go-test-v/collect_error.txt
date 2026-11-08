@@ -1,0 +1,5 @@
+go: finding module for package example.com/m/nosuchpkg
+FAIL	example.com/m [setup failed]
+FAIL
+# example.com/m
+a_test.go:5:2: cannot find module providing package example.com/m/nosuchpkg: unrecognized import path "example.com/m/nosuchpkg": reading https://example.com/m/nosuchpkg?go-get=1: 404 Not Found

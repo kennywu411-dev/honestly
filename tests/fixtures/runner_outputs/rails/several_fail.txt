@@ -1,0 +1,27 @@
+Running 2 tests in a single process (parallelization threshold is 50)
+Run options: --seed 56238
+
+# Running:
+
+F
+
+Failure:
+WidgetTest#test_one [test/models/widget_test.rb:5]:
+Expected: 3
+  Actual: 2
+
+bin/rails test test/models/widget_test.rb:4
+
+E
+
+Error:
+WidgetTest#test_two:
+RuntimeError: boom
+    test/models/widget_test.rb:9:in 'block in <class:WidgetTest>'
+
+bin/rails test test/models/widget_test.rb:8
+
+
+
+Finished in 0.038786s, 51.5655 runs/s, 25.7828 assertions/s.
+2 runs, 1 assertions, 1 failures, 1 errors, 0 skips

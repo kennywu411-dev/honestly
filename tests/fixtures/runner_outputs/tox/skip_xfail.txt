@@ -1,0 +1,6 @@
+py: install_deps> python -I -m pip install pytest
+py: commands[0]> pytest -q
+.sxX                                                                     [100%]
+1 passed, 1 skipped, 1 xfailed, 1 xpassed in 0.09s
+  py: OK (7.91=setup[7.17]+cmd[0.74] seconds)
+  congratulations :) (8.02 seconds)

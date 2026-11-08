@@ -1,0 +1,15 @@
+{
+ "command": "ruff check .",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "note": "E722: the source snippet shows the Python keyword pass",
+ "version": "ruff 0.17.4",
+ "where": "macOS-arm64-local"
+}

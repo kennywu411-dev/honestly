@@ -1,0 +1,68 @@
+[[34;1mINFO[0m] Scanning for projects...
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m------------------------------< [36;22mx:onebad[39;1m >------------------------------[0m
+[[34;1mINFO[0m] [1mBuilding onebad 1.0[0m
+[[34;1mINFO[0m]   from pom.xml
+[[34;1mINFO[0m] [1m--------------------------------[ jar ]---------------------------------[0m
+[[34;1mINFO[0m] Loaded 24410 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[[34;1mINFO[0m] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mresources:3.5.0:resources[0m [1m(default-resources)[0m @ [36monebad[39;1m ---[0m
+[[34;1mINFO[0m] skip non existing resourceDirectory /w/jvm/maven/onebad/src/main/resources
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mcompiler:3.16.0:compile[0m [1m(default-compile)[0m @ [36monebad[39;1m ---[0m
+[[34;1mINFO[0m] No sources to compile
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mresources:3.5.0:testResources[0m [1m(default-testResources)[0m @ [36monebad[39;1m ---[0m
+[[34;1mINFO[0m] skip non existing resourceDirectory /w/jvm/maven/onebad/src/test/resources
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22mcompiler:3.16.0:testCompile[0m [1m(default-testCompile)[0m @ [36monebad[39;1m ---[0m
+[[33;1mWARNING[0m] I/O error reading dependency state: /w/jvm/maven/onebad/target/classes: /w/jvm/maven/onebad/target/classes
+[[34;1mINFO[0m] Nothing to compile - all classes are up to date.
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m--- [32;22msurefire:3.5.2:test[0m [1m(default-test)[0m @ [36monebad[39;1m ---[0m
+[[34;1mINFO[0m] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] -------------------------------------------------------
+[[34;1mINFO[0m]  T E S T S
+[[34;1mINFO[0m] -------------------------------------------------------
+[[34;1mINFO[0m] Running [1mATest[m
+[[31;1mERROR[0m] [1;31mTests [0;1mrun: [0;1m4[m, [1;31mFailures: [0;1;31m1[m, Errors: 0, Skipped: 0, Time elapsed: 0.088 s[1;31m <<< FAILURE![m -- in [1mATest[m
+[[31;1mERROR[0m] ATest.bad -- Time elapsed: 0.041 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: <1> but was: <2>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:145)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:531)
+	at ATest.bad(ATest.java:9)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] Results:
+[[34;1mINFO[0m] 
+[[31;1mERROR[0m] [1;31mFailures: [m
+[[31;1mERROR[0m] [1;31m  ATest.bad:9 expected: <1> but was: <2>[m
+[[34;1mINFO[0m] 
+[[31;1mERROR[0m] [1;31mTests run: 4, Failures: 1, Errors: 0, Skipped: 0[m
+[[34;1mINFO[0m] 
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m
+[[31;1mERROR[0m] [31;1mBUILD FAILURE[0m
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m
+[[34;1mINFO[0m] Total time:  3.946 s
+[[34;1mINFO[0m] Finished at: 2026-11-08T13:04:06Z
+[[34;1mINFO[0m] [1m------------------------------------------------------------------------[0m
+[[31;1mERROR[0m] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test (default-test) on project onebad: There are test failures.
+[[31;1mERROR[0m] 
+[[31;1mERROR[0m] See /w/jvm/maven/onebad/target/surefire-reports for the individual test results.
+[[31;1mERROR[0m] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[[31;1mERROR[0m] -> [1m[Help 1][0m[m
+[[31;1mERROR[0m] 
+[[31;1mERROR[0m] To see the full stack trace of the errors, re-run Maven with the [1m-e[0m switch.
+[[31;1mERROR[0m] Re-run Maven using the [1m-X[0m switch to enable full debug logging.
+[[31;1mERROR[0m] 
+[[31;1mERROR[0m] For more information about the errors and possible solutions, please read the following articles:
+[[31;1mERROR[0m] [1m[Help 1][0m http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

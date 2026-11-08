@@ -1,0 +1,18 @@
+Creating test database for alias 'default'...
+F..
+======================================================================
+FAIL: test_bad (shop.tests.A.test_bad)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/django/site/shop/tests.py", line 11, in test_bad
+    self.assertEqual(1, 2)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (failures=1)
+Destroying test database for alias 'default'...
+Found 3 test(s).
+System check identified no issues (0 silenced).

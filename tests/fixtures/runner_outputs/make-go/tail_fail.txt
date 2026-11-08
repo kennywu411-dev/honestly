@@ -1,0 +1,5 @@
+    a_test.go:24: got 1 want 2
+FAIL
+FAIL	example.com/m	0.002s
+FAIL
+make: *** [Makefile:2: test] Error 1

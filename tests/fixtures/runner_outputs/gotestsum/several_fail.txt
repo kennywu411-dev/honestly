@@ -1,0 +1,15 @@
+✖  . (4ms)
+
+=== Failed
+=== FAIL: . TestBad (0.00s)
+    a_test.go:24: got 1 want 2
+
+=== FAIL: . TestBadB (0.00s)
+    a_test.go:28: nope
+
+=== FAIL: . TestBadC/sub_bad (0.00s)
+    a_test.go:33: sub failed
+
+=== FAIL: . TestBadC (0.00s)
+
+DONE 8 tests, 4 failures in 0.004s

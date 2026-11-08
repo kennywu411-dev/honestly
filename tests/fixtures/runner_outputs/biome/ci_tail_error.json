@@ -1,0 +1,11 @@
+{
+ "command": "biome ci . 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "Version: 2.6.6",
+ "where": "macOS-arm64-local"
+}

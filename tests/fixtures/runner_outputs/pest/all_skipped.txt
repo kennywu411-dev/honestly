@@ -1,0 +1,8 @@
+
+   WARN  Tests\ATest
+  - it a → x                                                             0.02s  
+  - it b → y
+
+  Tests:    2 skipped (0 assertions)
+  Duration: 0.39s
+

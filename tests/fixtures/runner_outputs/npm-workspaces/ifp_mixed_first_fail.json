@@ -1,0 +1,8 @@
+{
+ "command": "npm test --workspaces --if-present",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "npm 11.20.0",
+ "where": "macOS-arm64-local"
+}

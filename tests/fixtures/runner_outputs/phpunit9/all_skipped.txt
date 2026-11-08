@@ -1,0 +1,8 @@
+PHPUnit 9.6.38 by Sebastian Bergmann and contributors.
+
+S                                                                   1 / 1 (100%)
+
+Time: 00:00.023, Memory: 6.00 MB
+
+OK, but incomplete, skipped, or risky tests!
+Tests: 1, Assertions: 0, Skipped: 1.

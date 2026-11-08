@@ -1,0 +1,14 @@
+{
+ "command": "pyright .",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "pyright 1.1.414",
+ "where": "macOS-arm64-local"
+}

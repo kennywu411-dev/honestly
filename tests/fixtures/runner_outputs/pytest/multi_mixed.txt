@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pytest/mixed
+plugins: platformdirs-4.14.5, cov-7.1.0, xdist-3.8.0
+collected 12 items
+
+sub/test_c.py ...                                                        [ 25%]
+sub/test_d.py .E                                                         [ 41%]
+test_a.py ...                                                            [ 66%]
+test_b.py ...F                                                           [100%]
+
+==================================== ERRORS ====================================
+_________________________ ERROR at setup of test_uses __________________________
+
+    @pytest.fixture
+    def f():
+>       raise RuntimeError("fixture died")
+E       RuntimeError: fixture died
+
+sub/test_d.py:8: RuntimeError
+=================================== FAILURES ===================================
+___________________________________ test_bad ___________________________________
+
+    def test_bad():
+>       assert 1 + 1 == 3
+E       assert (1 + 1) == 3
+
+test_b.py:11: AssertionError
+=========================== short test summary info ============================
+FAILED test_b.py::test_bad - assert (1 + 1) == 3
+ERROR sub/test_d.py::test_uses - RuntimeError: fixture died
+==================== 1 failed, 10 passed, 1 error in 0.42s =====================

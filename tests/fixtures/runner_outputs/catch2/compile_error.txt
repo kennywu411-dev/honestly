@@ -1,0 +1,10 @@
+[ 50%] Building CXX object CMakeFiles/t.dir/t.cpp.o
+/w/cpp/c2_compile/t.cpp: In function 'void CATCH2_INTERNAL_TEST_0()':
+/w/cpp/c2_compile/t.cpp:3:26: error: invalid conversion from 'const char*' to 'int' [-fpermissive]
+    3 | TEST_CASE("x") { int i = "s"; REQUIRE(i == 1); }
+      |                          ^~~
+      |                          |
+      |                          const char*
+gmake[2]: *** [CMakeFiles/t.dir/build.make:79: CMakeFiles/t.dir/t.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:87: CMakeFiles/t.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

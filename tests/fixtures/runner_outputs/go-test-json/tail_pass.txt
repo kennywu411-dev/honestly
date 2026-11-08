@@ -1,0 +1,5 @@
+{"Time":"2026-11-08T12:50:43.783349513Z","Action":"output","Package":"example.com/m","Test":"TestThree","Output":"--- PASS: TestThree (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:43.783351768Z","Action":"pass","Package":"example.com/m","Test":"TestThree","Elapsed":0}
+{"Time":"2026-11-08T12:50:43.783353815Z","Action":"output","Package":"example.com/m","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:43.783356112Z","Action":"output","Package":"example.com/m","Output":"ok  \texample.com/m\t(cached)\n"}
+{"Time":"2026-11-08T12:50:43.78335983Z","Action":"pass","Package":"example.com/m","Elapsed":0}

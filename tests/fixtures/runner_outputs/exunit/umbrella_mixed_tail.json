@@ -1,0 +1,13 @@
+{
+ "command": "mix test 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "Elixir 1.20.5 (compiled with Erlang/OTP 29)",
+ "where": "elixir:latest",
+ "safe": "backed",
+ "note": "tail removed the failing part and only passing lines are left: it stays backed; only the command could tell, and this one does not"
+}

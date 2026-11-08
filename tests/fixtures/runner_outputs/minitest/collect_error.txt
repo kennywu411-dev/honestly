@@ -1,0 +1,3 @@
+<internal:/usr/local/lib/ruby/3.4.0/rubygems/core_ext/kernel_require.rb>:136:in 'Kernel#require': cannot load such file -- does_not_exist_anywhere (LoadError)
+	from <internal:/usr/local/lib/ruby/3.4.0/rubygems/core_ext/kernel_require.rb>:136:in 'Kernel#require'
+	from test/a_test.rb:1:in '<main>'

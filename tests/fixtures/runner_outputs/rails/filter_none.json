@@ -1,0 +1,8 @@
+{
+ "command": "bin/rails test -n /does_not_match/",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "Rails 8.1.4.1",
+ "where": "ruby:3"
+}

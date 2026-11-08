@@ -1,0 +1,5 @@
+
+> x@1.0.0 build
+> tsc --noEmit
+
+a.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.

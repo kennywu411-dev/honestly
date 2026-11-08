@@ -1,0 +1,45 @@
+Running main() from ./googletest/src/gtest_main.cc
+[==========] Running 6 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 5 tests from M
+[ RUN      ] M.One
+[       OK ] M.One (0 ms)
+[ RUN      ] M.Two
+[       OK ] M.Two (0 ms)
+[ RUN      ] M.Three
+[       OK ] M.Three (0 ms)
+[ RUN      ] M.Bad
+/w/cpp/gt_manybad/t.cpp:6: Failure
+Expected equality of these values:
+  1
+  2
+
+[  FAILED  ] M.Bad (0 ms)
+[ RUN      ] M.Bad2
+/w/cpp/gt_manybad/t.cpp:7: Failure
+Value of: false
+  Actual: false
+Expected: true
+nope
+
+[  FAILED  ] M.Bad2 (0 ms)
+[----------] 5 tests from M (0 ms total)
+
+[----------] 1 test from N
+[ RUN      ] N.Bad3
+/w/cpp/gt_manybad/t.cpp:8: Failure
+Failed
+boom
+
+[  FAILED  ] N.Bad3 (0 ms)
+[----------] 1 test from N (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 6 tests from 2 test suites ran. (0 ms total)
+[  PASSED  ] 3 tests.
+[  FAILED  ] 3 tests, listed below:
+[  FAILED  ] M.Bad
+[  FAILED  ] M.Bad2
+[  FAILED  ] N.Bad3
+
+ 3 FAILED TESTS

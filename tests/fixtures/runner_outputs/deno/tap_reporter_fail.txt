@@ -1,0 +1,11 @@
+TAP version 14
+# ./a_test.ts
+ok 1 - one
+ok 2 - two
+ok 3 - three
+not ok 4 - bad
+  ---
+  {"message":"Error: 1 !== 2\nfunction eq(a: unknown, b: unknown) { if (a !== b) throw new Error(`${a} !== ${b}`); }\n\u001b[0m\u001b[31m                                                         ^\u001b[0m\n    at \u001b[0m\u001b[1m\u001b[3meq\u001b[0m (\u001b[0m\u001b[2m\u001b[38;5;245mfile:///work/deno/onebad/\u001b[0m\u001b[0m\u001b[36ma_test.ts\u001b[0m:\u001b[0m\u001b[33m1\u001b[0m:\u001b[0m\u001b[33m58\u001b[0m)\n    at \u001b[0m\u001b[2m\u001b[38;5;245mfile:///work/deno/onebad/\u001b[0m\u001b[0m\u001b[36ma_test.ts\u001b[0m:\u001b[0m\u001b[33m5\u001b[0m:\u001b[0m\u001b[33m26\u001b[0m","severity":"fail","at":{"file":"./a_test.ts","line":5}}
+  ...
+1..4
+[0m[1m[31merror[0m: Test failed

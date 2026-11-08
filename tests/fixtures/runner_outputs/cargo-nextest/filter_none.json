@@ -1,0 +1,8 @@
+{
+ "command": "cargo nextest run does_not_match_anything",
+ "exit_code": 4,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "cargo-nextest 0.9.151 (6b3f99457 2026-11-02)",
+ "where": "rust:1"
+}

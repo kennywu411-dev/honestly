@@ -1,0 +1,5 @@
+    at async Object.build (file:///work/lint/vite/_deps/node_modules/vite/dist/node/chunks/node.js:35185:19)
+    at async Object.buildApp (file:///work/lint/vite/_deps/node_modules/vite/dist/node/chunks/node.js:35182:153)
+    at async CAC.<anonymous> (file:///work/lint/vite/_deps/node_modules/vite/dist/node/cli.js:789:3) {
+  errors: [Getter/Setter]
+}

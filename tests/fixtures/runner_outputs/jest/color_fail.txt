@@ -1,0 +1,26 @@
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2m./[22m[1ma.test.js[22m
+  [32m✓[39m [2mone (1 ms)[22m
+  [32m✓[39m [2mtwo[22m
+  [32m✓[39m [2mthree[22m
+  [31m✕[39m [2mbad (29 ms)[22m
+
+[1m[31m  [1m● [22m[1mbad[39m[22m
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m3[39m
+    Received: [31m2[39m
+
+[2m    [0m [90m 2 |[39m test([32m'two'[39m[33m,[39m () [33m=>[39m { expect([32m'a'[39m[33m.[39mtoUpperCase())[33m.[39mtoBe([32m'A'[39m)[33m;[39m })[33m;[39m[22m
+[2m     [90m 3 |[39m test([32m'three'[39m[33m,[39m () [33m=>[39m { expect([[35m1[39m][[35m0[39m])[33m.[39mtoBe([35m1[39m)[33m;[39m })[33m;[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m 4 |[39m test([32m'bad'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m [33m+[39m [35m1[39m)[33m.[39mtoBe([35m3[39m)[33m;[39m })[33m;[39m[22m
+[2m     [90m   |[39m                                   [31m[1m^[22m[2m[39m[22m
+[2m     [90m 5 |[39m[0m[22m
+
+[2m      [2mat Object.toBe ([22m[2m[0m[36ma.test.js[39m[0m[2m:4:35)[22m[2m[22m
+
+[1mTest Suites: [22m[1m[31m1 failed[39m[22m, 1 total
+[1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[32m3 passed[39m[22m, 4 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.402 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m

@@ -1,0 +1,33 @@
+[0m[32mCheck[0m a_test.ts
+[0m[32mCheck[0m b_test.ts
+[0m[32mCheck[0m c_test.ts
+[0m[38;5;245mrunning 3 tests from ./a_test.ts[0m
+one ... [0m[32mok[0m [0m[38;5;245m(357µs)[0m
+two ... [0m[32mok[0m [0m[38;5;245m(51µs)[0m
+three ... [0m[32mok[0m [0m[38;5;245m(51µs)[0m
+[0m[38;5;245mrunning 4 tests from ./b_test.ts[0m
+one ... [0m[32mok[0m [0m[38;5;245m(377µs)[0m
+two ... [0m[32mok[0m [0m[38;5;245m(58µs)[0m
+three ... [0m[32mok[0m [0m[38;5;245m(94µs)[0m
+bad ... [0m[31mFAILED[0m [0m[38;5;245m(718µs)[0m
+[0m[38;5;245mrunning 3 tests from ./c_test.ts[0m
+one ... [0m[32mok[0m [0m[38;5;245m(345µs)[0m
+two ... [0m[32mok[0m [0m[38;5;245m(128µs)[0m
+three ... [0m[32mok[0m [0m[38;5;245m(136µs)[0m
+
+[0m[1m[37m[41m ERRORS [0m
+
+bad [0m[38;5;245m=> ./b_test.ts:5:6[0m
+[0m[1m[31merror[0m: Error: 1 !== 2
+function eq(a: unknown, b: unknown) { if (a !== b) throw new Error(`${a} !== ${b}`); }
+[0m[31m                                                         ^[0m
+    at [0m[1m[3meq[0m ([0m[2m[38;5;245mfile:///work/deno/mixed/[0m[0m[36mb_test.ts[0m:[0m[33m1[0m:[0m[33m58[0m)
+    at [0m[2m[38;5;245mfile:///work/deno/mixed/[0m[0m[36mb_test.ts[0m:[0m[33m5[0m:[0m[33m26[0m
+
+[0m[1m[37m[41m FAILURES [0m
+
+bad [0m[38;5;245m=> ./b_test.ts:5:6[0m
+
+[0m[31mFAILED[0m | 9 passed | 1 failed [0m[38;5;245m(106ms)[0m
+
+[0m[1m[31merror[0m: Test failed

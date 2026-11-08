@@ -1,0 +1,5 @@
+T#test_bad [test/a_test.rb:7]:
+Expected: 1
+  Actual: 2
+
+4 runs, 4 assertions, 1 failures, 0 errors, 0 skips

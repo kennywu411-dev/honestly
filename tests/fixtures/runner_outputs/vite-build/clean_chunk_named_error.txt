@@ -1,0 +1,14 @@
+
+> x@1.0.0 build
+> vite build
+
+vite v8.3.6 building client environment for production...
+transforming...
+✓ 6 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                0.09 kB │ gzip: 0.10 kB
+dist/assets/error-BLru-uax.js  0.05 kB │ gzip: 0.07 kB
+dist/assets/index-CAP1oO3J.js  2.33 kB │ gzip: 1.11 kB
+
+✓ built in 78ms

@@ -13,7 +13,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 
-from . import audit, claude_code, codex, rules
+from . import audit, claude_code, codex, rules, verdicts
 from . import agents as _ag
 from .programs import program
 
@@ -215,12 +215,7 @@ class Evidence:
 
 def _summary_line(kind: str, out: str) -> str:
     out = out or ""
-    if kind == "test":
-        hits = [m.group(0) for m in audit.SUMMARY_LINE.finditer(out)]
-        zero = audit.ZERO_TESTS.search(out)
-        line = hits[-1] if hits else (zero.group(0) if zero else "")
-    else:
-        line = ""
+    line = verdicts.summary_line(out) if kind == "test" else ""
     if not line:
         lines = [l.strip() for l in out.strip().splitlines() if l.strip() and not l.strip().startswith(("[", "Output is being"))]
         line = lines[-1] if lines else ""
@@ -353,7 +348,7 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
             if not segs:
                 continue
             seg = segs[-1].text.strip().split("\n")[0]
-            if commit_here and audit.SUMMARY_LINE.search(e.result or ""):
+            if commit_here and verdicts.has_summary(e.result or ""):
                 # `ruff check x && git commit`: the test summary in the output is the commit hook's
                 ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
                                        after_edit=same or i > last_edit_i >= 0))
@@ -363,7 +358,7 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
                                    after_edit=same or i > last_edit_i >= 0))
             found = True
             break   # one row per command; a test run counts before a build
-        if not found and commit_here and audit.SUMMARY_LINE.search(e.result or ""):
+        if not found and commit_here and verdicts.has_summary(e.result or ""):
             # a pre-commit hook that ran the tests: its summary is in the commit's output
             ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
                                    after_edit=same or i > last_edit_i >= 0))

@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/a.spec.ts:2:1 › one (15ms)
+  ✓  2 tests/a.spec.ts:3:1 › two (9ms)
+  ✓  3 tests/a.spec.ts:4:1 › in browser (234ms)
+
+  3 passed (1.6s)

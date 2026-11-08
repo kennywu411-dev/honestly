@@ -1,0 +1,67 @@
+
+  ✔ one (233ms)
+  ✔ two (233ms)
+  ✔ three (233ms)
+  ✘ [fail]: bad a
+  ✘ [fail]: bad b
+  ✘ [fail]: bad c Error thrown in test
+  ─
+
+  bad a
+
+  test.js:5
+
+   4: test('three', t => { t.is(3, 3); });                 
+   5: test('bad a', t => { t.is(1, 2); });                 
+   6: test('bad b', t => { t.deepEqual({a: 1}, {a: 2}); });
+
+  Difference (- actual, + expected):
+
+  - 1
+  + 2
+
+  › file://test.js:5:24
+
+
+
+  bad b
+
+  test.js:6
+
+   5: test('bad a', t => { t.is(1, 2); });                 
+   6: test('bad b', t => { t.deepEqual({a: 1}, {a: 2}); });
+   7: test('bad c', t => { throw new Error('boom'); });    
+
+  Difference (- actual, + expected):
+
+    {
+  -   a: 1,
+  +   a: 2,
+    }
+
+  › file://test.js:6:24
+
+
+
+  bad c
+
+  Error thrown in test:
+
+  Error {
+    message: 'boom',
+  }
+
+  Error: boom
+      at file:///work/ava/manybad/test.js:7:28
+      at Test.callFn (file:///work/ava/_deps/node_modules/ava/lib/test.js:613:26)
+      at Test.run (file:///work/ava/_deps/node_modules/ava/lib/test.js:631:33)
+      at Runner.runSingle (file:///work/ava/_deps/node_modules/ava/lib/runner.js:275:33)
+      at Runner.runTest (file:///work/ava/_deps/node_modules/ava/lib/runner.js:357:30)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Promise.all (index 5)
+      at async file:///work/ava/_deps/node_modules/ava/lib/runner.js:506:21
+      at async Runner.start (file:///work/ava/_deps/node_modules/ava/lib/runner.js:514:15)
+
+  ─
+
+  3 tests failed

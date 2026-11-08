@@ -1,0 +1,16 @@
+test_bad (test_a.T.test_bad) ... FAIL
+test_one (test_a.T.test_one) ... ok
+
+======================================================================
+FAIL: test_bad (test_a.T.test_bad)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/unittest/onebad/test_a.py", line 8, in test_bad
+    self.assertEqual(1, 2)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=1)

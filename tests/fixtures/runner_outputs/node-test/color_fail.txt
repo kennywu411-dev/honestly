@@ -1,0 +1,32 @@
+[32m✔ one [90m(0.723292ms)[39m[39m
+[32m✔ two [90m(0.105875ms)[39m[39m
+[32m✔ three [90m(0.086833ms)[39m[39m
+[31m✖ bad [90m(0.660125ms)[39m[39m
+[34mℹ tests 4[39m
+[34mℹ suites 0[39m
+[34mℹ pass 3[39m
+[34mℹ fail 1[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 151.640333[39m
+
+[31m✖ failing tests:[39m
+
+test at a.test.js:6:1
+[31m✖ bad [90m(0.660125ms)[39m[39m
+  AssertionError [ERR_ASSERTION]: 1 == 2
+      at TestContext.<anonymous> [90m(/work/node-test/onebad/[39ma.test.js:6:28[90m)[39m
+  [90m    at Test.runInAsyncScope (node:async_hooks:226:14)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1402:25)[39m
+  [90m    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)[39m
+  [90m    at Test.postRun (node:internal/test_runner/test:1542:19)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1467:12)[39m
+  [90m    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)[39m {
+    generatedMessage: [33mtrue[39m,
+    code: [32m'ERR_ASSERTION'[39m,
+    actual: [33m1[39m,
+    expected: [33m2[39m,
+    operator: [32m'=='[39m,
+    diff: [32m'simple'[39m
+  }

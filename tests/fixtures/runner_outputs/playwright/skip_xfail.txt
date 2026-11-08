@@ -1,0 +1,10 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 tests/a.spec.ts:2:1 › one (12ms)
+  -  2 tests/a.spec.ts:3:6 › later
+  ✘  3 tests/a.spec.ts:4:6 › known bug (13ms)
+  -  4 tests/a.spec.ts:5:6 › fix me
+
+  2 skipped
+  2 passed (881ms)

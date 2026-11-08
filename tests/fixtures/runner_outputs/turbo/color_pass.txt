@@ -1,0 +1,57 @@
+[33m[1m[7m WARNING [0m [33mNo locally installed `turbo` found in your repository. Using globally installed version (2.11.10). Using a specified version in your repository will result in more predictable behavior.[0m
+
+   • turbo 2.11.10
+   • Packages in scope: a, b, c
+   • Running test in 3 packages
+   • Remote caching disabled
+
+[36mb:test: [0mcache bypass, force executing [2m4b9294f0e71ef31f[0m
+[35mc:test: [0mcache bypass, force executing [2m4bea0e4923336993[0m
+[32ma:test: [0mcache bypass, force executing [2me8b5b1d95956a29b[0m
+[36mb:test: [0m
+[36mb:test: [0m> b@1.0.0 test
+[36mb:test: [0m> node --test
+[36mb:test: [0m
+[35mc:test: [0m
+[35mc:test: [0m> c@1.0.0 test
+[35mc:test: [0m> node --test
+[35mc:test: [0m
+[32ma:test: [0m
+[32ma:test: [0m> a@1.0.0 test
+[32ma:test: [0m> node --test
+[32ma:test: [0m
+[32ma:test: [0m[32m✔ one [90m(0.860584ms)[39m[39m
+[32ma:test: [0m[32m✔ two [90m(0.567ms)[39m[39m
+[32ma:test: [0m[34mℹ tests 2[39m
+[32ma:test: [0m[34mℹ suites 0[39m
+[32ma:test: [0m[34mℹ pass 2[39m
+[32ma:test: [0m[34mℹ fail 0[39m
+[32ma:test: [0m[34mℹ cancelled 0[39m
+[32ma:test: [0m[34mℹ skipped 0[39m
+[32ma:test: [0m[34mℹ todo 0[39m
+[32ma:test: [0m[34mℹ duration_ms 133.441459[39m
+[35mc:test: [0m[32m✔ one [90m(0.676375ms)[39m[39m
+[35mc:test: [0m[32m✔ two [90m(0.114459ms)[39m[39m
+[35mc:test: [0m[34mℹ tests 2[39m
+[35mc:test: [0m[34mℹ suites 0[39m
+[35mc:test: [0m[34mℹ pass 2[39m
+[35mc:test: [0m[34mℹ fail 0[39m
+[35mc:test: [0m[34mℹ cancelled 0[39m
+[35mc:test: [0m[34mℹ skipped 0[39m
+[35mc:test: [0m[34mℹ todo 0[39m
+[35mc:test: [0m[34mℹ duration_ms 142.591875[39m
+[36mb:test: [0m[32m✔ one [90m(0.940083ms)[39m[39m
+[36mb:test: [0m[32m✔ two [90m(0.3345ms)[39m[39m
+[36mb:test: [0m[34mℹ tests 2[39m
+[36mb:test: [0m[34mℹ suites 0[39m
+[36mb:test: [0m[34mℹ pass 2[39m
+[36mb:test: [0m[34mℹ fail 0[39m
+[36mb:test: [0m[34mℹ cancelled 0[39m
+[36mb:test: [0m[34mℹ skipped 0[39m
+[36mb:test: [0m[34mℹ todo 0[39m
+[36mb:test: [0m[34mℹ duration_ms 146.659042[39m
+
+[1m Tasks:    [32m[1m3 successful[0m, 3 total[0m
+[1mCached:    [1m0 cached[0m, 3 total[0m
+[1m  Time:    [1m557ms[0m [0m
+

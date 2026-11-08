@@ -1,0 +1,47 @@
+yarn workspaces v1.22.22
+
+> a
+yarn run v1.22.22
+$ node --test
+✔ one (0.73525ms)
+✔ two (0.161ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 131.744875
+Done in 0.54s.
+
+> b
+yarn run v1.22.22
+$ node --test
+✔ one (0.653917ms)
+✔ two (0.12425ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.346083
+Done in 0.53s.
+
+> c
+yarn run v1.22.22
+$ node --test
+✔ one (0.562958ms)
+✔ two (0.136834ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.2765
+Done in 0.46s.
+Done in 2.60s.

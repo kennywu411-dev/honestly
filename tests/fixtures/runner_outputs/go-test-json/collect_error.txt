@@ -1,0 +1,7 @@
+go: finding module for package example.com/m/nosuchpkg
+{"ImportPath":"example.com/m/nosuchpkg","Action":"build-output","Output":"# example.com/m\n"}
+{"ImportPath":"example.com/m/nosuchpkg","Action":"build-output","Output":"a_test.go:5:2: cannot find module providing package example.com/m/nosuchpkg: unrecognized import path \"example.com/m/nosuchpkg\": reading https://example.com/m/nosuchpkg?go-get=1: 404 Not Found\n"}
+{"ImportPath":"example.com/m/nosuchpkg","Action":"build-fail"}
+{"Time":"2026-11-08T12:50:37.203731095Z","Action":"start","Package":"example.com/m"}
+{"Time":"2026-11-08T12:50:37.203776083Z","Action":"output","Package":"example.com/m","Output":"FAIL\texample.com/m [setup failed]\n","OutputType":"frame"}
+{"Time":"2026-11-08T12:50:37.203784005Z","Action":"fail","Package":"example.com/m","Elapsed":0,"FailedBuild":"example.com/m/nosuchpkg"}

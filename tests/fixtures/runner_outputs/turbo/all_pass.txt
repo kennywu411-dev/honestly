@@ -1,0 +1,62 @@
+ WARNING  No locally installed `turbo` found in your repository. Using globally installed version (2.11.10). Using a specified version in your repository will result in more predictable behavior.
+
+   • turbo 2.11.10
+   • Packages in scope: a, b, c
+   • Running test in 3 packages
+   • Remote caching disabled
+
+c:test: cache bypass, force executing 4bea0e4923336993
+b:test: cache bypass, force executing 4b9294f0e71ef31f
+a:test: cache bypass, force executing e8b5b1d95956a29b
+a:test: 
+a:test: > a@1.0.0 test
+a:test: > node --test
+a:test: 
+b:test: 
+b:test: > b@1.0.0 test
+b:test: > node --test
+b:test: 
+c:test: 
+c:test: > c@1.0.0 test
+c:test: > node --test
+c:test: 
+b:test: ✔ one (1.125666ms)
+b:test: ✔ two (0.150541ms)
+a:test: ✔ one (0.856833ms)
+a:test: ✔ two (0.257791ms)
+b:test: ℹ tests 2
+b:test: ℹ suites 0
+b:test: ℹ pass 2
+b:test: ℹ fail 0
+b:test: ℹ cancelled 0
+b:test: ℹ skipped 0
+b:test: ℹ todo 0
+b:test: ℹ duration_ms 141.851583
+a:test: ℹ tests 2
+a:test: ℹ suites 0
+a:test: ℹ pass 2
+a:test: ℹ fail 0
+a:test: ℹ cancelled 0
+a:test: ℹ skipped 0
+a:test: ℹ todo 0
+a:test: ℹ duration_ms 130.171042
+c:test: ✔ one (0.868625ms)
+c:test: ✔ two (0.140083ms)
+c:test: ℹ tests 2
+c:test: ℹ suites 0
+c:test: ℹ pass 2
+c:test: ℹ fail 0
+c:test: ℹ cancelled 0
+c:test: ℹ skipped 0
+c:test: ℹ todo 0
+c:test: ℹ duration_ms 142.501917
+c:test: npm notice
+c:test: npm notice New major version of npm available! 11.20.0 -> 12.2.2
+c:test: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+c:test: npm notice To update run: npm install -g npm@12.2.2
+c:test: npm notice
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    819ms 
+

@@ -1,0 +1,8 @@
+{
+ "command": "npx mocha",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "mocha 9.2.2 on node 20",
+ "where": "node:20-slim"
+}

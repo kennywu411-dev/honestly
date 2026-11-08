@@ -1,0 +1,33 @@
+[95mPester v6.2.0[0m
+[95m
+[95mRunning tests from 1 files.[0m
+[91m[-] Discovery in /w/pester/syntax/a.Tests.ps1 failed with:[0m
+[91mSystem.Management.Automation.ParseException: At /w/pester/syntax/a.Tests.ps1:2 char:28
+[91m+   It 'y' { 1 | Should -Be ( }
+[91m+                            ~
+[91mAn expression was expected after '('.
+[91m
+[91mAt /w/pester/syntax/a.Tests.ps1:2 char:28
+[91m+   It 'y' { 1 | Should -Be ( }
+[91m+                            ~
+[91mMissing closing ')' in expression.
+[91m   at System.Management.Automation.ExceptionHandlingOps.CheckActionPreference(FunctionContext funcContext, Exception exception)
+[91m   at System.Management.Automation.Interpreter.ActionCallInstruction`2.Run(InterpretedFrame frame)
+[91m   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)
+[91m   at System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)
+[91m   at System.Management.Automation.Interpreter.Interpreter.Run(InterpretedFrame frame)
+[91m   at System.Management.Automation.Interpreter.LightLambda.RunVoid1[T0](T0 arg0)
+[91m   at System.Management.Automation.PSScriptCmdlet.RunClause(Action`1 clause, Object dollarUnderbar, Object inputToProcess)
+[91m   at System.Management.Automation.PSScriptCmdlet.DoEndProcessing()
+[91m   at System.Management.Automation.CommandProcessorBase.Complete()
+[91mat <ScriptBlock>, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3412
+[91mat Invoke-File, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3421
+[91mat Invoke-BlockContainer, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 3336
+[91mat Invoke-ContainerDiscovery, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 1544
+[91mat Invoke-Test, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 2745
+[91mat Invoke-Pester<End>, /usr/local/share/powershell/Modules/Pester/6.2.0/Pester.psm1: line 5632
+[91mat <ScriptBlock>, <No file>: line 1[0m
+[97mTests completed in 122ms[0m
+[32mTests Passed: 0, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m
+[91mContainer failed: 1[0m
+[91m  - /w/pester/syntax/a.Tests.ps1[0m

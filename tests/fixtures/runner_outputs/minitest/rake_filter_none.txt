@@ -1,0 +1,8 @@
+
+File does not exist: /does_not_match
+
+rake aborted!
+Command failed with status (1)
+/usr/local/bundle/gems/rake-13.4.2/exe/rake:27:in '<top (required)>'
+Tasks: TOP => test
+(See full trace by running task with --trace)

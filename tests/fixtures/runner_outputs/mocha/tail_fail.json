@@ -1,0 +1,11 @@
+{
+ "command": "npx mocha 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "mocha 12.0.3",
+ "where": "macOS-arm64-local"
+}

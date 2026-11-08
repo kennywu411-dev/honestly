@@ -1,0 +1,8 @@
+
+::group::⏭️ Skipped tests
+⏭️ test/a_test.dart: a (skipped)
+Skip: x
+⏭️ test/a_test.dart: b (skipped)
+::endgroup::
+
+🎉 0 tests passed, 2 skipped.

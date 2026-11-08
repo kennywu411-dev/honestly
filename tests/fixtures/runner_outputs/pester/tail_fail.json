@@ -1,0 +1,8 @@
+{
+ "command": "pwsh -NoProfile -Command Invoke-Pester 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "Pester 6.2.0",
+ "where": "mcr.microsoft.com/dotnet/sdk:8.0"
+}

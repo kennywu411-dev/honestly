@@ -1,0 +1,34 @@
+
+Running 10 tests using 3 workers
+
+  ✓   1 tests/c.spec.ts:2:1 › one (11ms)
+  ✓   2 tests/a.spec.ts:2:1 › one (13ms)
+  ✓   4 tests/c.spec.ts:3:1 › two (13ms)
+  ✓   5 tests/a.spec.ts:3:1 › two (23ms)
+  ✓   3 tests/b.spec.ts:2:1 › one (49ms)
+  ✓   8 tests/b.spec.ts:3:1 › two (18ms)
+  ✓   7 tests/a.spec.ts:4:1 › in browser (301ms)
+  ✓   6 tests/c.spec.ts:4:1 › in browser (233ms)
+  ✓   9 tests/b.spec.ts:4:1 › in browser (181ms)
+  ✘  10 tests/b.spec.ts:5:1 › bad (6ms)
+
+
+  1) tests/b.spec.ts:5:1 › bad ─────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      3 | test('two', async () => { expect('a'.toUpperCase()).toBe('A'); });
+      4 | test('in browser', async ({ page }) => { await page.setContent('<h1>hi</h1>'); await expect(page.locator('h1')).toHaveText('hi'); });
+    > 5 | test('bad', async () => { expect(1).toBe(2); });
+        |                                     ^
+      6 |
+        at /w/playwright/mixed/tests/b.spec.ts:5:37
+
+    Error Context: test-results/b-bad/error-context.md
+
+  1 failed
+    tests/b.spec.ts:5:1 › bad ──────────────────────────────────────────────────────────────────────
+  9 passed (1.6s)

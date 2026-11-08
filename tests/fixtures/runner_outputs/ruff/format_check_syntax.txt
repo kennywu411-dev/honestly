@@ -1,0 +1,8 @@
+invalid-syntax: Expected a parameter or the end of the parameter list
+ --> a.py:1:7
+  |
+1 | def f(:
+  |       ^
+2 |   pass
+  |
+

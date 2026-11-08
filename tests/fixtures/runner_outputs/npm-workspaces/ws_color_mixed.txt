@@ -1,0 +1,72 @@
+npm warn -ws is not a valid single-hyphen cli flag and will be removed in the future
+
+> a@1.0.0 test
+> node --test
+
+[32m✔ one [90m(1.06125ms)[39m[39m
+[32m✔ two [90m(0.245375ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 161.111666[39m
+
+> b@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.834ms)[39m[39m
+[32m✔ two [90m(0.13075ms)[39m[39m
+[31m✖ bad [90m(0.730667ms)[39m[39m
+[34mℹ tests 3[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 1[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 166.761791[39m
+
+[31m✖ failing tests:[39m
+
+test at b.test.js:5:1
+[31m✖ bad [90m(0.730667ms)[39m[39m
+  AssertionError [ERR_ASSERTION]: 1 == 2
+      at TestContext.<anonymous> [90m(/work/mono/npm_mixed/packages/b/[39mb.test.js:5:28[90m)[39m
+  [90m    at Test.runInAsyncScope (node:async_hooks:226:14)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1402:25)[39m
+  [90m    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)[39m
+  [90m    at Test.postRun (node:internal/test_runner/test:1542:19)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1467:12)[39m
+  [90m    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)[39m {
+    generatedMessage: [33mtrue[39m,
+    code: [32m'ERR_ASSERTION'[39m,
+    actual: [33m1[39m,
+    expected: [33m2[39m,
+    operator: [32m'=='[39m,
+    diff: [32m'simple'[39m
+  }
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono/npm_mixed/packages/b
+npm error workspace b@1.0.0
+npm error location /work/mono/npm_mixed/packages/b
+npm error command failed
+npm error command sh -c node --test
+
+
+> c@1.0.0 test
+> node --test
+
+[32m✔ one [90m(1.430625ms)[39m[39m
+[32m✔ two [90m(0.204ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 191.945084[39m

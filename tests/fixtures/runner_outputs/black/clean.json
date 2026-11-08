@@ -1,0 +1,11 @@
+{
+ "command": "black --check .",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "black",
+ "where": "macOS-arm64-local"
+}

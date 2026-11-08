@@ -1,0 +1,5 @@
+      |                      |
+      |                      const char*
+gmake[2]: *** [CMakeFiles/t.dir/build.make:79: CMakeFiles/t.dir/t.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:87: CMakeFiles/t.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

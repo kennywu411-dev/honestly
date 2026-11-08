@@ -1,0 +1,16 @@
+Building for debugging...
+[0/13] Write sources
+[2/13] Write swift-version-24593BA9C3E375BF.txt
+[4/15] Compiling M m.swift
+[5/15] Emitting module M
+[6/16] Wrapping AST for M for debugging
+[8/18] Emitting module MTests
+[9/18] Compiling MTests a.swift
+/w/swift/x_compile/Tests/MTests/a.swift:5:31: error: cannot convert value of type 'String' to specified type 'Int'
+3 | 
+4 | final class ATests: XCTestCase {
+5 |   func testX() { let i: Int = "s"; XCTAssertEqual(i, 1) }
+  |                               `- error: cannot convert value of type 'String' to specified type 'Int'
+6 | }
+7 | 
+error: fatalError

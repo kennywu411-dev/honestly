@@ -1,0 +1,8 @@
+{
+ "command": "node --test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "node v24.22.2",
+ "where": "node:24-slim"
+}

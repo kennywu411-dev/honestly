@@ -1,0 +1,5 @@
+[95m
+[95mRunning tests from 1 files.[0m
+[32m[+] /w/pester/skip/a.Tests.ps1[0m[90m 609ms[0m[90m (5 tests)[0m
+[97mTests completed in 620ms[0m
+[32mTests Passed: 3, [0m[90mFailed: 0, [0m[93mSkipped: 1, [0m[37mInconclusive: 1, [0m[90mNotRun: 0[0m

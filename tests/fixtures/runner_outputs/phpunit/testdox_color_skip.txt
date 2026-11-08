@@ -1,0 +1,23 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/skip/phpunit.xml
+
+...[36;1mS[0m[33;1mI[0m                                                               5 / 5 (100%)
+
+Time: 00:00.010, Memory: 20.00 MB
+
+[4mA[0m
+[32m ✔ [0mOne
+[32m ✔ [0mTwo
+[32m ✔ [0mThree
+[36m ↩ [0mLater
+[33m ∅ [0mInc
+   [33m┐[0m
+   [33m├[0m [33mwip[0m
+   [33m│[0m
+   [33m│[0m [2m/[22mw[2m/[22mphp[2m/[22mphpunit[2m/[22mskip[2m/[22mtests[2m/[22mATest.php[2m:[22m[34m10[0m
+   [33m┴[0m
+
+[30;43mOK, but there were issues![0m
+[30;43mTests: 5[0m[30;43m, Assertions: 3[0m[30;43m, Skipped: 1[0m[30;43m, Incomplete: 1[0m[30;43m.[0m

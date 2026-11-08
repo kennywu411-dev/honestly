@@ -1,0 +1,5 @@
+
+Errors  Files
+     2  a.ts[90m:1[0m
+     1  b.ts[90m:1[0m
+

@@ -1,0 +1,11 @@
+{
+ "command": "pytest",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "pytest 9.2.0",
+ "where": "macOS-arm64-local"
+}

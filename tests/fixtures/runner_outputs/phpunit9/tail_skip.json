@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/phpunit 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "PHPUnit 9.6.38 by Sebastian Bergmann and contributors.",
+ "where": "php:8.3-cli"
+}

@@ -1,0 +1,8 @@
+{
+ "command": "npx playwright test --reporter=dot",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

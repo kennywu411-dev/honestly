@@ -1,0 +1,91 @@
+a.js:2:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some imports or exports are not organized.
+  
+    1 │ var x = 1;
+  > 2 │ export { x };
+      │ ^^^^^^^^^^^^^
+  > 3 │ if (x == 1) { debugger; }
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ 
+  
+  i This statement must be preceded by a blank line. Add a newline before this statement.
+  
+    1 │ var x = 1;
+  > 2 │ export { x };
+      │ ^^^^^^^^^^^^^
+    3 │ if (x == 1) { debugger; }
+    4 │ 
+  
+  i This statement must be preceded by a blank line. Add a newline before this statement.
+  
+    1 │ var x = 1;
+    2 │ export { x };
+  > 3 │ if (x == 1) { debugger; }
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ 
+  
+  i Safe fix: Organize imports and exports (Biome)
+  
+    1 1 │   var x = 1;
+      2 │ + 
+    2 3 │   export { x };
+      4 │ + 
+    3 5 │   if (x == 1) { debugger; }
+    4 6 │   
+  
+
+a.js:3:7 lint/suspicious/noDoubleEquals  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Using == may be unsafe if you are relying on type coercion.
+  
+    1 │ var x = 1;
+    2 │ export { x };
+  > 3 │ if (x == 1) { debugger; }
+      │       ^^
+    4 │ 
+  
+  i == is only allowed when comparing against null.
+  
+  i Unsafe fix: Use === instead.
+  
+    3 │ if·(x·===·1)·{·debugger;·}
+      │         +                 
+
+a.js:3:15 lint/suspicious/noDebugger  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This is an unexpected use of the debugger statement.
+  
+    1 │ var x = 1;
+    2 │ export { x };
+  > 3 │ if (x == 1) { debugger; }
+      │               ^^^^^^^^^
+    4 │ 
+  
+  i A debugger statement pauses the program when a debugger is open. It is meant for debugging only, and it should not be left in code that is shipped.
+  
+  i Unsafe fix: Remove debugger statement
+  
+    3 │ if·(x·==·1)·{·debugger;·}
+      │               ---------- 
+
+a.js format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    1 1 │   var x = 1;
+    2 2 │   export { x };
+    3   │ - if·(x·==·1)·{·debugger;·}
+      3 │ + if·(x·==·1)·{
+      4 │ + → debugger;
+      5 │ + }
+    4 6 │   
+  
+
+Checked 1 file in 24ms. No fixes applied.
+Found 4 errors.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+

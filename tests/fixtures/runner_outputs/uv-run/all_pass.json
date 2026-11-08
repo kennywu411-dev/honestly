@@ -1,0 +1,8 @@
+{
+ "command": "uv run pytest",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "uv 0.13.0 (Homebrew 2026-10-09 aarch64-apple-darwin)",
+ "where": "macOS-arm64-local"
+}

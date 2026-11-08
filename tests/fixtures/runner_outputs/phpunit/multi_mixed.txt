@@ -1,0 +1,18 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/mixed/phpunit.xml
+
+...F...                                                             7 / 7 (100%)
+
+Time: 00:00.017, Memory: 20.00 MB
+
+There was 1 failure:
+
+1) BTest::testBad
+Failed asserting that 2 is identical to 1.
+
+/w/php/phpunit/mixed/tests/BTest.php:6
+
+FAILURES!
+Tests: 7, Assertions: 7, Failures: 1.

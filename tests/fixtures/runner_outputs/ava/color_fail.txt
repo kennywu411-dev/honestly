@@ -1,0 +1,25 @@
+
+  [32m✔[39m one
+  [32m✔[39m two
+  [32m✔[39m three
+  [31m✘ [fail]:[39m bad
+  [90m─[39m
+
+  [1mbad[22m
+
+  [90mtest.js:5[39m
+
+   [90m4:[39m test('three', t => { t.is(3, 3); });
+  [41m[1m 5: test('bad', t => { t.is(1, 2); });  [22m[49m
+   [90m6:[39m                                     
+
+  Difference ([31m-[39m [31mactual[39m, [32m+[39m [32mexpected[39m):
+
+  [31m-[39m [33m1[39m
+  [32m+[39m [33m2[39m
+
+  [90m› file://test.js:5:22[39m
+
+  [90m─[39m
+
+  [31m1 test failed[39m

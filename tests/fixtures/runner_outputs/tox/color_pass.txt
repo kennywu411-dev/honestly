@@ -1,0 +1,5 @@
+[1m[35mpy:[0m[36m commands[0][22m[2m>[0m pytest -q[0m
+[32m.[0m[32m.[0m[32m.[0m[32m                                                                      [100%][0m
+[32m[32m[1m3 passed[0m[32m in 0.01s[0m[0m
+  py: OK (0.44=setup[0.05]+cmd[0.40] seconds)
+  congratulations :) (0.50 seconds)

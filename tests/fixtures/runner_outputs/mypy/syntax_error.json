@@ -1,0 +1,14 @@
+{
+ "command": "mypy .",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "mypy 2.4.1 (compiled: yes)",
+ "where": "macOS-arm64-local"
+}

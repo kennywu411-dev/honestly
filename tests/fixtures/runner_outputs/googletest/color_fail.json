@@ -1,0 +1,8 @@
+{
+ "command": "./build/t --gtest_color=yes",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "cmake version 3.31.6 ctest version 3.31.6 gtest",
+ "where": "gcc:14"
+}

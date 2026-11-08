@@ -1,0 +1,26 @@
+  console.error
+    ERROR: connection failed (expected)
+
+      1 | test('returns error when request failed', () => {
+    > 2 |   console.error('ERROR: connection failed (expected)');
+        |           ^
+      3 |   console.log('FAILED to reach upstream, 2 failed attempts');
+      4 |   expect(new Error('fail').message).toBe('fail');
+      5 | });
+
+      at Object.error (a.test.js:2:11)
+
+  console.log
+    FAILED to reach upstream, 2 failed attempts
+
+      at Object.log (a.test.js:3:11)
+
+PASS ./a.test.js
+  ✓ returns error when request failed (38 ms)
+  ✓ fail path throws TypeError (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.476 s
+Ran all test suites.

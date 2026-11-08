@@ -1,0 +1,10 @@
+{
+ "command": "turbo run test --continue 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "turbo 2.11.10",
+ "where": "macOS-arm64-local",
+ "safe": "unbacked",
+ "note": "the tail is the build tool's verdict with no test count: a run of no tests ends the same way, so it holds"
+}

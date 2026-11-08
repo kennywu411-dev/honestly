@@ -1,0 +1,12 @@
+{
+ "command": "npm test --workspaces 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "note": "failing workspace scrolled away; the pipe guard refuses this command, the judge alone cannot see it",
+ "version": "npm 11.20.0",
+ "where": "macOS-arm64-local"
+}

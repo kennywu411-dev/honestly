@@ -1,0 +1,33 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+────────────
+ Nextest run ID 3d295713-f5ae-4f0f-9ed7-d812a7ce3332 with nextest profile: default
+    Starting 4 tests across 1 binary
+        PASS [   0.009s] (1/4) m tests::three
+        PASS [   0.010s] (2/4) m tests::two
+        PASS [   0.010s] (3/4) m tests::one
+        FAIL [   0.010s] (4/4) m tests::bad
+  stdout ───
+
+    running 1 test
+    test tests::bad ... FAILED
+
+    failures:
+
+    failures:
+        tests::bad
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+  stderr ───
+
+    thread 'tests::bad' (2074) panicked at src/lib.rs:17:16:
+    assertion `left == right` failed
+      left: 2
+     right: 3
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+  Cancelling due to test failure
+────────────
+     Summary [   0.012s] 4 tests run: 3 passed, 1 failed, 0 skipped
+        FAIL [   0.010s] (4/4) m tests::bad
+error: test run failed

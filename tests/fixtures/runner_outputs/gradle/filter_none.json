@@ -1,0 +1,11 @@
+{
+ "command": "gradle test --rerun-tasks --tests DoesNotMatchAnything",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "acceptable": [
+  "contradicted"
+ ],
+ "version": "Gradle 8.14.6",
+ "where": "gradle:8-jdk21"
+}

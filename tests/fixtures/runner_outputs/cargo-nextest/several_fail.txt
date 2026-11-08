@@ -1,0 +1,73 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+────────────
+ Nextest run ID 4f58c816-9d27-4ac9-a97d-5068f54f71ec with nextest profile: default
+    Starting 6 tests across 1 binary
+        PASS [   0.008s] (1/6) m tests::three
+        PASS [   0.014s] (2/6) m tests::two
+        PASS [   0.014s] (3/6) m tests::one
+        FAIL [   0.015s] (4/6) m tests::bad
+  stdout ───
+
+    running 1 test
+    test tests::bad ... FAILED
+
+    failures:
+
+    failures:
+        tests::bad
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+  stderr ───
+
+    thread 'tests::bad' (2147) panicked at src/lib.rs:17:16:
+    assertion `left == right` failed
+      left: 2
+     right: 3
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+  Cancelling due to test failure: 2 tests still running
+        FAIL [   0.016s] (5/6) m tests::bad_b
+  stdout ───
+
+    running 1 test
+    test tests::bad_b ... FAILED
+
+    failures:
+
+    failures:
+        tests::bad_b
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+  stderr ───
+
+    thread 'tests::bad_b' (2146) panicked at src/lib.rs:20:18:
+    boom
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+        FAIL [   0.018s] (6/6) m tests::bad_c
+  stdout ───
+
+    running 1 test
+    test tests::bad_c ... FAILED
+
+    failures:
+
+    failures:
+        tests::bad_c
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+  stderr ───
+
+    thread 'tests::bad_c' (2148) panicked at src/lib.rs:23:18:
+    nope
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+────────────
+     Summary [   0.019s] 6 tests run: 3 passed, 3 failed, 0 skipped
+        FAIL [   0.015s] (4/6) m tests::bad
+        FAIL [   0.016s] (5/6) m tests::bad_b
+        FAIL [   0.018s] (6/6) m tests::bad_c
+error: test run failed

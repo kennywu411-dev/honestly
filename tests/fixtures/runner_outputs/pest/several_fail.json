@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/pest",
+ "exit_code": 2,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "",
+ "where": "composer:2"
+}

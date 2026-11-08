@@ -1,0 +1,11 @@
+{
+ "command": "eslint .",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "v10.14.0",
+ "where": "macOS-arm64-local"
+}

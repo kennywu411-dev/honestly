@@ -1,0 +1,10 @@
+--- FAIL: TestBad (0.00s)
+    a_test.go:24: got 1 want 2
+--- FAIL: TestBadB (0.00s)
+    a_test.go:28: nope
+--- FAIL: TestBadC (0.00s)
+    --- FAIL: TestBadC/sub_bad (0.00s)
+        a_test.go:33: sub failed
+FAIL
+exit status 1
+FAIL	example.com/m	0.002s

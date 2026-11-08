@@ -1,0 +1,16 @@
+{"protocolVersion":"0.1.1","runnerVersion":"1.33.0","pid":2219,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"test/a_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading test/a_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":1}
+{"count":1,"time":11,"type":"allSuites"}
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":430}
+{"group":{"id":2,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":4,"line":null,"column":null,"url":null},"type":"group","time":434}
+{"test":{"id":3,"name":"one","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":4,"column":3,"url":"file:///w/dart/onebad/test/a_test.dart"},"type":"testStart","time":435}
+{"testID":3,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":456}
+{"test":{"id":4,"name":"two","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":5,"column":3,"url":"file:///w/dart/onebad/test/a_test.dart"},"type":"testStart","time":457}
+{"testID":4,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":459}
+{"test":{"id":5,"name":"three","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":6,"column":3,"url":"file:///w/dart/onebad/test/a_test.dart"},"type":"testStart","time":460}
+{"testID":5,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":462}
+{"test":{"id":6,"name":"bad","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":7,"column":3,"url":"file:///w/dart/onebad/test/a_test.dart"},"type":"testStart","time":463}
+{"testID":6,"error":"Expected: <2>\n  Actual: <1>\n","stackTrace":"package:matcher        expect\ntest/a_test.dart 7:20  main.<fn>\n","isFailure":true,"type":"error","time":477}
+{"testID":6,"result":"failure","skipped":false,"hidden":false,"type":"testDone","time":477}
+{"success":false,"type":"done","time":485}

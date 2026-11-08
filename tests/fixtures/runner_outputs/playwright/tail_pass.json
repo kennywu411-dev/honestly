@@ -1,0 +1,8 @@
+{
+ "command": "npx playwright test 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

@@ -1,0 +1,9 @@
+{
+ "command": "cargo test --no-run",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "note": "compiled only",
+ "version": "cargo 1.99.1 (5f94df478 2026-08-27)",
+ "where": "rust:1"
+}

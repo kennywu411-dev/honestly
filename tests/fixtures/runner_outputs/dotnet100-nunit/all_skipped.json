@@ -1,0 +1,8 @@
+{
+ "command": "dotnet test",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "dotnet 10.0.403 nunit",
+ "where": "mcr.microsoft.com/dotnet/sdk:10.0"
+}

@@ -1,0 +1,8 @@
+{
+ "command": "npx playwright test --reporter=junit",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

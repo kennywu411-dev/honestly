@@ -1,0 +1,38 @@
+yarn workspaces v1.22.22
+
+> a
+yarn run v1.22.22
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (11ms)
+
+Done in 0.47s.
+
+> b
+yarn run v1.22.22
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (5ms)
+
+Done in 0.48s.
+
+> c
+yarn run v1.22.22
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (5ms)
+
+Done in 0.50s.
+Done in 2.25s.

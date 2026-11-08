@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  R -> /w/dotnet100/nunit/R/bin/Debug/net10.0/R.dll
+/w/dotnet100/nunit/Q/T.cs(7,29): error CS0029: Cannot implicitly convert type 'string' to 'int' [/w/dotnet100/nunit/Q/Q.csproj]
+Test run for /w/dotnet100/nunit/R/bin/Debug/net10.0/R.dll (.NETCoreApp,Version=v10.0)
+  P -> /w/dotnet100/nunit/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/nunit/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+No test is available in /w/dotnet100/nunit/R/bin/Debug/net10.0/R.dll. Make sure that test discoverer & executors are registered and platform & framework version settings are appropriate and try again.
+
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 10 ms - P.dll (net10.0)

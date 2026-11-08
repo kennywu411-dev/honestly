@@ -1,0 +1,10 @@
+go test ./...
+ok  	example.com/m/also	0.002s
+--- FAIL: TestBad (0.00s)
+    bad_test.go:24: got 1 want 2
+FAIL
+FAIL	example.com/m/bad	0.005s
+ok  	example.com/m/good	0.002s
+?   	example.com/m/notests	[no test files]
+FAIL
+make: *** [Makefile:2: test] Error 1

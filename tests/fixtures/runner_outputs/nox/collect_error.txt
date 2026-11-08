@@ -1,0 +1,22 @@
+nox > Running session tests
+nox > Creating virtual environment (uv) using python in .nox/tests
+nox > uv pip install pytest
+nox > pytest -q
+
+==================================== ERRORS ====================================
+_______________________ ERROR collecting test_broken.py ________________________
+ImportError while importing test module '/work/nox/collect/test_broken.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../cache/uv-python/cpython-3.13.16-macos-aarch64-none/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_broken.py:1: in <module>
+    import does_not_exist_anywhere
+E   ModuleNotFoundError: No module named 'does_not_exist_anywhere'
+=========================== short test summary info ============================
+ERROR test_broken.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.65s
+nox > Command pytest -q failed with exit code 2
+nox > Session tests failed.

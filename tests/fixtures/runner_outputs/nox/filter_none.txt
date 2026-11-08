@@ -1,0 +1,8 @@
+nox > Running session tests
+nox > Creating virtual environment (uv) using python in .nox/tests
+nox > uv pip install pytest
+nox > pytest -q -k does_not_match
+
+3 deselected in 0.01s
+nox > Command pytest -q -k does_not_match failed with exit code 5
+nox > Session tests failed.

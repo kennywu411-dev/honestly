@@ -1,0 +1,12 @@
+Using CPython 3.13.16
+Creating virtual environment at: .venv
+Installed 5 packages in 32ms
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pyrun/green
+configfile: pyproject.toml
+collected 1 item
+
+test_a.py .                                                              [100%]
+
+============================== 1 passed in 0.03s ===============================

@@ -1,0 +1,15 @@
+test/a_test.rb: --> test/a_test.rb
+
+Unmatched `(', missing `)' ?
+
+  3  class T < Minitest::Test
+> 4    def test_x; assert(1; end
+  5  end
+
+test/a_test.rb:4: syntax error found (SyntaxError)
+  2 | 
+  3 | class T < Minitest::Test
+> 4 |   def test_x; assert(1; end
+    |                       ^ unexpected ';'; expected a `)` to close the arguments
+  5 | end
+

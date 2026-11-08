@@ -1,0 +1,11 @@
+[95mPester v6.2.0[0m
+[95m
+[95mRunning tests from 1 files.[0m
+[95m
+[95mRunning tests from '/w/pester/green/a.Tests.ps1'[0m
+[92mDescribing math[0m
+[32m  [+] one[0m[90m 114ms[0m
+[32m  [+] two[0m[90m 7ms[0m
+[32m  [+] three[0m[90m 8ms[0m
+[97mTests completed in 754ms[0m
+[32mTests Passed: 3, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m

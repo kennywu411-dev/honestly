@@ -1,0 +1,8 @@
+{
+ "command": "deno test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "deno 1.46.3 (stable, release, aarch64-unknown-linux-gnu)",
+ "where": "denoland/deno:1.46.3"
+}

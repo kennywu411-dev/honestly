@@ -1,0 +1,8 @@
+{
+ "command": "nox",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "nox 2026.10.20",
+ "where": "macOS-arm64-local"
+}

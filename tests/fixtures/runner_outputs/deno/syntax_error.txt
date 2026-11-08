@@ -1,0 +1,5 @@
+[0m[1m[31merror[0m: SyntaxError: Expected ',', got ';'
+  |
+1 | Deno.test("x", () => { const a = (1;
+  |                                    ~
+    at file:///work/deno/syntax/a_test.ts:1:36

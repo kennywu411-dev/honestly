@@ -1,0 +1,5 @@
+
+OK
+Destroying test database for alias 'default'...
+Found 2 test(s).
+System check identified no issues (0 silenced).

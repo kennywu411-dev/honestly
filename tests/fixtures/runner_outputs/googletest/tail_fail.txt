@@ -1,0 +1,5 @@
+[  PASSED  ] 3 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] M.Bad
+
+ 1 FAILED TEST

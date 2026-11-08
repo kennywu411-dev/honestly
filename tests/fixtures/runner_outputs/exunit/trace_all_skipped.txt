@@ -1,0 +1,10 @@
+Running ExUnit with seed: 361477, max_cases: 1
+
+
+ATest [test/a_test.exs]
+  * test b [L#8]  * test b (skipped) [L#8]
+  * test a [L#4]  * test a (skipped) [L#4]
+
+Finished in 0.04 seconds (0.00s async, 0.04s sync)
+
+Result: 0 tests, 2 skipped

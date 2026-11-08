@@ -1,0 +1,33 @@
+
+> a@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (3ms)
+
+
+> b@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (7ms)
+
+
+> c@1.0.0 test
+> mocha
+
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (3ms)
+

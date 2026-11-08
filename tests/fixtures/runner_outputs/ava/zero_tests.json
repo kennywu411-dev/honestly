@@ -1,0 +1,8 @@
+{
+ "command": "npx ava",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "ava 8.4.0",
+ "where": "macOS-arm64-local"
+}

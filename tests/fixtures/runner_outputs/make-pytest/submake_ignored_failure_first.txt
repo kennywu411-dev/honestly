@@ -1,0 +1,20 @@
+/Library/Developer/CommandLineTools/usr/bin/make -C b test
+pytest -q
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+___________________________________ test_bad ___________________________________
+
+    def test_bad():
+>       assert 1 == 2
+E       assert 1 == 2
+
+test_b.py:8: AssertionError
+=========================== short test summary info ============================
+FAILED test_b.py::test_bad - assert 1 == 2
+1 failed, 2 passed in 0.05s
+make[1]: *** [test] Error 1
+make: [test] Error 2 (ignored)
+/Library/Developer/CommandLineTools/usr/bin/make -C a test
+pytest -q
+..                                                                       [100%]
+2 passed in 0.01s

@@ -1,0 +1,5 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+
+error: regex "does_not_match_anything" matched 0 tests. Searched 1 file (skipping 3 tests) [6.00ms]

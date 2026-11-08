@@ -1,0 +1,14 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+(pass) one [0.06ms]
+(skip) later
+(todo) write this
+(pass) known bug [0.15ms]
+
+ 2 pass
+ 1 skip
+ 1 todo
+ 0 fail
+ 2 expect() calls
+Ran 4 tests across 1 file. [9.00ms]

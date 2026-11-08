@@ -1,0 +1,8 @@
+
+/work/lint/es_warn/a.js
+  1:5  warning  'x' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 1 problem (0 errors, 1 warning)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
+ESLint found too many warnings (maximum: 0).

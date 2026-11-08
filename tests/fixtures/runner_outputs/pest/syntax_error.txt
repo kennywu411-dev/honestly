@@ -1,0 +1,12 @@
+
+  [41;1m ParseError [49;22m
+
+[39;1m  syntax error, unexpected token ";"[39;22m
+
+  at [32mtests/ATest.php[39m:[32m2[39m
+      1▕ <?php
+  ➜   2▕ it('x', function () { expect(1)->toBe(; });
+      3▕
+
+
+

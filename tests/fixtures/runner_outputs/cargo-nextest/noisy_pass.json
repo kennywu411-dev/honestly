@@ -1,0 +1,8 @@
+{
+ "command": "cargo nextest run --no-capture",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "cargo-nextest 0.9.151 (6b3f99457 2026-11-02)",
+ "where": "rust:1"
+}

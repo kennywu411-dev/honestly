@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  P -> /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll
+Test run for /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (arm64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+No test is available in /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll. Make sure that test discoverer & executors are registered and platform & framework version settings are appropriate and try again.
+

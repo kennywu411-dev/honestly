@@ -1,0 +1,24 @@
+Creating environment: hatch-test.py3.13
+Installing project in development mode
+Checking dependencies
+Syncing dependencies
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/hatchp/bad
+configfile: pyproject.toml
+plugins: xdist-3.8.0, rerunfailures-14.0, mock-3.17.0
+collected 1 item
+
+tests/test_a.py F                                                        [100%]
+
+=================================== FAILURES ===================================
+____________________________________ test_a ____________________________________
+
+    def test_a():
+>       assert 1 == 2
+E       assert 1 == 2
+
+tests/test_a.py:2: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_a.py::test_a - assert 1 == 2
+============================== 1 failed in 0.04s ===============================

@@ -1,0 +1,3 @@
+Internal ctest changing into directory: /w/cpp/ct_none/build
+Test project /w/cpp/ct_none/build
+No tests were found!!!

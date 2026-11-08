@@ -1,0 +1,5 @@
+00:00 +0: loading /w/flutter/green/test/a_test.dart
+00:00 +0: one
+00:00 +1: two
+00:00 +2: three
+00:00 +3: All tests passed!

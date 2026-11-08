@@ -1,0 +1,8 @@
+{
+ "command": "yarn workspaces run test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "yarn 1.22.22",
+ "where": "macOS-arm64-local"
+}

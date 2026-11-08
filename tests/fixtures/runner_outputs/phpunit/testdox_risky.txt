@@ -1,0 +1,24 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/risky/phpunit.xml
+
+...R                                                                4 / 4 (100%)
+
+Time: 00:00.004, Memory: 20.00 MB
+
+A
+ ✔ One
+ ✔ Two
+ ✔ Three
+ ⚠ No assert
+
+There was 1 risky test:
+
+1) ATest::testNoAssert
+This test did not perform any assertions
+
+/w/php/phpunit/risky/tests/ATest.php:9
+
+OK, but there were issues!
+Tests: 4, Assertions: 3, Risky: 1.

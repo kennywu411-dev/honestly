@@ -1,0 +1,11 @@
+{
+ "command": "pyright . 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "pyright 1.1.414",
+ "where": "macOS-arm64-local"
+}

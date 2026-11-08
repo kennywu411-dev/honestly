@@ -1,0 +1,11 @@
+[95mPester v6.2.0[0m
+[95m
+[95mRunning tests from 1 files.[0m
+[95m
+[95mRunning tests from '/w/pester/noisy/a.Tests.ps1'[0m
+[92mDescribing errors[0m
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+[32m  [+] returns error when request failed[0m[90m 83ms[0m
+[97mTests completed in 537ms[0m
+[32mTests Passed: 1, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[90mNotRun: 0[0m

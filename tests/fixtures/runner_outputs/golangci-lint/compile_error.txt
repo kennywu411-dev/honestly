@@ -1,0 +1,5 @@
+a.go:1: : # example.com/m
+./a.go:3:23: cannot use "x" (untyped string constant) as int value in return statement (typecheck)
+package a
+1 issues:
+* typecheck: 1

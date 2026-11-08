@@ -1,0 +1,23 @@
+PHPUnit 13.4.5 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.12
+Configuration: /w/php/phpunit/skip/phpunit.xml
+
+...SI                                                               5 / 5 (100%)
+
+Time: 00:00.008, Memory: 20.00 MB
+
+A
+ ✔ One
+ ✔ Two
+ ✔ Three
+ ↩ Later
+ ∅ Inc
+   │
+   │ wip
+   │
+   │ /w/php/phpunit/skip/tests/ATest.php:10
+   │
+
+OK, but there were issues!
+Tests: 5, Assertions: 3, Skipped: 1, Incomplete: 1.

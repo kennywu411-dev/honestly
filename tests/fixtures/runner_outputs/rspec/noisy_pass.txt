@@ -1,0 +1,7 @@
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed attempts
+..
+
+Finished in 0.00619 seconds (files took 0.08809 seconds to load)
+2 examples, 0 failures
+

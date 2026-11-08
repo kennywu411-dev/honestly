@@ -1,0 +1,33 @@
+warning: unused import: `super::*`
+ --> src/lib.rs:5:9
+  |
+5 |     use super::*;
+  |         ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `m` (lib test) generated 1 warning (run `cargo fix --lib -p m --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+────────────
+ Nextest run ID 46733a59-896c-479f-9e50-7ddb8ee0835a with nextest profile: default
+    Starting 2 tests across 1 binary
+       START [         ] (1/2) m tests::error_path_failed
+
+running 1 test
+ERROR: connection failed (expected)
+FAILED to reach upstream, 2 failed
+test tests::error_path_failed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+        PASS [   0.009s] (1/2) m tests::error_path_failed
+       START [         ] (2/2) m tests::fail_returns_error
+
+running 1 test
+test tests::fail_returns_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+        PASS [   0.008s] (2/2) m tests::fail_returns_error
+────────────
+     Summary [   0.019s] 2 tests run: 2 passed, 0 skipped

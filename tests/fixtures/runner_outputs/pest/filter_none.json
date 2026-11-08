@@ -1,0 +1,8 @@
+{
+ "command": "vendor/bin/pest --filter does_not_match",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "",
+ "where": "composer:2"
+}

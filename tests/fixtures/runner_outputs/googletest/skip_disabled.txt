@@ -1,0 +1,26 @@
+Running main() from ./googletest/src/gtest_main.cc
+[==========] Running 4 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 4 tests from M
+[ RUN      ] M.One
+[       OK ] M.One (0 ms)
+[ RUN      ] M.Two
+[       OK ] M.Two (0 ms)
+[ RUN      ] M.Three
+[       OK ] M.Three (0 ms)
+[ RUN      ] M.Later
+/w/cpp/gt_skip/t.cpp:6: Skipped
+not now
+
+[  SKIPPED ] M.Later (0 ms)
+[ DISABLED ] M.DISABLED_Off
+[----------] 4 tests from M (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 4 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 3 tests.
+[  SKIPPED ] 1 test, listed below:
+[  SKIPPED ] M.Later
+
+  YOU HAVE 1 DISABLED TEST
+

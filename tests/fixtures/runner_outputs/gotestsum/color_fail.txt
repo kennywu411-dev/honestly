@@ -1,0 +1,7 @@
+✖  . (4ms)
+
+=== Failed
+=== FAIL: . TestBad (0.00s)
+    a_test.go:24: got 1 want 2
+
+DONE 4 tests, 1 failure in 0.004s

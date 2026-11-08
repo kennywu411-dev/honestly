@@ -1,0 +1,29 @@
+yarn run v1.22.22
+$ jest
+FAIL ./a.test.js
+  ✓ one (2 ms)
+  ✓ two (1 ms)
+  ✕ bad (2 ms)
+
+  ● bad
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      1 | test('one', () => { expect(1).toBe(1); });
+      2 | test('two', () => { expect(2).toBe(2); });
+    > 3 | test('bad', () => { expect(1).toBe(2); });
+        |                               ^
+      4 |
+
+      at Object.toBe (a.test.js:3:31)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        0.4 s, estimated 1 s
+Ran all test suites.
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

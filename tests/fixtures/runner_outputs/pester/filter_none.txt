@@ -1,0 +1,4 @@
+[95m
+[95mRunning tests from 1 files.[0m
+[97mTests completed in 187ms[0m
+[32mTests Passed: 0, [0m[90mFailed: 0, [0m[90mSkipped: 0, [0m[90mInconclusive: 0, [0m[37mNotRun: 3[0m

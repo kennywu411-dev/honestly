@@ -1,0 +1,5 @@
+pytest -q
+..                                                                       [100%]
+2 passed in 0.03s
+linting
+make: *** [lint] Error 1

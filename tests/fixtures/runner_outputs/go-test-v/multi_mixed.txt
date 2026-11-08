@@ -1,0 +1,32 @@
+=== RUN   TestOne
+--- PASS: TestOne (0.00s)
+=== RUN   TestTwo
+--- PASS: TestTwo (0.00s)
+=== RUN   TestThree
+    also_test.go:20: fine
+--- PASS: TestThree (0.00s)
+PASS
+ok  	example.com/m/also	0.003s
+=== RUN   TestOne
+--- PASS: TestOne (0.00s)
+=== RUN   TestTwo
+--- PASS: TestTwo (0.00s)
+=== RUN   TestThree
+    bad_test.go:20: fine
+--- PASS: TestThree (0.00s)
+=== RUN   TestBad
+    bad_test.go:24: got 1 want 2
+--- FAIL: TestBad (0.00s)
+FAIL
+FAIL	example.com/m/bad	0.003s
+=== RUN   TestOne
+--- PASS: TestOne (0.00s)
+=== RUN   TestTwo
+--- PASS: TestTwo (0.00s)
+=== RUN   TestThree
+    good_test.go:20: fine
+--- PASS: TestThree (0.00s)
+PASS
+ok  	example.com/m/good	0.002s
+?   	example.com/m/notests	[no test files]
+FAIL

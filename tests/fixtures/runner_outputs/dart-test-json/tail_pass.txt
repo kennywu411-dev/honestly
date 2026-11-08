@@ -1,0 +1,5 @@
+{"test":{"id":4,"name":"two","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":5,"column":3,"url":"file:///w/dart/green/test/a_test.dart"},"type":"testStart","time":401}
+{"testID":4,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":403}
+{"test":{"id":5,"name":"three","suiteID":0,"groupIDs":[2],"metadata":{"skip":false,"skipReason":null},"line":6,"column":3,"url":"file:///w/dart/green/test/a_test.dart"},"type":"testStart","time":404}
+{"testID":5,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":406}
+{"success":true,"type":"done","time":413}

@@ -1,0 +1,22 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+CSC : warning MSTEST0001: Explicitly enable or disable tests parallelization (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0001) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(8,38): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(9,40): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(10,38): warning MSTEST0025: Use 'Assert.Fail' instead of an always-failing 'Assert.AreEqual' assert (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0025) [/w/dotnet100/mstest/P/P.csproj]
+/w/dotnet100/mstest/P/T.cs(7,38): warning MSTEST0032: Review or remove the assertion as its condition is known to be always true (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0032) [/w/dotnet100/mstest/P/P.csproj]
+  P -> /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed Bad [10 ms]
+  Error Message:
+   Assert.AreEqual failed. Expected:<1>. Actual:<2>. 'expected' expression: '1', 'actual' expression: '2'.
+  Stack Trace:
+     at Microsoft.VisualStudio.TestTools.UnitTesting.Assert.ThrowAssertAreEqualFailed(Object expected, Object actual, String userMessage) in /_/src/TestFramework/TestFramework/Assertions/Assert.AreEqual.cs:line 665
+   at Microsoft.VisualStudio.TestTools.UnitTesting.Assert.AreEqual[T](T expected, T actual, IEqualityComparer`1 comparer, String message, String expectedExpression, String actualExpression) in /_/src/TestFramework/TestFramework/Assertions/Assert.AreEqual.cs:line 492
+   at Microsoft.VisualStudio.TestTools.UnitTesting.Assert.AreEqual[T](T expected, T actual, String message, String expectedExpression, String actualExpression) in /_/src/TestFramework/TestFramework/Assertions/Assert.AreEqual.cs:line 405
+   at T.T1.Bad() in /w/dotnet100/mstest/P/T.cs:line 10
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     1, Passed:     3, Skipped:     0, Total:     4, Duration: 34 ms - P.dll (net10.0)

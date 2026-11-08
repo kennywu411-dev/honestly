@@ -1,0 +1,22 @@
+Using CPython 3.13.16
+Creating virtual environment at: .venv
+Installed 5 packages in 17ms
+============================= test session starts ==============================
+platform darwin -- Python 3.13.16, pytest-9.2.0, pluggy-1.7.0
+rootdir: /work/pyrun/bad
+configfile: pyproject.toml
+collected 1 item
+
+test_a.py F                                                              [100%]
+
+=================================== FAILURES ===================================
+____________________________________ test_a ____________________________________
+
+    def test_a():
+>       assert 1 == 2
+E       assert 1 == 2
+
+test_a.py:2: AssertionError
+=========================== short test summary info ============================
+FAILED test_a.py::test_a - assert 1 == 2
+============================== 1 failed in 0.04s ===============================

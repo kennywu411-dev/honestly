@@ -1,0 +1,5 @@
+bad [0m[38;5;245m=> ./a_test.ts:5:6[0m
+
+[0m[31mFAILED[0m | 3 passed | 1 failed [0m[38;5;245m(32ms)[0m
+
+[0m[1m[31merror[0m: Test failed

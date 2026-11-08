@@ -1,0 +1,16 @@
+[info] welcome to sbt 1.10.7 (Eclipse Adoptium Java 21.0.5)
+[info] loading project definition from /w/jvm/sbt/green/project
+[info] loading settings for project green from build.sbt...
+[info] set current project to green (in build file:/w/jvm/sbt/green/)
+[info] compiling 1 Scala source to /w/jvm/sbt/green/target/scala-3.3.4/test-classes ...
+[info] done compiling
+[info] ATest:
+[info] - one
+[info] - two
+[info] - three
+[info] Run completed in 381 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 9 s, completed Nov 8, 2026, 1:18:03 PM

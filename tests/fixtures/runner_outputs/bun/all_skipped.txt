@@ -1,0 +1,10 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+(skip) a
+(skip) b
+
+ 0 pass
+ 2 skip
+ 0 fail
+Ran 2 tests across 1 file. [6.00ms]

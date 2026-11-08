@@ -1,0 +1,8 @@
+$ mocha
+
+
+  ✔ one
+  ✔ two
+
+  2 passing (3ms)
+

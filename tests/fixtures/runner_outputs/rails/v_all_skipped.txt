@@ -1,0 +1,26 @@
+Running 2 tests in a single process (parallelization threshold is 50)
+Run options: -v --seed 14444
+
+# Running:
+
+WidgetTest#test_two = 0.03 s = S
+
+
+Skipped:
+WidgetTest#test_two [test/models/widget_test.rb:9]:
+later
+
+bin/rails test test/models/widget_test.rb:8
+
+WidgetTest#test_one = 0.00 s = S
+
+
+Skipped:
+WidgetTest#test_one [test/models/widget_test.rb:5]:
+later
+
+bin/rails test test/models/widget_test.rb:4
+
+
+Finished in 0.039333s, 50.8478 runs/s, 0.0000 assertions/s.
+2 runs, 0 assertions, 0 failures, 0 errors, 2 skips

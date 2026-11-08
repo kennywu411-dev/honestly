@@ -1,0 +1,11 @@
+Running ExUnit with seed: 30547, max_cases: 1
+
+
+ATest [test/a_test.exs]
+  * test three [L#9]  * test three (0.00ms) [L#9]
+  * test two [L#6]  * test two (8.3ms) [L#6]
+  * test one [L#3]  * test one (0.00ms) [L#3]
+
+Finished in 0.05 seconds (0.00s async, 0.05s sync)
+
+Result: 3 passed

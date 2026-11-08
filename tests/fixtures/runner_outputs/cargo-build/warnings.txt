@@ -1,0 +1,10 @@
+warning: function `unused_fn` is never used
+ --> src/lib.rs:1:4
+  |
+1 | fn unused_fn() {}
+  |    ^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `m` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s

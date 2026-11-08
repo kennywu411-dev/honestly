@@ -1,0 +1,26 @@
+Running main() from ./googletest/src/gtest_main.cc
+[0;32m[==========] [mRunning 4 tests from 1 test suite.
+[0;32m[----------] [mGlobal test environment set-up.
+[0;32m[----------] [m4 tests from M
+[0;32m[ RUN      ] [mM.One
+[0;32m[       OK ] [mM.One (0 ms)
+[0;32m[ RUN      ] [mM.Two
+[0;32m[       OK ] [mM.Two (0 ms)
+[0;32m[ RUN      ] [mM.Three
+[0;32m[       OK ] [mM.Three (0 ms)
+[0;32m[ RUN      ] [mM.Bad
+/w/cpp/gt_onebad/t.cpp:6: Failure
+Expected equality of these values:
+  1
+  2
+
+[0;31m[  FAILED  ] [mM.Bad (0 ms)
+[0;32m[----------] [m4 tests from M (0 ms total)
+
+[0;32m[----------] [mGlobal test environment tear-down
+[0;32m[==========] [m4 tests from 1 test suite ran. (0 ms total)
+[0;32m[  PASSED  ] [m3 tests.
+[0;31m[  FAILED  ] [m1 test, listed below:
+[0;31m[  FAILED  ] [mM.Bad
+
+ 1 FAILED TEST

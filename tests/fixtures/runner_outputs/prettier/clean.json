@@ -1,0 +1,11 @@
+{
+ "command": "npx prettier --check .",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "version": "prettier",
+ "where": "macOS-arm64-local"
+}

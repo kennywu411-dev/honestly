@@ -1,0 +1,23 @@
+
+ NX   Running target test for 3 projects:
+
+- a
+- b
+- c
+
+
+✔  nx run a:test
+✔  nx run b:test
+✔  nx run c:test
+
+
+
+ NX   Successfully ran target test for 3 projects
+
+
+Output of 3 successful tasks were not shown. Run with --verbose or --output-style=static to see it.
+
+  Run duration:      2.8s
+  Cache:             0/3 hit (0%)
+  Critical path:     961ms (1 task)
+  Recoverable time:  1.8s (65% of the run)

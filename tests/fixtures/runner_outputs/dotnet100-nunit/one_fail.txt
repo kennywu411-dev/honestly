@@ -1,0 +1,23 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet100/nunit/P/T.cs(8,44): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet100/nunit/P/P.csproj]
+/w/dotnet100/nunit/P/T.cs(9,46): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet100/nunit/P/P.csproj]
+/w/dotnet100/nunit/P/T.cs(7,44): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet100/nunit/P/P.csproj]
+/w/dotnet100/nunit/P/T.cs(10,44): warning NUnit2007: The actual value should not be a constant - perhaps the actual value and the expected value have switched places (https://github.com/nunit/nunit.analyzers/tree/master/documentation/NUnit2007.md) [/w/dotnet100/nunit/P/P.csproj]
+  P -> /w/dotnet100/nunit/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/nunit/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed Bad [45 ms]
+  Error Message:
+     Assert.That(1, Is.EqualTo(2))
+  Expected: 2
+  But was:  1
+
+  Stack Trace:
+     at T.T1.Bad() in /w/dotnet100/nunit/P/T.cs:line 10
+
+1)    at T.T1.Bad() in /w/dotnet100/nunit/P/T.cs:line 10
+
+
+
+Failed!  - Failed:     1, Passed:     3, Skipped:     0, Total:     4, Duration: 47 ms - P.dll (net10.0)

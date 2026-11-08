@@ -1,0 +1,8 @@
+{
+ "command": "rspec -e does_not_match_anything",
+ "exit_code": 0,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "RSpec 3.13   - rspec-core 3.13.7   - rspec-expectations 3.13.6   - rspec-mocks 3.13.9   - rspec-support 3.13.8",
+ "where": "ruby:3"
+}

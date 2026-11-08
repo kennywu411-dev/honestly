@@ -1,0 +1,19 @@
+Generated m app
+Running ExUnit with seed: 349440, max_cases: 14
+
+........
+
+  1) test bad (BTest)
+     test/b_test.exs:12
+     Assertion with == failed
+     code:  assert 1 == 2
+     left:  1
+     right: 2
+     stacktrace:
+       test/b_test.exs:13: (test)
+
+.
+Finished in 0.08 seconds (0.00s async, 0.08s sync)
+
+Result: 9/10 passed
+Failed: 1 test

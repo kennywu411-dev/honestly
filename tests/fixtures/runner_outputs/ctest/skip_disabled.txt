@@ -1,0 +1,20 @@
+Internal ctest changing into directory: /w/cpp/ct_skip/build
+Test project /w/cpp/ct_skip/build
+    Start 1: M.One
+1/5 Test #1: M.One ............................   Passed    0.01 sec
+    Start 2: M.Two
+2/5 Test #2: M.Two ............................   Passed    0.00 sec
+    Start 3: M.Three
+3/5 Test #3: M.Three ..........................   Passed    0.01 sec
+    Start 4: M.Later
+4/5 Test #4: M.Later ..........................***Skipped   0.00 sec
+    Start 5: M.Off
+5/5 Test #5: M.Off ............................***Not Run (Disabled)   0.00 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   0.12 sec
+
+The following tests did not run:
+	  4 - M.Later (Skipped)
+	  5 - M.Off (Disabled)

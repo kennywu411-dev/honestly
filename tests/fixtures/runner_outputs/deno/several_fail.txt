@@ -1,0 +1,40 @@
+[0m[32mCheck[0m a_test.ts
+[0m[38;5;245mrunning 6 tests from ./a_test.ts[0m
+one ... [0m[32mok[0m [0m[38;5;245m(399µs)[0m
+two ... [0m[32mok[0m [0m[38;5;245m(86µs)[0m
+three ... [0m[32mok[0m [0m[38;5;245m(110µs)[0m
+bad a ... [0m[31mFAILED[0m [0m[38;5;245m(645µs)[0m
+bad b ... [0m[31mFAILED[0m [0m[38;5;245m(444µs)[0m
+bad c ... [0m[31mFAILED[0m [0m[38;5;245m(206µs)[0m
+
+[0m[1m[37m[41m ERRORS [0m
+
+bad a [0m[38;5;245m=> ./a_test.ts:5:6[0m
+[0m[1m[31merror[0m: Error: 1 !== 2
+function eq(a: unknown, b: unknown) { if (a !== b) throw new Error(`${a} !== ${b}`); }
+[0m[31m                                                         ^[0m
+    at [0m[1m[3meq[0m ([0m[2m[38;5;245mfile:///work/deno/manybad/[0m[0m[36ma_test.ts[0m:[0m[33m1[0m:[0m[33m58[0m)
+    at [0m[2m[38;5;245mfile:///work/deno/manybad/[0m[0m[36ma_test.ts[0m:[0m[33m5[0m:[0m[33m28[0m
+
+bad b [0m[38;5;245m=> ./a_test.ts:6:6[0m
+[0m[1m[31merror[0m: Error: 2 !== 3
+function eq(a: unknown, b: unknown) { if (a !== b) throw new Error(`${a} !== ${b}`); }
+[0m[31m                                                         ^[0m
+    at [0m[1m[3meq[0m ([0m[2m[38;5;245mfile:///work/deno/manybad/[0m[0m[36ma_test.ts[0m:[0m[33m1[0m:[0m[33m58[0m)
+    at [0m[2m[38;5;245mfile:///work/deno/manybad/[0m[0m[36ma_test.ts[0m:[0m[33m6[0m:[0m[33m28[0m
+
+bad c [0m[38;5;245m=> ./a_test.ts:7:6[0m
+[0m[1m[31merror[0m: Error: boom
+Deno.test("bad c", () => { throw new Error("boom"); });
+[0m[31m                                 ^[0m
+    at [0m[2m[38;5;245mfile:///work/deno/manybad/[0m[0m[36ma_test.ts[0m:[0m[33m7[0m:[0m[33m34[0m
+
+[0m[1m[37m[41m FAILURES [0m
+
+bad a [0m[38;5;245m=> ./a_test.ts:5:6[0m
+bad b [0m[38;5;245m=> ./a_test.ts:6:6[0m
+bad c [0m[38;5;245m=> ./a_test.ts:7:6[0m
+
+[0m[31mFAILED[0m | 3 passed | 3 failed [0m[38;5;245m(0ms)[0m
+
+[0m[1m[31merror[0m: Test failed

@@ -1,0 +1,11 @@
+{
+ "command": "npx playwright test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

@@ -1,0 +1,8 @@
+{
+ "command": "npm run test -ws",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "npm 11.20.0",
+ "where": "macOS-arm64-local"
+}

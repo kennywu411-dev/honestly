@@ -1,0 +1,11 @@
+bun test v1.4.4 (38afee6c8)
+
+a.test.ts:
+(pass) one [0.15ms]
+(pass) two [0.07ms]
+(pass) three [0.01ms]
+
+ 3 pass
+ 0 fail
+ 3 expect() calls
+Ran 3 tests across 1 file. [9.00ms]

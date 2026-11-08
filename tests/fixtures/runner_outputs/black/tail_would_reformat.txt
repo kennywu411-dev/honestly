@@ -1,0 +1,4 @@
+would reformat /work/lint2/fmt/a.py
+
+Oh no! 💥 💔 💥
+1 file would be reformatted.

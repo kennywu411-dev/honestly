@@ -1,0 +1,1 @@
+JUNIT report written to /work/vitest/green/.vitest/junit/output.xml

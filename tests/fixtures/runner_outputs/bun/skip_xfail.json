@@ -1,0 +1,8 @@
+{
+ "command": "bun test",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "bun 1.4.4",
+ "where": "macOS-arm64-local"
+}

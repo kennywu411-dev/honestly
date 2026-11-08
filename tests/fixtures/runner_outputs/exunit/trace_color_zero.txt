@@ -1,0 +1,8 @@
+Running ExUnit with seed: 845066, max_cases: 1
+
+
+ATest [test/a_test.exs]
+
+Finished in 0.01 seconds (0.00s async, 0.01s sync)
+[32m
+Result: 0 tests[0m

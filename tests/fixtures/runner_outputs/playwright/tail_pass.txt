@@ -1,0 +1,5 @@
+  ✓  1 tests/a.spec.ts:2:1 › one (20ms)
+  ✓  2 tests/a.spec.ts:3:1 › two (10ms)
+  ✓  3 tests/a.spec.ts:4:1 › in browser (176ms)
+
+  3 passed (1.7s)

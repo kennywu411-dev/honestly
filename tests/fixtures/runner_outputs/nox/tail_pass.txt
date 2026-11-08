@@ -1,0 +1,5 @@
+nox > uv pip install pytest
+nox > pytest -q
+...                                                                      [100%]
+3 passed in 0.01s
+nox > Session tests was successful in a second.

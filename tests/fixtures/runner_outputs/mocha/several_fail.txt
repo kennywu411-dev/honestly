@@ -1,0 +1,60 @@
+
+
+  math
+    ✔ one
+    ✔ two
+    ✔ three
+
+  bad
+    1) wrong a
+    2) wrong b
+    3) wrong c
+
+
+  3 passing (26ms)
+  3 failing
+
+  1) bad
+       wrong a:
+
+      AssertionError [ERR_ASSERTION]: 1 == 2
+      + expected - actual
+
+      -1
+      +2
+      
+      at Context.<anonymous> (test/a.spec.js:7:54)
+      at process.processImmediate (node:internal/timers:574:21)
+
+  2) bad
+       wrong b:
+
+      AssertionError [ERR_ASSERTION]: Expected values to be loosely deep-equal:
+
+{
+  a: 1
+}
+
+should loosely deep-equal
+
+{
+  a: 2
+}
+      + expected - actual
+
+       {
+      -  "a": 1
+      +  "a": 2
+       }
+      
+      at Context.<anonymous> (test/a.spec.js:7:100)
+      at process.processImmediate (node:internal/timers:574:21)
+
+  3) bad
+       wrong c:
+     Error: boom
+      at Context.<anonymous> (test/a.spec.js:7:159)
+      at process.processImmediate (node:internal/timers:574:21)
+
+
+

@@ -1,0 +1,2 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+  Executable unittests src/lib.rs (target/debug/deps/m-caf2b80818c458fd)

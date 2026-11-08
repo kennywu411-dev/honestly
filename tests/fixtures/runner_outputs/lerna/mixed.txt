@@ -1,0 +1,101 @@
+lerna notice cli v10.1.1
+
+ Lerna (powered by Nx)   Running target test for 3 projects:
+
+- a
+- b
+- c
+
+
+
+> c:test
+
+
+> c@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.68125ms)[39m[39m
+[32m✔ two [90m(0.115584ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 131.733875[39m
+
+> a:test
+
+
+> a@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.746792ms)[39m[39m
+[32m✔ two [90m(0.135792ms)[39m[39m
+[34mℹ tests 2[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 0[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 136.31325[39m
+
+> b:test
+
+
+> b@1.0.0 test
+> node --test
+
+[32m✔ one [90m(0.785875ms)[39m[39m
+[32m✔ two [90m(0.115041ms)[39m[39m
+[31m✖ bad [90m(0.686375ms)[39m[39m
+[34mℹ tests 3[39m
+[34mℹ suites 0[39m
+[34mℹ pass 2[39m
+[34mℹ fail 1[39m
+[34mℹ cancelled 0[39m
+[34mℹ skipped 0[39m
+[34mℹ todo 0[39m
+[34mℹ duration_ms 134.113792[39m
+
+[31m✖ failing tests:[39m
+
+test at b.test.js:5:1
+[31m✖ bad [90m(0.686375ms)[39m[39m
+  AssertionError [ERR_ASSERTION]: 1 == 2
+      at TestContext.<anonymous> [90m(/work/mono/nx_mixed/packages/b/[39mb.test.js:5:28[90m)[39m
+  [90m    at Test.runInAsyncScope (node:async_hooks:226:14)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1402:25)[39m
+  [90m    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)[39m
+  [90m    at Test.postRun (node:internal/test_runner/test:1542:19)[39m
+  [90m    at Test.run (node:internal/test_runner/test:1467:12)[39m
+  [90m    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)[39m {
+    generatedMessage: [33mtrue[39m,
+    code: [32m'ERR_ASSERTION'[39m,
+    actual: [33m1[39m,
+    expected: [33m2[39m,
+    operator: [32m'=='[39m,
+    diff: [32m'simple'[39m
+  }
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /work/mono/nx_mixed/packages/b
+npm error workspace b@1.0.0
+npm error location /work/mono/nx_mixed/packages/b
+npm error command failed
+npm error command sh -c node --test
+
+
+
+ Lerna (powered by Nx)   Running target test for 3 projects failed
+
+Failed tasks:
+
+- b:test
+
+  Run duration:      1.1s
+  Cache:             0/2 hit (0%)
+  Critical path:     1.1s (1 task)
+  Recoverable time:  <1ms

@@ -1,0 +1,8 @@
+{
+ "command": "npx playwright test --reporter=json -g does_not_match_anything",
+ "exit_code": 1,
+ "expected": "unbacked",
+ "category": "tests_pass",
+ "version": "playwright Version 1.65.0",
+ "where": "mcr.microsoft.com/playwright:latest"
+}

@@ -1,0 +1,27 @@
+    Checking m v0.1.0 (/w/rust/clip_err)
+error[E0384]: cannot assign twice to immutable variable `a`
+ --> src/lib.rs:1:32
+  |
+1 | pub fn g() -> i32 { let a = 1; a = 2; a }
+  |                         -      ^^^^^ cannot assign twice to immutable variable
+  |                         |
+  |                         first assignment to `a`
+  |
+help: consider making this binding mutable
+  |
+1 | pub fn g() -> i32 { let mut a = 1; a = 2; a }
+  |                         +++
+
+warning: value assigned to `a` is never read
+ --> src/lib.rs:1:29
+  |
+1 | pub fn g() -> i32 { let a = 1; a = 2; a }
+  |                             ^  ----- `a` is overwritten here before the previous value is read
+  |                             |
+  |                             this value is reassigned later and never used
+  |
+  = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0384`.
+warning: `m` (lib) generated 1 warning
+error: could not compile `m` (lib) due to 1 previous error; 1 warning emitted

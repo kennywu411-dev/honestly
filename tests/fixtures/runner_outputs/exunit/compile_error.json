@@ -1,0 +1,11 @@
+{
+ "command": "mix test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "Elixir 1.20.5 (compiled with Erlang/OTP 29)",
+ "where": "elixir:latest"
+}

@@ -1,0 +1,11 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+
+
+[2A[1B[1m> Starting Daemon[m[17D[1B[1A[1m> Starting Daemon > Connecting to Daemon[m[40D[1B[2ADaemon will be stopped at the end of the build 
+[1B[0K
+[2A[0K[1B> IDLE[6D[1B[2A[1m<[0;1m-------------> 0% INITIALIZING [20ms][m[38D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [120ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [222ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [320ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [421ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [520ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [620ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [720ms][m[39D[1B[1m> Evaluating settings[m[21D[1B[2A[1m<[0;1m-------------> 0% INITIALIZING [820ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [920ms][m[39D[2B[2A[1m<[0;1m-------------> 0% INITIALIZING [1s][m[0K[36D[2B[2A[1m<[0;1m-------------> 0% CONFIGURING [1s][m[0K[35D[1B[1m> Loading projects[m[0K[18D[1B[1A[1m> root project[m[0K[14D[1B[2A[1m<[0;1m-------------> 0% CONFIGURING [2s][m[35D[2B[2A[1m<[0;1m-------------> 0% CONFIGURING [3s][m[35D[2B[2A[1m<[0;32;1m=============[0;39;1m> 100% CONFIGURING [3s][m[37D[1B> IDLE[0K[6D[1B[2A[1m<[0;1m-------------> 0% EXECUTING [3s][m[0K[33D[2B[1A[1m> :compileJava[m[14D[1B[2A[1m<[0;32;1m===[0;39;1m----------> 28% EXECUTING [4s][m[34D[1B> IDLE[0K[6D[1B[2A[0K
+[32;1mBUILD SUCCESSFUL[0;39m in 6s[0K
+1 actionable task: 1 executed
+[0K
+[0K
+[2A[1m<[0;1m-------------> 0% WAITING[m[26D[1B> IDLE[6D[1B[2A[2K[1B[2K[1A

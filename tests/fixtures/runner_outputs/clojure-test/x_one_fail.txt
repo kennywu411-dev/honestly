@@ -1,0 +1,16 @@
+
+Running tests in #{"test"}
+
+Testing a-test
+
+FAIL in (bad) (a_test.clj:7)
+expected: (= 1 2)
+  actual: (not (= 1 2))
+
+Ran 4 tests containing 4 assertions.
+1 failures, 0 errors.
+Execution error (ExceptionInfo) at cognitect.test-runner.api/test (api.clj:30).
+Test failures or errors occurred.
+
+Full report at:
+/tmp/clojure-18206496745794387348.edn

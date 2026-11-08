@@ -1,0 +1,30 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+
+/w/jvm/gradle/compile/src/test/java/ATest.java:6: error: incompatible types: String cannot be converted to int
+    @Test void one() { int x = "str"; }
+                               ^
+1 error> Task :compileTestJava FAILED
+
+
+
+FAILURE: [Incubating] Problems report is available at: file:///w/jvm/gradle/compile/build/reports/problems/problems-report.html
+Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileTestJava'.
+> Compilation failed; see the compiler output below.
+  /w/jvm/gradle/compile/src/test/java/ATest.java:6: error: incompatible types: String cannot be converted to int
+      @Test void one() { int x = "str"; }
+                                 ^
+  1 error
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights.
+
+BUILD FAILED in 7s1 actionable task: 1 executed
+

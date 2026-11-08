@@ -1,0 +1,10 @@
+{
+ "command": "npx nx run-many -t test --parallel=1 2>&1 | tail -5",
+ "exit_code": 0,
+ "expected": "backed",
+ "category": "tests_pass",
+ "version": "nx - Global: Not found",
+ "where": "macOS-arm64-local",
+ "safe": "unbacked",
+ "note": "the tail is the build tool's verdict with no test count: a run of no tests ends the same way, so it holds"
+}

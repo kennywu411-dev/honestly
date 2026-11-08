@@ -1,0 +1,5 @@
+/w/dotnet80/xunit/P/T.cs(7,29): error CS0029: Cannot implicitly convert type 'string' to 'int' [/w/dotnet80/xunit/P/P.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.57

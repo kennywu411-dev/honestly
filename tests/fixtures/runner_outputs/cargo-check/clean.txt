@@ -1,0 +1,2 @@
+    Checking m v0.1.0 (/w/rust/clip_clean)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.86s

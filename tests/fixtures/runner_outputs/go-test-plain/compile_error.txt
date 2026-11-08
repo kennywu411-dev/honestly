@@ -1,0 +1,3 @@
+FAIL	example.com/m [build failed]
+# example.com/m [example.com/m.test]
+./a.go:5:28: cannot use "nope" (untyped string constant) as int value in return statement

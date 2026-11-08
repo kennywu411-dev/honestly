@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet100/mstest/Q/T.cs(7,29): error CS0029: Cannot implicitly convert type 'string' to 'int' [/w/dotnet100/mstest/Q/Q.csproj]
+CSC : warning MSTEST0001: Explicitly enable or disable tests parallelization (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0001) [/w/dotnet100/mstest/Q/Q.csproj]
+  R -> /w/dotnet100/mstest/R/bin/Debug/net10.0/R.dll
+Test run for /w/dotnet100/mstest/R/bin/Debug/net10.0/R.dll (.NETCoreApp,Version=v10.0)
+  P -> /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll
+Test run for /w/dotnet100/mstest/P/bin/Debug/net10.0/P.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+No test is available in /w/dotnet100/mstest/R/bin/Debug/net10.0/R.dll. Make sure that test discoverer & executors are registered and platform & framework version settings are appropriate and try again.
+
+Additionally, path to test adapters can be specified using /TestAdapterPath command. Example  /TestAdapterPath:<pathToCustomAdapters>.
+
+Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 55 ms - P.dll (net10.0)

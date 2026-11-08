@@ -1,0 +1,14 @@
+{
+ "command": "black --check .",
+ "exit_code": 123,
+ "expected": "contradicted",
+ "category": [
+  "build_ok",
+  "checks_pass"
+ ],
+ "acceptable": [
+  "unbacked"
+ ],
+ "version": "black",
+ "where": "macOS-arm64-local"
+}

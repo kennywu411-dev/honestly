@@ -1,0 +1,6 @@
+Generated m app
+..
+Finished in 0.03 seconds (0.00s async, 0.03s sync)
+2 tests, 0 failures
+
+Randomized with seed 646173

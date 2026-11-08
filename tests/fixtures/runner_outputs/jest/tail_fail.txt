@@ -1,0 +1,5 @@
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        0.373 s, estimated 1 s
+Ran all test suites.

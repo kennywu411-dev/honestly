@@ -1,0 +1,73 @@
+✔ one (0.756875ms)
+✔ two (0.112375ms)
+✔ three (0.085584ms)
+✖ bad a (0.668125ms)
+✖ bad b (16.529208ms)
+✖ bad c (14.723709ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 3
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 285.184458
+
+✖ failing tests:
+
+test at a.test.js:6:1
+✖ bad a (0.668125ms)
+  AssertionError [ERR_ASSERTION]: 1 == 2
+      at TestContext.<anonymous> (/work/node-test/manybad/a.test.js:6:30)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at a.test.js:7:1
+✖ bad b (16.529208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be loosely deep-equal:
+  
+  {
+    a: 1
+  }
+  
+  should loosely deep-equal
+  
+  {
+    a: 2
+  }
+      at TestContext.<anonymous> (/work/node-test/manybad/a.test.js:7:30)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { a: 1 },
+    expected: { a: 2 },
+    operator: 'deepEqual',
+    diff: 'simple'
+  }
+
+test at a.test.js:8:1
+✖ bad c (14.723709ms)
+  Error: boom
+      at TestContext.<anonymous> (/work/node-test/manybad/a.test.js:8:29)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

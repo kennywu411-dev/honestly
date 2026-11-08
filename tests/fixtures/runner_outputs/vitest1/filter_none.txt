@@ -1,0 +1,10 @@
+
+ RUN  v1.6.1 /work/older/vitest1/green
+
+ ↓ a.test.ts  (2 tests | 2 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  2 skipped (2)
+   Start at  00:17:19
+   Duration  188ms (transform 33ms, setup 0ms, collect 28ms, tests 0ms, environment 0ms, prepare 59ms)
+

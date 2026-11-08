@@ -1,0 +1,17 @@
+00:00 +0: loading /w/flutter/onebad/test/a_test.dart
+00:00 +0: one
+00:00 +1: two
+00:00 +2: three
+00:00 +3: bad
+00:00 +3 -1: bad [E]
+  Expected: <2>
+    Actual: <1>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test/a_test.dart 7:20                               main.<fn>
+  
+00:00 +3 -1: Some tests failed.
+
+Failing tests:
+  /w/flutter/onebad/test/a_test.dart: bad

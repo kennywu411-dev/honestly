@@ -1,0 +1,18 @@
+Running ExUnit with seed: 32112, max_cases: 14
+
+[32m.[0m[32m.[0m
+
+  1) test bad (ATest)
+     [1m[30mtest/a_test.exs:12[0m
+     [31mAssertion with == failed[0m
+     [36mcode:  [0massert 1 == 2
+     [36mleft:  [0m[31m1[0m
+     [36mright: [0m[32m2[0m
+     [36mstacktrace:[0m
+       test/a_test.exs:13: (test)
+
+[32m.[0m
+Finished in 0.06 seconds (0.00s async, 0.06s sync)
+
+Result: 3/4 passed
+[31mFailed: 1 test[0m

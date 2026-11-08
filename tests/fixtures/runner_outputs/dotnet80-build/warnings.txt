@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+/w/dotnet80/xunit/P/T.cs(7,27): warning CS0168: The variable 'unused' is declared but never used [/w/dotnet80/xunit/P/P.csproj]
+  P -> /w/dotnet80/xunit/P/bin/Debug/net8.0/P.dll
+
+Build succeeded.
+
+/w/dotnet80/xunit/P/T.cs(7,27): warning CS0168: The variable 'unused' is declared but never used [/w/dotnet80/xunit/P/P.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.69

@@ -1,0 +1,8 @@
+{
+ "command": "bin/rails test",
+ "exit_code": 1,
+ "expected": "contradicted",
+ "category": "tests_pass",
+ "version": "Rails 8.1.4.1",
+ "where": "ruby:3"
+}
