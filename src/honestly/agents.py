@@ -286,6 +286,8 @@ def normalize(agent: str, which: str, data: dict) -> dict:
             cmd = ti.get("command") or ti.get("cmd") or ""
             if isinstance(cmd, list):
                 cmd = " ".join(str(x) for x in cmd)
+            if str(d.get("tool_name") or "") in EDIT_TOOLS or str(cmd).lstrip().startswith("*** Begin Patch"):
+                return d   # an edit's text is what it writes, never a command: apply_patch hands its whole patch over as `command`
             if str(d.get("tool_name") or "") in SHELL_TOOLS or cmd:
                 d["tool_name"] = "Bash"
                 d["tool_input"] = {"command": str(cmd)}

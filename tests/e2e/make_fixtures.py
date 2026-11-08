@@ -63,7 +63,7 @@ def codex(src, name):
                     p = {k: p.get(k) for k in ("cwd", "model")}
                 elif t == "event_msg":
                     item = p.get("item") if isinstance(p.get("item"), dict) else {}
-                    if not (p.get("type") == "item_completed" and item.get("type") in ("UserMessage", "HookPrompt")):
+                    if not (p.get("type") == "user_message" or (p.get("type") == "item_completed" and item.get("type") in ("UserMessage", "HookPrompt"))):
                         continue
                 elif t == "response_item":
                     if p.get("role") in ("developer",) or (p.get("role") == "user" and "environment_context" in json.dumps(p)) or p.get("type") in ("reasoning", "tool_search_output", "tool_search_call"):

@@ -13,7 +13,10 @@ from .claude_code import Event, Turn, clip_output
 
 CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
-USER_MESSAGE = re.compile(rb'"type":\s*"UserMessage"')
+USER_MESSAGE = re.compile(rb'"type":\s*"(?:UserMessage|user_message)"')   # user_message: rollouts of Codex before about 0.150
+STILL_RUNNING = re.compile(r"Process running with session ID (\d+)")
+EXITED = re.compile(r"Process exited with code (\d+)")
+SPAWNED = re.compile(r'"agent_id"\s*:\s*"([\w-]+)"')
 HEADER_LINES = 32
 HOOK_PROMPT = re.compile(r"</?hook_prompt\b[^>]*>")
 
@@ -44,7 +47,9 @@ def _dig(d, *keys):
 def _command_from_call(name: str, payload: dict) -> tuple[str, str]:
     """Return (tool_kind, text) where tool_kind is Bash / Edit / other."""
     inp0 = payload.get("input")
-    if isinstance(inp0, str) and CMD_IN_INPUT.search(inp0):
+    if name in ("spawn_agent", "agent_spawn"):
+        return "Agent", ""   # work this record cannot see, until its own rollout is read: see _merge_subagents
+    if name != "apply_patch" and isinstance(inp0, str) and not inp0.lstrip().startswith("*** Begin Patch") and CMD_IN_INPUT.search(inp0):
         name = "exec"   # the desktop app wraps shell calls in a JS runner; the cmd is what matters
     if name in ("exec", "shell", "shell_command", "exec_command", "container.exec", "local_shell"):   # desktop app + Codex CLI names
         inp = payload.get("input")
@@ -128,6 +133,13 @@ def parse_session(path: str, start: int = 0):
                 if cur is not None:
                     turns.append(cur)
                 cur = Turn(session=session, index=len(turns), version=model, prompt=text[:200], ts=ts, agent="codex", model=model, project=project)
+                continue
+            if t == "event_msg" and p.get("type") == "user_message" and isinstance(p.get("message"), str):
+                if cur is not None and not cur.events and cur.prompt == p["message"][:200]:
+                    continue
+                if cur is not None:
+                    turns.append(cur)
+                cur = Turn(session=session, index=len(turns), version=model, prompt=p["message"][:200], ts=ts, agent="codex", model=model, project=project)
                 continue
             if t != "response_item":
                 continue
