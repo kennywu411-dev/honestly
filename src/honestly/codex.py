@@ -13,6 +13,12 @@ from .claude_code import Event, Turn, clip_output
 
 CMD_IN_INPUT = re.compile(r"cmd\s*:\s*\"((?:\\.|[^\"\\])*)\"")
 PATCH_FILES = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.M)
+USER_MESSAGE = re.compile(rb'"type":\s*"UserMessage"')
+HEADER_LINES = 32
+
+
+def is_prompt_row(line: bytes) -> bool:
+    return USER_MESSAGE.search(line) is not None
 
 
 def iter_sessions(root: str | None = None):
@@ -71,14 +77,31 @@ def _command_from_call(name: str, payload: dict) -> tuple[str, str]:
     return name or "tool", ""
 
 
-def parse_session(path: str):
+def _header(path: str) -> tuple:
+    """(project, model) from the first lines, for a parse that starts further on."""
+    project = model = ""
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        for _, line in zip(range(HEADER_LINES), fh):
+            try:
+                p = json.loads(line).get("payload") or {}
+            except Exception:
+                continue
+            if isinstance(p, dict):
+                project = project or (p["cwd"] if isinstance(p.get("cwd"), str) else "")
+                model = model or (p["model"] if isinstance(p.get("model"), str) else "")
+    return project, model
+
+
+def parse_session(path: str, start: int = 0):
     session = os.path.splitext(os.path.basename(path))[0].replace("rollout-", "")[:40]
     turns: list[Turn] = []
     cur: Turn | None = None
-    model = ""
-    project = ""
+    project, model = _header(path) if start > 0 else ("", "")
     pending: dict[str, Event] = {}   # call_id -> event, to attach outputs
     with open(path, encoding="utf-8", errors="ignore") as fh:
+        if start > 0:
+            fh.seek(start)
+            fh.readline()   # drop the partial line
         for line in fh:
             try:
                 r = json.loads(line)

@@ -10,12 +10,22 @@ import os
 import re
 import time
 
+from . import store
+
 PYPI_URL = "https://pypi.org/pypi/honestly/json"
 CACHE_TTL = 24 * 3600
 
 
 def cache_path() -> str:
     return os.path.join(os.path.expanduser("~/.honestly"), "update-check.json")
+
+
+VERSION = re.compile(r"\d+(?:\.\d+)*(?:(?:a|b|rc|\.post|\.dev)\d+)*")   # this string gets printed, so it must be a version and nothing else
+
+
+def _version_or_nothing(v) -> str:
+    v = str(v or "")
+    return v if VERSION.fullmatch(v) else ""
 
 
 def _parse(v: str) -> tuple:
@@ -37,16 +47,15 @@ def latest_version(now: float | None = None) -> str:
         with open(cache_path(), encoding="utf-8") as fh:
             c = json.load(fh)
         if now - float(c.get("ts", 0)) < CACHE_TTL:
-            return str(c.get("latest", ""))
+            return _version_or_nothing(c.get("latest"))
     except Exception:
         pass
     try:
-        latest = _fetch_latest()
+        latest = _version_or_nothing(_fetch_latest())
     except Exception:
         return ""
     try:
-        os.makedirs(os.path.dirname(cache_path()), exist_ok=True)
-        with open(cache_path(), "w", encoding="utf-8") as fh:
+        with store.open_private(cache_path()) as fh:
             json.dump({"ts": now, "latest": latest}, fh)
     except Exception:
         pass

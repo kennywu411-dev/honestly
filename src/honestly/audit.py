@@ -5,7 +5,7 @@ import os
 import re
 from dataclasses import dataclass
 from . import rules, noncode
-from .claude_code import NOT_ALL_HERE, Turn, Event
+from .claude_code import NOT_ALL_HERE, Turn, Event, background_notice
 
 
 @dataclass
@@ -133,7 +133,7 @@ FAILS_BEFORE = re.compile(r"\bfail(?:s|ed|ing)? (?:on|against|without|before) (?
 def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output; fall back to exit status / pipes."""
     out = ANSI.sub("", ev.result or "")   # FORCE_COLOR: `\x1b[31m1 failed` has no word boundary before the 1
-    if re.search(r"running in background|Output is being written to", out, re.I):
+    if background_notice(out):
         return "unverifiable", "verification was started in the background; its result is off-transcript"
     if category == "fixed" and (re.search(r"(node --check|py_compile)", seg) or rules.import_only(seg)):
         return "unverifiable", "only a syntax check ran after the fix"

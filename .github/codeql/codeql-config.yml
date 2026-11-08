@@ -1,0 +1,4 @@
+# The tests hold deliberate bad input: catastrophic patterns, loose file modes, fake tokens. Everything that ships stays scanned.
+name: honestly
+paths-ignore:
+  - tests

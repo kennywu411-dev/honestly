@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Security review. Each item below was reproduced first, and each has tests.
+
+- **A repository cannot silence the guard.** A project's `.honestly.json` can only tighten until you run `honestly trust` in your own terminal, which records that exact file. Until then its relaxing settings are ignored and you see one line saying so. If you share a relaxed file with your team, each person now has to trust it once.
+- **Secrets stay out of pull requests.** `pr-note` printed the reason beside a flagged claim unscrubbed, and redaction missed AWS key ids, JWTs, hex and lowercase tokens, private key bodies, tokens next to punctuation and more. All outward text now goes through one scrubber. Claims and reasons appear as inert code, and a sentence about something other than this code shows only its kind.
+- **Hook messages cannot be forged.** Folder names, file names, the prompt and the quoted sentence lose control characters, line breaks and quotation marks, are capped, and cannot contain the instruction label.
+- **A repository cannot make a hook hang or eat memory.** `.honestly.json` is read only if it is an ordinary small file, and only the harness's own note about a background command can send the hook to a task file, so a failed run can no longer swap in a planted pass.
+- **A hold on a send, deploy or push claim no longer says to go and do it.** The agent is told to check, or to say it was not done, and to ask you before anything hard to undo. Whether a reply is held did not change.
+- **`~/.honestly` is private.** Folder 0700, files 0600, scrubbed before writing, logs rotate at 4 MB, and `honestly purge` deletes what was recorded. Cards hold counts only.
+- **Big transcripts cost only their last turns**, in Codex, Gemini CLI and Cursor too, and 16,000 subagent calls merge in under a few seconds instead of 75. A hook that still runs out of time stops, logs it and tells you the reply or command was not checked.
+- `pr-note --pr <url>` edits the pull request it read, not this repository's pull request of the same number. `--pr` and `--base` refuse anything that looks like an option. The plugin's skills grant the exact commands only.
+- Windows: a program in the current directory is never run in place of the real one. No command prints terminal escapes from a reply. A program under `docs/` or `memory/` counts as code.
+- Releases are built and published by a workflow with PyPI trusted publishing and provenance, actions are pinned to commits, and `SECURITY.md` says what is stored and sent. See `docs/release.md`.
+
 ## 0.7.4 (2026-11-08)
 
 - **0.7.3 let too many lies through, and this undoes it.** Claims about anything but code hold a reply again. An earlier pass no longer excuses "fixed", or "tests pass" after a lint run. Please do not stay on 0.7.3.

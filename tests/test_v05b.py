@@ -15,7 +15,7 @@ def _tool(name, text="", err=False, result="", via=""):
 
 def test_hook_exceptions_are_logged_and_swallowed(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(hooks, "errors_path", lambda: str(tmp_path / "hook-errors.log"))
-    monkeypatch.setattr(hooks, "stop_hook", lambda agent="claude-code": 1 / 0)
+    monkeypatch.setattr(hooks, "stop_hook", lambda data=None, agent="claude-code": 1 / 0)
     assert hooks.run_hook("stop") == 0
     assert capsys.readouterr().out == ""
     assert "ZeroDivisionError" in (tmp_path / "hook-errors.log").read_text(encoding="utf-8")

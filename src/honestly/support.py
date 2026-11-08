@@ -5,11 +5,14 @@ import json
 import os
 import platform
 import re
+import shutil
 import sys
 import tempfile
 import urllib.parse
 
 from . import __version__, config, hooks
+from .programs import program
+from .redact import redact
 from .claude_code import iter_sessions, parse_session
 
 REPO = "https://github.com/kennywu411-dev/honestly"
@@ -34,8 +37,15 @@ def _hook_cmd_paths(settings: dict) -> list[str]:
 
 def _hook_runs(cmd: str) -> tuple:
     """Run the installed hook line through a POSIX shell with an empty event, the way the assistant will: (ran, detail)."""
-    import shutil, subprocess
-    sh = shutil.which("bash") or shutil.which("sh")
+    import subprocess
+    sh = None
+    for name in ("bash", "sh"):
+        try:
+            sh = shutil.which(program(name))
+        except FileNotFoundError:
+            continue
+        if sh:
+            break
     if not sh:
         return (None, "no bash/sh found to try the hook line")
     try:
@@ -57,7 +67,11 @@ def _fake_session(d: str, rows: list) -> str:
 def self_test() -> list:
     """Feed guard two fake turns and see whether it blocks: a code claim ('All tests pass.' right after an edit, no test
     run) and a non-code claim ('I've sent you the file.' with no send tool). Returns [(name, blocked, message)]."""
-    d = tempfile.mkdtemp(prefix="honestly-doctor-")
+    with tempfile.TemporaryDirectory(prefix="honestly-doctor-") as d:
+        return _self_test_in(d)
+
+
+def _self_test_in(d: str) -> list:
     ts = "2026-01-01T00:00:0{}Z"
     code = _fake_session(d, [
         {"type": "user", "message": {"role": "user", "content": "fix the bug"}, "origin": {"kind": "human"}, "cwd": d, "timestamp": ts.format(0)},
@@ -105,10 +119,12 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
     lines.append(f"{ok if 'utf' in enc else warn}" + L(f"terminal encoding {enc or 'unknown'}", f"终端编码 {enc or '未知'}")
                  + ("" if "utf" in enc else L("  (not UTF-8: honestly re-encodes its own output, other tools may show garbled text)", "  （不是 UTF-8：honestly 自己的输出会转码，其他工具可能乱码）")))
     pp = config.project_path(None)
-    proj = config._clean(config._read(pp)) if os.path.exists(pp) else {}
-    relaxed = [k for k in ("ignore", "verify_commands", "off") if proj.get(k)] + (["strictness: lenient"] if proj.get("strictness") == "lenient" else [])
-    if relaxed:
-        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules: {', '.join(relaxed)}", f"本项目的 {pp} 放宽了规则：{'、'.join(relaxed)}"))
+    relaxed = config.project_relaxes(None)
+    if relaxed and config.is_trusted(pp):
+        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules, and you trusted it: {', '.join(relaxed)}", f"本项目的 {pp} 放宽了规则，你已信任它：{'、'.join(relaxed)}"))
+    elif relaxed:
+        lines.append(f"{warn}" + L(f"this project's {pp} relaxes the rules ({', '.join(relaxed)}); ignored until you run honestly trust",
+                                   f"本项目的 {pp} 想放宽规则（{'、'.join(relaxed)}），已忽略；运行 honestly trust 才会生效"))
     sp = hooks.settings_path()
     settings = {}
     if os.path.exists(sp):
@@ -132,7 +148,6 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
         problems.append(L("run: honestly guard install", "运行：honestly guard install"))
     for exe in _hook_cmd_paths(settings):
         if exe == "honestly":
-            import shutil
             found = shutil.which("honestly")
             lines.append((f"{ok}" + L(f"hook command 'honestly' resolves to {found}", f"hook 命令 honestly 指向 {found}")) if found
                          else (f"{bad}" + L("hook command 'honestly' is not on PATH for non-interactive shells", "hook 命令 honestly 不在非交互 shell 的 PATH 里")))
@@ -221,24 +236,7 @@ def doctor(zh: bool | None = None, with_problems: bool = False):
 
 
 # ----------------------------------------------------------------- feedback
-SECRET_ASSIGN = re.compile(r"(?i)\b([\w.-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|auth|credential|private[_-]?key)[\w.-]*)(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)")
-SECRET_FLAG = re.compile(r"(?i)((?:^|\s)(?:-p|--password|--token|--api-key|--secret|-u|--user|--auth)[=\s]?)(\"[^\"]*\"|'[^']*'|\S+)")
-URL_CREDS = re.compile(r"(://)[^\s/@:]+:[^\s/@]+@")
-LONG_TOKEN = re.compile(r"(?<![\w/.-])[A-Za-z0-9_+\-]{20,}(?![\w/.-])")   # no `/`: a path is not a token
-BEARER = re.compile(r"(?i)(bearer\s+)\S+")
-
-
-def _redact(s: str) -> str:
-    """Paths under $HOME, e-mails, credential assignments and flags, URL user:pass and long token-like runs."""
-    home = os.path.expanduser("~")
-    s = s.replace(home, "~")
-    s = SECRET_ASSIGN.sub(lambda m: m.group(0) if m.group(3).lower() == "bearer" else m.group(1) + m.group(2) + "<redacted>", s)
-    s = BEARER.sub(r"\1<redacted>", s)
-    s = SECRET_FLAG.sub(lambda m: m.group(1) + "<redacted>", s)
-    s = URL_CREDS.sub(r"\1<redacted>@", s)
-    s = LONG_TOKEN.sub(lambda m: m.group(0) if re.fullmatch(r"[A-Z0-9_]+|[A-Za-z_]+|[a-z0-9_]+", m.group(0)) else "<redacted>", s)   # constant names and words stay
-    s = re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", s)
-    return s
+_redact = redact
 
 
 def feedback(n: int = 1, issue_url: bool = False) -> str:
@@ -249,23 +247,26 @@ def feedback(n: int = 1, issue_url: bool = False) -> str:
         return f"there are {len(rows)} catches; pick 1 (latest) to {len(rows)}."
     r = rows[-n]
     tools = r.get("tools") or ([r["command"]] if r.get("command") else [])
+    message = str(r.get("message", ""))
+    for private in (hooks._short(str(r.get("project", ""))), str(r.get("topic", ""))[:30]):   # which project and what was asked are the user's business
+        if private:
+            message = message.replace(private, "<withheld>")
     body = [
         "## honestly: a catch that looks wrong", "",
         f"- honestly {r.get('version') or __version__}, {platform.system()} {platform.release()}, Python {'.'.join(map(str, sys.version_info[:3]))}",
         f"- assistant: {r.get('agent', '')} {r.get('model', '')}".rstrip(),
         f"- kind: {'stop (claim without a check)' if r.get('kind') == 'stop' else 'pre (check result cut off by a pipe)'}",
-        f"- project: {hooks._short(r.get('project', ''))}",
         f"- what it said: \"{r.get('claim') or r.get('command') or ''}\"",
         f"- honestly's reason: {r.get('reason') or '(pipe check)'}",
         "- what ran before the sentence (after the last edit):",
     ] + ([f"  - {t}" for t in tools] or ["  - (nothing recorded)"]) + [
-        f"- the message shown: {r.get('message', '')}", "",
+        f"- the message shown: {message}", "",
         "Why it is wrong (one line): ", "",
     ]
     text = _redact("\n".join(body))
     out = ["Copy everything between the lines into a GitHub issue (check it for anything private first):", "-" * 60, text, "-" * 60]
     if issue_url:
-        title = f"False catch: {(r.get('claim') or r.get('command') or '')[:60]}"
+        title = _redact(f"False catch: {r.get('claim') or r.get('command') or ''}")[:80]
         url = f"{REPO}/issues/new?" + urllib.parse.urlencode({"title": title, "body": text})
         out.append(f"\nOpen a pre-filled issue: {url}")
     else:
@@ -279,6 +280,7 @@ RULE_TEXT = """## Verify before you claim (honestly)
 
 - Before writing "tests pass", "fixed", "builds", "pushed", "sent", "deployed", "saved" or "checked", run the matching command in this same turn and quote its real output. No command, no claim.
 - If you changed code and did not run the check, say exactly that: "changed, not yet verified".
+- Never send, deploy or push just to back up a sentence. If it did not happen, say so, and ask before doing anything hard to undo.
 - Do not pipe a test or build into `head`, `grep -c`, `wc` or a `grep` that drops the summary; a cut-off result hides failures. Use `set -o pipefail` when you must pipe.
 - When honestly stops you, start the next reply with one bold line: why you were stopped and what the check returned.
 - When you open or update a pull request, run `honestly pr-note --gh` after it (or put `honestly pr-note` output in the body) so the reviewer sees what ran after the last edit.
@@ -287,6 +289,7 @@ RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 
 - 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先在这一轮里跑对应的命令，并引用它的真实输出。没跑就不能说。
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
+- 不要为了让一句话成立去发送、部署或推送。没发生就照实说，任何难以撤销的操作都要先问用户。
 - 测试或构建命令不要接 `head`、`grep -c`、`wc` 或会滤掉汇总行的 `grep`，截断的结果会把失败藏起来；确实要用管道时加 `set -o pipefail`。
 - 被 honestly 拦截后，下一条回复第一行用加粗写明：被拦截的原因和补跑结果。
 - 开或更新 pull request 之后运行 `honestly pr-note --gh`（或把 `honestly pr-note` 的输出放进描述），让审阅者看到最后一次改动之后跑了什么。

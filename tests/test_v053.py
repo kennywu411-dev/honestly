@@ -191,6 +191,7 @@ def test_notification_text_never_becomes_code(monkeypatch):
     import subprocess
     monkeypatch.setenv("HONESTLY_NOTIFY", "1")
     monkeypatch.setattr(hooks, "_notify_due", lambda: True)   # this test is about escaping, not rate limiting
+    monkeypatch.setattr(hooks, "program", lambda name: name)   # nor about finding the program: it pretends to be systems this machine is not
     monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw)))
     body = ",1);iex 'calc';# all tests pass \"quoted\" \\ back"
     monkeypatch.setattr(sys, "platform", "win32")
@@ -252,9 +253,10 @@ def test_cli_version_and_config_usage(capsys):
 
 def test_background_output_file_is_read_from_the_tail(tmp_path):
     from honestly.claude_code import _tool_result_text
-    big = tmp_path / "t.output"
+    (tmp_path / "tasks").mkdir()
+    big = tmp_path / "tasks" / "t.output"
     big.write_bytes(b"x" * 100_000 + b"\n12 passed in 1.0s\n")   # bytes: no newline translation on Windows
-    text = _tool_result_text({"content": f"Output is being written to: {big}"})
+    text = _tool_result_text({"content": f"Command running in background with ID: t. Output is being written to: {big}"}, tool="Bash", tool_input={"run_in_background": True})
     assert text.rstrip().endswith("12 passed in 1.0s") and len(text) <= 3000
 
 

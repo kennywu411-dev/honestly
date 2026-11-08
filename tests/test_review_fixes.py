@@ -198,7 +198,7 @@ def test_catches_are_recorded_and_summarised(tmp_path, monkeypatch):
     pre = hooks.pre_hook({"tool_name": "Bash", "tool_input": {"command": "pytest -q | head -3"}, "cwd": "/Users/me/shop-api", "session_id": "s1"})
     assert pre is not None
     rows = hooks.load_catches(7)
-    assert len(rows) == 1 and rows[0]["kind"] == "pre" and rows[0]["project"] == "/Users/me/shop-api"
+    assert len(rows) == 1 and rows[0]["kind"] == "pre" and rows[0]["project"] == "~/shop-api"
     rep = hooks.catches_report(7)
     assert "1 catch in the last 7 days" in rep and "shop-api" in rep and "One line to share" in rep
 

@@ -5,10 +5,12 @@ Events are kept in order: text blocks, tool calls (with result status),
 so rules can ask "what happened after the last edit?".
 """
 from __future__ import annotations
+import bisect
 import glob
 import json
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 
 
@@ -46,7 +48,8 @@ def _summarize_input(name: str, inp) -> str:
     if not isinstance(inp, dict):
         return ""
     if name == "Bash":
-        return inp.get("command", "") or ""
+        command = inp.get("command")
+        return command if isinstance(command, str) else ""
     for k in ("file_path", "path", "notebook_path", "url", "pattern", "query", "prompt", "description"):
         if k in inp:
             return str(inp[k])
@@ -59,7 +62,20 @@ def iter_sessions(root: str | None = None):
         yield path
 
 
-BG_OUTPUT = re.compile(r"Output is being written to:\s*(\S+\.output)")
+# The harness's whole message when a command goes to the background. A command can print these words too, so the message has
+# to start with them, be short, and contain nothing a run prints.
+BG_NOTICE = re.compile(r"\s*Command (?:running in background with ID: (?P<asked>[\w-]+)|was moved to the background \(ID: (?P<moved>[\w-]+)\)[^\n.]*)\.?"
+                       r"(?:\s*Output is being written to:\s*(?P<path>\S+?\.output)(?=[\s.]|$))?")
+BG_NOTICE_MAX = 1500
+RUN_OUTPUT = re.compile(r"\b\d+ (?:passed|failed|errors?)\b|\bFAILED\b|Traceback \(most recent", re.I)
+
+
+def background_notice(text: str):
+    """The match when `text` is the harness saying a command went to the background, else None."""
+    if not text or len(text) > BG_NOTICE_MAX or text.count("\n") > 3:
+        return None
+    m = BG_NOTICE.match(text)
+    return m if m and not RUN_OUTPUT.search(text) else None
 
 
 def _records(path: str, start: int = 0):
@@ -94,22 +110,58 @@ def clip_output(text: str, keep: int = OUTPUT_KEEP) -> str:
     return text[:head] + "\n[... output clipped by honestly ...]\n" + kept + text[-tail:]
 
 
-def _tool_result_text(b: dict) -> str:
+def _is_under(path: str, folder: str) -> bool:
+    if not folder:
+        return False
+    real, base = os.path.realpath(path), os.path.realpath(folder)
+    return real == base or real.startswith(base.rstrip(os.sep) + os.sep)
+
+
+def _task_file_tail(path: str):
+    """The end of a background command's output file, or None unless it is an ordinary file. Opening never blocks or follows a link."""
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+    if os.path.islink(path):   # Windows has no O_NOFOLLOW
+        return None
+    try:
+        fd = os.open(path, flags)
+    except (OSError, ValueError):
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):   # the job's whole log can be long: only the tail is used
+            return None
+        os.lseek(fd, max(0, info.st_size - 6000), os.SEEK_SET)
+        return os.read(fd, 6000).decode("utf-8", "ignore")
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _background_output(m, tool_input, project: str):
+    """What a background command wrote, when the notice is the harness's own and names the harness's own task file, else None."""
+    path, task = m.group("path"), m.group("asked") or m.group("moved")
+    if not path or path.startswith(("\\\\", "//")) or not os.path.isabs(path):   # a network path would connect out, with the user's credentials on Windows
+        return None
+    if os.path.basename(path) != f"{task}.output" or os.path.basename(os.path.dirname(path)) != "tasks":
+        return None
+    if m.group("asked") and not (isinstance(tool_input, dict) and tool_input.get("run_in_background")):
+        return None
+    if _is_under(path, project):
+        return None
+    return _task_file_tail(path)
+
+
+def _tool_result_text(b: dict, tool: str = "", tool_input=None, project: str = "") -> str:
     rc = b.get("content")
     if isinstance(rc, list):
         rc = " ".join(str(x.get("text") or "") for x in rc if isinstance(x, dict))
     rc = rc or ""
-    m = BG_OUTPUT.search(rc)
-    if m and os.path.exists(m.group(1)):   # a background command: its real output is in the task file, when it still exists
-        try:
-            with open(m.group(1), "rb") as fh:   # only the tail is used; the file can be a long-running job's whole log
-                fh.seek(0, 2)
-                fh.seek(max(0, fh.tell() - 6000))
-                out = fh.read().decode("utf-8", "ignore")
-            if out.strip():
-                rc = out[-3000:]
-        except Exception:
-            pass
+    if tool == "Bash":
+        m = background_notice(rc)
+        out = _background_output(m, tool_input, project) if m else None
+        if out and out.strip():
+            rc = out[-3000:]
     return clip_output(rc)
 
 
@@ -119,6 +171,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
     turns: list[Turn] = []
     cur: Turn | None = None
     results: dict[str, tuple] = {}   # tool_use_id -> (is_error, text)
+    calls: dict[str, tuple] = {}     # tool_use_id -> (tool name, its input)
     version = ""
     project = ""
     for r in _records(path, start):
@@ -136,7 +189,8 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
             if isinstance(content, list):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
-                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b))
+                        name, inp = calls.get(b.get("tool_use_id", ""), ("", None))
+                        results[b.get("tool_use_id", "")] = (bool(b.get("is_error")), _tool_result_text(b, name, inp, project))
                 if any(isinstance(b, dict) and b.get("type") == "text" for b in content) and origin.get("kind") == "human":
                     human = True
             if human:
@@ -156,6 +210,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 if b.get("type") == "text":
                     cur.events.append(Event("text", text=str(b.get("text") or ""), ts=ts))
                 elif b.get("type") == "tool_use":
+                    calls[str(b.get("id") or "")] = (_tool_name(b.get("name")), b.get("input"))
                     cur.events.append(Event("tool", name=_tool_name(b.get("name")), text=_summarize_input(_tool_name(b.get("name")), b.get("input")),
                                            tool_use_id=str(b.get("id") or ""), ts=ts))
     if cur is not None:
@@ -183,12 +238,29 @@ def _iso_epoch(ts: str) -> float:
         return 0.0
 
 
+def _merged_by_time(events: list, incoming: list) -> list:
+    """`incoming` placed among `events`, each before the first event with a later timestamp. One pass: a subagent can make thousands of calls."""
+    incoming = sorted(incoming, key=lambda e: e.ts)
+    out, j = [], 0
+    for x in events:
+        if x.ts:
+            while j < len(incoming) and incoming[j].ts < x.ts:
+                out.append(incoming[j])
+                j += 1
+        out.append(x)
+    out.extend(incoming[j:])
+    return out
+
+
 def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
     """Put every tool call a subagent made into the parent turn, in timestamp order, so a test the subagent ran counts and an
     edit it made is seen. The Agent call that spawned it is then no longer opaque. Returns the number of merged events."""
     merged = 0
     by_tool_use = {}
     since = _iso_epoch(since_ts) - 120 if since_ts else 0.0
+    starts = sorted((t.ts, i) for i, t in enumerate(turns) if t.ts)
+    keys = [ts for ts, _ in starts]
+    arriving: dict[int, list] = {}
     for f in subagent_files(path):
         if since and os.path.getmtime(f) < since:
             continue   # finished before the window we hold: nothing of it can land in these turns
@@ -203,19 +275,15 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
         if not events:
             continue
         bg = str(meta.get("requestShape") or "") == "background"
-        for e in events:
-            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
         by_tool_use[str(meta.get("toolUseId") or "")] = len(events)
         for e in events:
-            turn = None
-            for t in turns:
-                if t.ts and t.ts <= e.ts:
-                    turn = t
-            if turn is None:
-                continue   # earlier than every turn we hold (tail parse): not ours to place
-            pos = next((i for i, x in enumerate(turn.events) if x.ts and x.ts > e.ts), len(turn.events))
-            turn.events.insert(pos, e)
-            merged += 1
+            e.via = f"subagent{'-bg' if bg else ''}:{agent_id}"   # a background subagent runs alongside the parent: its edits do not stale the parent's checks
+            at = bisect.bisect_right(keys, e.ts) - 1
+            if at >= 0:   # else earlier than every turn we hold (tail parse): not ours to place
+                arriving.setdefault(starts[at][1], []).append(e)
+                merged += 1
+    for i, incoming in arriving.items():
+        turns[i].events = _merged_by_time(turns[i].events, incoming)
     if by_tool_use:
         for t in turns:
             for e in t.events:
@@ -226,6 +294,8 @@ def _merge_subagents(path: str, turns: list, since_ts: str = "") -> int:
 
 TAIL_THRESHOLD = 8 * 1024 * 1024
 TAIL_WINDOW = 3 * 1024 * 1024
+SCAN_CHUNK = 4 * 1024 * 1024
+USER_ROW = re.compile(rb'"type":\s*"user"')   # inside a tool's output these quotes are escaped, so a quoted transcript does not match
 
 
 SESSION_SCAN_LIMIT = 200 * 1024 * 1024
@@ -261,25 +331,66 @@ def session_tools(path: str):
     return events
 
 
-def parse_session(path: str, subagents: bool = True, tail: bool = False, min_turns: int = 2):
-    """All turns of a session. tail=True (the hooks) reads only the end of a big file: a window from the end, doubled
-    until it holds min_turns user turns, so a 200 MB session costs the same as a small one."""
-    start = 0
-    if tail:
-        size = os.path.getsize(path)
-        if size > TAIL_THRESHOLD:
-            window = TAIL_WINDOW
-            while True:
-                start = max(0, size - window)
-                turns = _parse(path, start=start)
-                if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
-                    break
-                window *= 2
-            if start > 0 and turns and not turns[0].prompt:
-                turns = turns[1:]   # the first turn in the window began before it: incomplete, drop it
-            if subagents and turns:
-                _merge_subagents(path, turns, turns[0].ts)
-            return turns
+def _claude_prompt_row(line: bytes) -> bool:
+    return USER_ROW.search(line) is not None and b'"tool_result"' not in line
+
+
+def prompt_offset(path: str, is_prompt, count: int) -> int:
+    """Where the `count`-th last prompt's line starts, found by walking the file backwards without decoding any JSON; 0 when it has fewer."""
+    found, pos, partial = 0, os.path.getsize(path), b""
+    with open(path, "rb") as fh:
+        while pos > 0:
+            step = min(SCAN_CHUNK, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + partial
+            if pos > 0:
+                first = buf.find(b"\n")
+                if first < 0:
+                    partial = buf
+                    continue
+                partial, body, base = buf[:first], buf[first + 1:], pos + first + 1
+            else:
+                body, base, partial = buf, 0, b""
+            end = len(body)
+            while end > 0:
+                start = body.rfind(b"\n", 0, end - 1) + 1
+                if is_prompt(body[start:end]):
+                    found += 1
+                    if found >= count:
+                        return base + start
+                end = start
+    return 0
+
+
+def tail_start(path: str, is_prompt, count: int = 2, light: bool = False) -> int:
+    """The `start` to give a parser: 0 for a file small enough to read whole. `light` is a fixed tail, for when only names are wanted."""
+    size = os.path.getsize(path)
+    if light:
+        return max(0, size - TAIL_WINDOW)
+    if size <= TAIL_THRESHOLD:
+        return 0
+    return max(0, prompt_offset(path, is_prompt, count) - 1)   # the parser drops what comes before the next newline
+
+
+def parse_session(path: str, subagents: bool = True, tail: bool = False, min_turns: int = 2, light: bool = False):
+    """All turns of a session. tail=True (the Stop hook) reads a big file from its min_turns-th last prompt: the turns themselves are read
+    whole, however long, because the edit a claim is judged against can be anywhere in them. light=True reads a fixed tail, for names only."""
+    if light:
+        return _parse(path, start=tail_start(path, _claude_prompt_row, light=True))
+    if tail and os.path.getsize(path) > TAIL_THRESHOLD:
+        want = min_turns
+        while True:
+            start = tail_start(path, _claude_prompt_row, want)
+            turns = _parse(path, start=start)
+            if start == 0 or sum(1 for t in turns if t.prompt) >= min_turns:
+                break
+            want *= 4   # some user rows are not prompts: read further back
+        if start > 0 and turns and not turns[0].prompt:
+            turns = turns[1:]
+        if subagents and turns:
+            _merge_subagents(path, turns, turns[0].ts)
+        return turns
     turns = _parse(path)
     if subagents and turns:
         _merge_subagents(path, turns)

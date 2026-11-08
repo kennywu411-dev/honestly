@@ -6,6 +6,7 @@ sees "132 passed after the last edit" or "no test ran after the last edit" inste
 """
 from __future__ import annotations
 import datetime as dt
+import html
 import json
 import os
 import re
@@ -14,6 +15,7 @@ from dataclasses import dataclass, field
 
 from . import audit, claude_code, codex, rules
 from . import agents as _ag
+from .programs import program
 
 START, END = "<!-- honestly:pr-note -->", "<!-- /honestly:pr-note -->"
 SHELL = set(_ag.SHELL_TOOLS) | {"Bash"}
@@ -21,7 +23,9 @@ SHELL = set(_ag.SHELL_TOOLS) | {"Bash"}
 
 # ------------------------------------------------------------------ git
 def _git(args: list, cwd: str) -> str:
-    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    # settings in the repository's own .git/config that would run a program: a downloaded repository can come with one
+    safe = ["-c", "log.showSignature=false", "-c", "core.fsmonitor=false", "-c", "core.sshCommand=", "-c", "diff.external="]
+    r = subprocess.run([program("git"), *safe, *args], cwd=cwd, capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
@@ -34,9 +38,11 @@ def repo_root(cwd: str) -> str:
 
 def base_ref(root: str, base: str | None) -> str:
     if base:
+        if base.startswith("-"):
+            raise SystemExit(f"honestly pr-note: --base takes a branch, not {base!r}")
         return base
     head = _git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], root)   # origin/main
-    if head:
+    if head and not head.startswith("-"):   # a ref can be named like an option, and this name goes on a git command line
         return head
     for cand in ("origin/main", "origin/master", "main", "master"):
         if _git(["rev-parse", "--verify", "--quiet", cand], root):
@@ -366,7 +372,7 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
         if f.verdict in decided:
             ev.claims[decided[f.verdict]] = ev.claims.get(decided[f.verdict], 0) + 1
             if f.verdict in ("unbacked", "contradicted"):
-                ev.flagged.append((decided[f.verdict], f.claim, f.reason))
+                ev.flagged.append((decided[f.verdict], f.claim, f.reason, f.category))
     return ev
 
 
@@ -379,8 +385,29 @@ def _local(ts: str) -> str:
 
 
 def _code(s: str) -> str:
-    s = s.replace("|", "\\|").replace("`", "'")
+    """Inert inline code: GitHub renders no markup, mention or image inside it. A comment marker would still end the block, so it goes too."""
+    s = s.replace("<!--", "<! --").replace("-->", "-- >").replace("|", "\\|").replace("`", "'")
+    s = re.sub(r"\s+", " ", s).strip()
     return f"`{s}`" if s else ""
+
+
+def _plain(s: str) -> str:
+    """Text outside code: nothing in it can become markup or a mention."""
+    s = html.escape(re.sub(r"\s+", " ", s), quote=False).replace("@", "&#64;")
+    return re.sub(r"([\\`*_\[\]!~|])", r"\\\1", s)
+
+
+# Claims about anything but the code on this branch: what the sentence said is the user's business, that one was flagged is the reviewer's.
+OFF_TOPIC = {"sent": "sending something", "deployed": "a deployment", "downloaded": "a download", "saved": "saving a file", "checked": "looking something up",
+             "scheduled": "scheduling something", "verified": "checking something"}
+
+
+def _flagged_line(item: tuple, redact) -> str:
+    label, claim, why = item[:3]
+    about = OFF_TOPIC.get(item[3] if len(item) > 3 else "")
+    if about:
+        return f"- *{label}*: a sentence about {about} (not shown: it is not about this code)"
+    return f"- *{label}*: {_code(redact(claim)[:200])} ({_code(redact(why)[:200])})"
 
 
 HEAD = {
@@ -393,7 +420,7 @@ HEAD = {
 
 
 def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
-    from .support import _redact
+    from .redact import redact as _redact
     names = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
     after = ev.after
     head = HEAD[ev.status]
@@ -428,13 +455,13 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
         lines += ["", "Agent claims in this work: " + ", ".join(f"{ev.claims.get(k, 0)} {k}" for k in order) + "."]
     if ev.flagged:
         lines += ["", "<details><summary>Claims with nothing behind them</summary>", ""]
-        for label, claim, why in ev.flagged[:6]:
-            lines.append(f"- *{label}*: “{_redact(claim)[:200]}” ({why})")
+        for item in ev.flagged[:6]:
+            lines.append(_flagged_line(item, _redact))
         lines += ["", "</details>"]
     who = ", ".join(names.get(a, a) for a in ev.agents)
     src = (f"Read from {ev.sessions} local {who} session{'s' if ev.sessions != 1 else ''} that worked in this repository"
            if ev.sessions else "No local agent session worked in this repository")
-    lines += ["", f"<sub>{src}, {ev.window}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
+    lines += ["", f"<sub>{src}, {_plain(_redact(ev.window))}, by [honestly](https://github.com/kennywu411-dev/honestly) {version}. "
               "Home paths, e-mails and tokens are redacted.</sub>", END]
     return "\n".join(lines) + "\n"
 
@@ -442,17 +469,22 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
 def splice(body: str, block: str) -> str:
     """Replace an earlier honestly block in a PR body, or append one."""
     body = body or ""
-    pat = re.compile(re.escape(START) + r".*?" + re.escape(END) + r"\n?", re.S)
+    pat = re.compile(re.escape(START) + r".*" + re.escape(END) + r"\n?", re.S)   # to the last end marker: an older note could hold one in a quoted sentence
     if pat.search(body):
         return pat.sub(lambda _: block, body, count=1)
     return (body.rstrip("\n") + "\n\n" if body.strip() else "") + block
 
 
 # --------------------------------------------------------------------- gh
+PR_REF = re.compile(r"\d+|https://[^\s/]+/[^\s/]+/[^\s/]+/pull/\d+/?")
+
+
 def update_pr(root: str, block: str, pr: str | None = None) -> str:
-    args = ["gh", "pr", "view", *( [pr] if pr else [] ), "--json", "number,body,url"]
+    if pr and not PR_REF.fullmatch(pr):
+        raise SystemExit(f"honestly pr-note: --pr takes a pull request number or URL, not {pr!r}")
     try:
-        r = subprocess.run(args, cwd=root, capture_output=True, text=True)
+        gh = program("gh")
+        r = subprocess.run([gh, "pr", "view", *( [pr] if pr else [] ), "--json", "number,body,url"], cwd=root, capture_output=True, text=True)
     except FileNotFoundError:
         raise SystemExit("honestly pr-note: --gh needs the GitHub CLI (https://cli.github.com), which was not found on PATH.\n"
                          "Without it: honestly pr-note > pr-note.md, then paste the file into the pull request.") from None
@@ -460,12 +492,13 @@ def update_pr(root: str, block: str, pr: str | None = None) -> str:
         msg = (r.stderr or r.stdout).strip().splitlines()
         raise SystemExit("honestly pr-note: no pull request found for this branch"
                          + (f" ({msg[-1]})" if msg else "") + ".\nCreate one with the note in it:\n"
-                         "  honestly pr-note > /tmp/pr-note.md && gh pr create --fill --body-file /tmp/pr-note.md")
+                         "  honestly pr-note > pr-note.md && gh pr create --fill --body-file pr-note.md")
     info = json.loads(r.stdout)
     new = splice(info.get("body") or "", block)
     if new == (info.get("body") or ""):
         return f"honestly pr-note: {info.get('url')} already has this note, nothing changed"
-    w = subprocess.run(["gh", "pr", "edit", str(info["number"]), "--body-file", "-"], cwd=root, input=new, capture_output=True, text=True)
+    target = str(info.get("url") or info["number"])   # the URL: a bare number would mean this repository's pull request of that number, whichever one was read
+    w = subprocess.run([gh, "pr", "edit", target, "--body-file", "-"], cwd=root, input=new, capture_output=True, text=True)
     if w.returncode != 0:
         raise SystemExit("honestly pr-note: gh pr edit failed: " + (w.stderr or w.stdout).strip())
     return f"honestly pr-note: updated {info.get('url')}"

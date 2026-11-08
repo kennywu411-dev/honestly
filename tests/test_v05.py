@@ -69,9 +69,11 @@ def test_strictness_changes_what_guard_blocks(tmp_path, monkeypatch):
         config.apply(config.DEFAULTS)
 
 
-def test_project_config_merges_on_top_of_user_config(tmp_path, monkeypatch):
+def test_project_config_merges_on_top_of_user_config_once_trusted(tmp_path, monkeypatch):
     _cfg_home(tmp_path, monkeypatch)
     config.add_to("ignore", "alpha"); config.add_to("ignore", "beta", project=True)
+    assert config.load()["ignore"] == ["alpha"]
+    config.trust()
     cfg = config.load()
     assert cfg["ignore"] == ["alpha", "beta"]
     assert "not in ignore" in config.remove_from("ignore", "zzz")

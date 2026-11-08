@@ -21,7 +21,7 @@ def test_catches_card_is_valid_svg_and_counts(tmp_path):
     rows = [{"kind": "pre", "agent": "codex", "message": "piped"},
             {"kind": "stop", "agent": "claude-code", "message": "⚠️ honestly blocked this reply: x said <done>"}]
     svg = report.catches_card(rows, 7)
-    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>") and "&lt;done&gt;" in svg
+    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
     assert ">2<" in svg and "Claude Code 1" in svg and "Codex 1" in svg
     written = report.write_catches_card(rows, 7, str(tmp_path))
     assert written[0].endswith("honestly-catches.svg") and os.path.getsize(written[0]) > 1000

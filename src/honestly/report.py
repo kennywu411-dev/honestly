@@ -8,6 +8,10 @@ import subprocess
 import tempfile
 from collections import Counter, defaultdict
 
+from . import store
+from .programs import program
+from .redact import strip_controls
+
 GENERIC_DIRS = {"工程文件", "src", "video", "web", "app", "frontend", "backend", "project", "code", "repo", "scratchpad"}
 HEADLINE = {"backed": "verified", "unbacked": "unverified", "unverifiable": "could not check", "contradicted": "contradicted"}
 
@@ -223,7 +227,8 @@ def svg_card(findings, sessions: int) -> str:
 
 
 def catches_card(rows, days: int) -> str:
-    """1200x630 share card for what guard stopped. Same design language as the audit card."""
+    """1200x630 share card for what guard stopped. Same design language as the audit card. It is made to be posted, so it holds
+    counts and assistant names only: never a project, a prompt or a sentence."""
     from collections import Counter
     W, H, PAD = 1200, 630, 84
     BG, INK, MUTED, DIM, LINE = "#0a0a0b", "#f2f1ec", "#8b8b90", "#55555b", "#232327"
@@ -233,10 +238,10 @@ def catches_card(rows, days: int) -> str:
     n = len(rows)
     stop = sum(1 for r in rows if r.get("kind") == "stop")
     pre = n - stop
-    by_agent = Counter(str(r.get("agent") or "").replace("claude-code", "Claude Code").replace("codex", "Codex").replace("gemini", "Gemini CLI").replace("cursor", "Cursor") for r in rows)
+    by_agent = Counter(str(r.get("agent") or "")[:40].replace("claude-code", "Claude Code").replace("codex", "Codex").replace("gemini", "Gemini CLI").replace("cursor", "Cursor") for r in rows)
     top = ", ".join(f"{k} {v}" for k, v in by_agent.most_common(2) if k) or "no assistant yet"
     def esc(s):
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        return strip_controls(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")   # a control character alone makes the file invalid
     col_x = 700
     stat_rows = [(RED, stop, "said \u201cdone\u201d", "with nothing behind it: no test, no send, no save"),
                  (AMBER, pre, "cut-off checks", "tests piped through tail/head, failures hidden"),
@@ -249,9 +254,6 @@ def catches_card(rows, days: int) -> str:
         nx = col_x + 24 + 26 * len(str(v)) + 14
         rws.append(f'<text x="{nx}" y="{y + 2}" font-size="24" font-weight="500" fill="{INK}">{label}</text>')
         rws.append(f'<text x="{col_x + 24}" y="{y + 30}" font-size="17" fill="{MUTED}">{sub}</text>')
-    last = ""
-    if rows:
-        last = esc(re.sub(r"^\u26a0\ufe0f\s*", "", str(rows[-1].get("message", "")))[:88]) + ("…" if len(str(rows[-1].get("message", ""))) > 88 else "")
     verdict = (f'{n} time{"s" if n != 1 else ""} my coding agent said \u201cdone\u201d without doing it' if n
                else "Nothing stopped yet. Either every claim had its check, or guard is not installed.")
     head = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{SANS}">\n'
@@ -266,7 +268,6 @@ def catches_card(rows, days: int) -> str:
         f'<text x="{PAD}" y="404" font-size="19" fill="{DIM}">each one is a claim that would have reached me as \u201cdone\u201d</text>',
         *rws,
         f'<text x="{PAD}" y="470" font-size="26" font-weight="500" fill="{INK}">{esc(verdict)}</text>',
-        f'<text x="{PAD}" y="506" font-size="17" fill="{MUTED}" font-family="{MONO}">{last}</text>' if last else "",
         f'<line x1="{PAD}" y1="548" x2="{W - PAD}" y2="548" stroke="{LINE}" stroke-width="1"/>',
         f'<text x="{PAD}" y="585" font-size="17" fill="{DIM}">Caught at the moment it was said, before the reply reached me. Local only, no model, no API key.</text>',
         f'<text x="{W - PAD}" y="585" font-size="17" fill="{MUTED}" text-anchor="end" font-family="{MONO}">pip install honestly</text>',
@@ -275,9 +276,8 @@ def catches_card(rows, days: int) -> str:
 
 
 def write_catches_card(rows, days: int, out_dir: str) -> list[str]:
-    os.makedirs(out_dir, exist_ok=True)
     svg_path = os.path.join(out_dir, "honestly-catches.svg")
-    with open(svg_path, "w", encoding="utf-8") as fh:
+    with store.open_private(svg_path) as fh:
         fh.write(catches_card(rows, days))
     written = [svg_path]
     png_path = os.path.join(out_dir, "honestly-catches.png")
@@ -287,9 +287,8 @@ def write_catches_card(rows, days: int, out_dir: str) -> list[str]:
 
 
 def write_card(findings, sessions: int, out_dir: str) -> list[str]:
-    os.makedirs(out_dir, exist_ok=True)
     svg_path = os.path.join(out_dir, "honestly-card.svg")
-    with open(svg_path, "w", encoding="utf-8") as fh:
+    with store.open_private(svg_path) as fh:
         fh.write(svg_card(findings, sessions))
     written = [svg_path]
     png_path = os.path.join(out_dir, "honestly-card.png")
@@ -327,7 +326,7 @@ def svg_to_png(svg_path: str, png_path: str) -> bool:
     try:
         for cmd in attempts:
             try:
-                _run(cmd, check=False, capture_output=True, timeout=90)
+                _run([program(cmd[0]) if not os.path.isabs(cmd[0]) else cmd[0], *cmd[1:]], check=False, capture_output=True, timeout=90)
             except Exception:
                 continue
             if os.path.exists(png_path) and os.path.getsize(png_path) > 0:

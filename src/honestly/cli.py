@@ -8,6 +8,7 @@ import sys
 from dataclasses import asdict
 from . import claude_code, codex
 from .audit import audit_turns
+from .redact import strip_controls
 from .report import text_report, write_card, colorize, want_color
 
 
@@ -90,7 +91,7 @@ def cmd_audit(a):
         s = summarize(findings); s["sessions"] = sessions; s["duplicates_removed_forks"] = dups
         print(json.dumps(s, ensure_ascii=False, indent=2))
         return
-    report = text_report(findings, sessions, dups)
+    report = strip_controls(text_report(findings, sessions, dups))   # it quotes replies: nothing in them may drive the terminal
     print(colorize(report) if want_color() else report)
 
 
@@ -113,22 +114,23 @@ def cmd_explain(a):
     if a.n < 1 or a.n > len(flagged):
         print(f"pick 1..{len(flagged)}"); return
     f = flagged[a.n - 1]
-    print(f"[{a.n}/{len(flagged)}] {f.label}  ·  {f.category}  ·  {f.agent} {f.model or f.version}  ·  session {f.session[:8]} turn {f.turn}  ·  {f.ts[:19]}")
-    print(f"project: {f.project or '-'}")
-    print(f"claim:   {f.claim}")
-    print(f"context: …{f.context}…")
-    print(f"last code edit: {f.last_edit or '-'}")
-    print("tools after it:" if f.tools_after_edit else "tools after it: (none)")
+    show = lambda text: print(strip_controls(text))
+    show(f"[{a.n}/{len(flagged)}] {f.label}  ·  {f.category}  ·  {f.agent} {f.model or f.version}  ·  session {f.session[:8]} turn {f.turn}  ·  {f.ts[:19]}")
+    show(f"project: {f.project or '-'}")
+    show(f"claim:   {f.claim}")
+    show(f"context: …{f.context}…")
+    show(f"last code edit: {f.last_edit or '-'}")
+    show("tools after it:" if f.tools_after_edit else "tools after it: (none)")
     for t in f.tools_after_edit:
-        print(f"  - {t}")
-    print(f"why: {f.reason}")
+        show(f"  - {t}")
+    show(f"why: {f.reason}")
 
 
 def cmd_catches(a):
     from .hooks import catches_report, _is_zh
     from .update import update_note
     from . import __version__
-    print(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh"))
+    print(strip_controls(catches_report(a.days, zh=None if a.lang == "auto" else a.lang == "zh")))
     if a.card:
         from .hooks import load_catches
         from .report import write_catches_card
@@ -154,6 +156,7 @@ def cmd_ignore(a):
         print(config.show(os.getcwd())); return
     fn = config.remove_from if a.remove else config.add_to
     print(fn("ignore", a.phrase, project=a.project))
+    _project_hint(a)
 
 
 def cmd_config(a):
@@ -162,24 +165,83 @@ def cmd_config(a):
         print(config.show(os.getcwd())); return
     k, v = a.key, (a.value or "")
     if k in ("strictness", "language"):
-        print(config.set_value(k, v, project=a.project)); return
+        print(config.set_value(k, v, project=a.project)); _project_hint(a); return
     if k in ("off", "on"):
         cats = [c.strip() for c in v.split(",") if c.strip()]
         if not cats:
             raise SystemExit(f"honestly config {k}: name a category, e.g. honestly config {k} fixed  (categories: honestly config)")
         for cat in cats:
             print((config.add_to if k == "off" else config.remove_from)("off", cat, project=a.project))
+        _project_hint(a)
         return
     if k in ("verify", "unverify"):
         if not v.strip():
             raise SystemExit(f'honestly config {k}: give the command, e.g. honestly config {k} "make smoke"')
-        print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); return
+        print((config.add_to if k == "verify" else config.remove_from)("verify_commands", v, project=a.project)); _project_hint(a); return
     raise SystemExit("usage: honestly config [strictness strict|normal|lenient | language auto|zh|en | off CAT[,CAT] | on CAT | verify \"CMD\" | unverify \"CMD\"] [--project]")
+
+
+def _project_hint(a):
+    from . import config
+    if a.project and config.ignored_settings(os.getcwd()):
+        print("this file relaxes the rules, so it takes effect after you run `honestly trust` in your own terminal")
+
+
+def cmd_trust(a):
+    from . import config
+    from .redact import strip_controls
+    if a.list:
+        rows = config.trusted_files()
+        for path, same in rows:
+            print(f"{'trusted' if same else 'changed since you trusted it, so ignored'}: {strip_controls(path)}")
+        if not rows:
+            print("no project file is trusted")
+        return
+    if a.remove:
+        print(strip_controls(config.untrust(os.getcwd())))
+        return
+    if not (hasattr(sys.stdin, "isatty") and sys.stdin.isatty()):
+        raise SystemExit("honestly trust needs your own terminal: an agent or a script must not be able to turn off its own guard.")
+    relaxes = config.project_relaxes(os.getcwd())
+    path = config.project_path(os.getcwd())
+    if not relaxes:
+        print(strip_controls(f"{path} relaxes nothing, so there is nothing to trust."))
+        return
+    settings = config._clean(config._read(path))
+    print(strip_controls(f"{path} would relax the rules for this project:"))
+    for key in relaxes:
+        name = key.split(":")[0]
+        print(strip_controls(f"  {name}: {settings.get(name)}")[:300])
+    if input("Trust this exact file? Type yes: ").strip().lower() != "yes":
+        print("not trusted")
+        return
+    print(strip_controls(config.trust(os.getcwd())))
+
+
+def cmd_purge(a):
+    from . import store
+    from .redact import strip_controls
+    planned = store.purge(everything=a.all, dry_run=True)
+    for path in planned:
+        print(strip_controls(path))
+    if not planned:
+        print("nothing to remove")
+        return
+    if a.dry_run:
+        return
+    if not (hasattr(sys.stdin, "isatty") and sys.stdin.isatty()):
+        raise SystemExit("honestly purge needs your own terminal: the record of what the guard caught is not an agent's to erase.")
+    what = "everything above, settings and trust included" if a.all else "the files above; your settings stay"
+    if input(f"Delete {what}? Type yes: ").strip().lower() != "yes":
+        print("nothing removed")
+        return
+    store.purge(everything=a.all)
+    print(f"removed {len(planned)} item{'s' if len(planned) != 1 else ''}")
 
 
 def cmd_feedback(a):
     from .support import feedback
-    print(feedback(a.n, issue_url=a.issue))
+    print(strip_controls(feedback(a.n, issue_url=a.issue)))
 
 
 def cmd_rule(a):
@@ -210,7 +272,7 @@ def cmd_pr_note(a):
 def cmd_doctor(a):
     from .support import doctor
     text, problems = doctor(zh=None if a.lang == "auto" else a.lang == "zh", with_problems=True)
-    print(text)
+    print(strip_controls(text))
     if problems:
         sys.exit(1)
 
@@ -262,8 +324,10 @@ OVERVIEW = """honestly {v}: did your coding agent actually do what it said?
   honestly catches           what guard stopped this week   (--card for a shareable image)
   honestly audit             score your past sessions        (--since 30d, --project name, explain N, share)
   honestly ignore "phrase"   silence a false catch           (honestly config: strictness, language, custom checks)
+  honestly trust             let this project's .honestly.json relax the rules (needs your own terminal)
   honestly feedback          turn a wrong catch into an issue-ready text
   honestly pr-note --gh      put the branch's test evidence into its pull request
+  honestly purge             delete what honestly recorded (catches, logs, cache)
 
 guard: {status}\nhonestly --help for everything.
 """
@@ -317,6 +381,12 @@ def main(argv=None):
     pcf.add_argument("key", nargs="?", choices=["strictness", "language", "off", "on", "verify", "unverify"]); pcf.add_argument("value", nargs="?")
     pcf.add_argument("--project", action="store_true", help="write to ./.honestly.json instead of ~/.honestly/config.json")
     pcf.set_defaults(fn=cmd_config)
+    pt = sub.add_parser("trust", help="let this project's .honestly.json relax the rules; recorded for this exact file (needs your own terminal)")
+    pt.add_argument("--remove", action="store_true", help="stop trusting this project's file"); pt.add_argument("--list", action="store_true", help="show every trusted file")
+    pt.set_defaults(fn=cmd_trust)
+    pu = sub.add_parser("purge", help="delete what honestly recorded under ~/.honestly (catches, logs, cache, cards); needs your own terminal")
+    pu.add_argument("--all", action="store_true", help="also delete your settings and trusted files"); pu.add_argument("--dry-run", action="store_true", help="only list what would go")
+    pu.set_defaults(fn=cmd_purge)
     pf = sub.add_parser("feedback", help="turn a catch that looks wrong into an issue-ready text (latest by default)")
     pf.add_argument("n", type=int, nargs="?", default=1, help="1 = latest catch, 2 = the one before, ..."); pf.add_argument("--issue", action="store_true", help="also print a pre-filled GitHub issue link")
     pf.set_defaults(fn=cmd_feedback)
@@ -349,7 +419,12 @@ def main(argv=None):
         from .hooks import guard
         status = "; ".join(l.split(": ", 1)[1].split(" (")[0] + " for " + l.split("(")[1].split(")")[0] for l in guard("status", agent="all").splitlines() if "installed for" in l) or "not installed (honestly guard install)"
         print(OVERVIEW.format(v=__version__, status=status)); return
-    a.fn(a)
+    from . import store
+    store.tighten()
+    try:
+        a.fn(a)
+    finally:
+        store.tighten()
 
 
 if __name__ == "__main__":

@@ -188,11 +188,17 @@ def pipe_stages(text: str) -> list:
     return re.split(r"(?<!\|)\|&?(?!\|)", text)
 
 
+NOTES_FOLDER = re.compile(r"(?:^|/)(?:docs?|memory)/", re.I)
+PROGRAM_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".rb", ".php", ".sh", ".zsh", ".sql", ".vue", ".svelte"}
+
+
 def path_is_doc(path: str) -> bool:
     if not path:
         return False
     path = path.replace("\\", "/")   # Claude Code on Windows writes native paths
     ext = os.path.splitext(path.strip())[1].lower()
+    if ext in PROGRAM_EXT:   # a docs/ or memory/ folder holds notes, and a program in it is still a program
+        return bool(DOC_DIRS.search(NOTES_FOLDER.sub("/", path)))
     return ext in DOC_EXT or bool(DOC_DIRS.search(path))
 
 
@@ -497,7 +503,7 @@ _GIT_ROOTS: set = set()
 def project_of(path: str):
     """The project a path belongs to: the nearest directory with a `.git`, else the first two levels under the
     home directory (~/Documents/foo). None when the path is relative, temporary or unknown."""
-    if not path:
+    if not path or path.startswith(("\\\\", "//")):   # a network path in a command: looking at it would connect out
         return None
     p = os.path.normpath(os.path.expanduser(path))
     if not os.path.isabs(p) or TEMP_PATH.search(p):
