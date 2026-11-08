@@ -10,6 +10,7 @@ import html
 import json
 import os
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 
@@ -177,10 +178,12 @@ def collect_turns(root: str, cutoff: str, agents=("claude-code", "codex", "curso
 class Check:
     kind: str        # test | build
     command: str
-    result: str      # passed | failed | no tests | no result line
+    result: str      # passed | narrowed | failed | no tests | no result line
     line: str        # the summary line it printed
     ts: str
     after_edit: bool = False
+    runner: str = ""   # which test tool, so a failure is only cleared by the same tool
+    scope: tuple = ()  # what narrowed it (`-k x`, a file); empty for the whole suite
 
 
 @dataclass
@@ -202,15 +205,85 @@ class Evidence:
         return [c for c in self.checks if c.after_edit]
 
     @property
-    def status(self) -> str:
-        """pass | fail | none | unclear | no-edit"""
+    def verdict(self) -> tuple:
+        """(status, the check that decides it), from the transcript alone. A failure stands until the same tool passes on
+        the same or a wider set of tests: a narrower run, another tool or a build says nothing about what failed."""
         if not self.last_edit:
-            return "no-edit"
-        tests = [c for c in self.after if c.kind == "test"] or self.after
+            return "no-edit", None
+        tests = [c for c in self.after if c.kind == "test"]
         if not tests:
-            return "none"
-        last = tests[-1]
-        return {"passed": "pass", "failed": "fail"}.get(last.result, "unclear")
+            builds = self.after
+            return ("no-test", builds[-1]) if builds else ("none", None)
+        failing, passed, narrowed = [], None, None
+        for c in tests:
+            if c.result == "failed":
+                failing.append(c)
+            elif c.result in ("passed", "narrowed"):
+                failing = [f for f in failing if not _covers(c, f)]
+                if c.result == "passed":
+                    passed = c
+                else:
+                    narrowed = c
+        if failing:
+            return "fail", failing[-1]
+        if passed:
+            return "pass", passed
+        if narrowed:
+            return "narrowed", narrowed
+        return "unclear", tests[-1]
+
+    @property
+    def status(self) -> str:
+        """pass | fail | none | no-test | narrowed | unclear | no-edit"""
+        return self.verdict[0]
+
+
+def _covers(run: Check, failed: Check) -> bool:
+    return run.runner == failed.runner and (not run.scope or run.scope == failed.scope)
+
+
+RUNNER_WRAP = re.compile(r"^(?:\S*/)?(?:python[\d.]*\s+-m\s+|uv run\s+(?:python[\d.]*\s+-m\s+)?|poetry run\s+(?:python[\d.]*\s+-m\s+)?|pipenv run\s+|npx\s+|bunx\s+)", re.I)
+NARROW_VALUE = {"-k", "-m", "-t", "-g", "-p", "-run", "--run", "--grep", "--filter", "--package", "--testNamePattern", "--testPathPattern", "--tests"}
+NARROW_FLAG = {"--lf", "--last-failed", "--changed", "--onlyChanged", "--only-changed", "--failed", "--bail-on-first"}
+OTHER_VALUE = {"-n", "-c", "-o", "-j", "-p", "--tb", "--cov", "--timeout", "--reporter", "--config", "--maxfail", "--numprocesses", "--workers", "--durations", "--color", "--rootdir", "-w"}
+WHOLE = {".", "./...", "...", "all", "tests", "test", "spec", "specs", "src"}
+REDIRECT = re.compile(r"^\d?[<>]")
+
+
+def scope_of(seg: str, root: str = "") -> tuple:
+    """(runner, what narrows it). A top-level folder such as `tests/` is the whole suite; a file, a deeper folder or a filter is not."""
+    head = rules.pipe_stages(seg.strip().split("\n")[0])[0]
+    m = rules.VERIFY["test"].search(head)
+    if not m:
+        return head.strip(), ()
+    runner = RUNNER_WRAP.sub("", m.group(0).strip()).lower()
+    try:
+        toks = shlex.split(head[m.end():])
+    except ValueError:
+        toks = head[m.end():].split()
+    scope, i = [], 0
+    while i < len(toks):
+        t = toks[i]
+        i += 1
+        name = t.split("=", 1)[0]
+        if REDIRECT.match(t) or t == "--":
+            i += t in (">", ">>", "2>", "2>>")
+        elif name in NARROW_FLAG:
+            scope.append(t)
+        elif name in NARROW_VALUE:
+            scope.append(t)
+            if "=" not in t and i < len(toks):
+                scope.append(toks[i])
+                i += 1
+        elif t.startswith("-"):
+            if name in OTHER_VALUE and "=" not in t and i < len(toks) and not toks[i].startswith("-"):
+                i += 1
+        else:
+            target = t.rstrip("/")
+            top_level = root and "/" not in target and os.path.isdir(os.path.join(root, target))
+            if target not in WHOLE and not top_level and not t.isdigit():
+                scope.append(t)
+    return runner, tuple(scope)
 
 
 def _summary_line(kind: str, out: str) -> str:
@@ -222,15 +295,22 @@ def _summary_line(kind: str, out: str) -> str:
     return re.sub(r"\s+", " ", line).strip(" =")[:120]
 
 
-def _judge(kind: str, seg: str, e) -> str:
+CI_READ = re.compile(r"\bgh (?:pr checks|run (?:view|list|watch))\b|statusCheckRollup", re.I)   # a remote run's status, not a run on this tree
+
+
+def _judge(kind: str, seg: str, e, root: str = "") -> str:
+    if CI_READ.search(seg):
+        return "no result line"
     verdict, why = audit.judge_output("tests_pass" if kind == "test" else "build_ok", seg, e)
     if verdict == "backed":
-        return "passed"
+        return "narrowed" if kind == "test" and scope_of(seg, root)[1] else "passed"
     if verdict == "contradicted":
         return "failed"
     if verdict == "unbacked":
-        return "no tests" if "no tests" in why else "failed"
-    return "no result line"
+        if "no tests" in why:
+            return "no tests"
+        return "failed" if e.is_error or "errored" in why else "no result line"   # a pipe that hid the result says nothing either way
+    return "narrowed" if why.startswith("narrowed") else "no result line"
 
 
 CD = re.compile(r"(?:^|[;{]|\bdo|\bthen|\belse)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|]+)")
@@ -341,27 +421,23 @@ def gather(root: str, cutoff: str, window: str, sessions_turns: list) -> Evidenc
         same = i == last_edit_i   # `sed -i … && pytest` / `python - <<EOF (writes) … && ruff check`: only what follows the edit counts
         turn = owner[id(e)]
         here_text = {seg.text for seg, where in _walk(e, turn) if _here(where, e, root)}
+        after_edit = same or i > last_edit_i >= 0
         found = False
         commit_here = any(rules.VERIFY["commit"].search(t) for t in here_text)
+        hooked = audit._hook_run([e]) if commit_here else None   # the commit's own hook ran the tests; a message echoed back (`[main abc] 12 passed`) is not that
         for kind in ("test", "build"):
             segs = [sg for sg in rules.verifying_segments(e.text, {kind}, after_edit_only=same) if sg.text in here_text]
             if not segs:
                 continue
             seg = segs[-1].text.strip().split("\n")[0]
-            if commit_here and verdicts.has_summary(e.result or ""):
-                # `ruff check x && git commit`: the test summary in the output is the commit hook's
-                ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
-                                       after_edit=same or i > last_edit_i >= 0))
-                found = True
+            if hooked is not None:   # `ruff check x && git commit`: the test summary in the output is the commit hook's
                 break
-            ev.checks.append(Check(kind, _show(seg)[:160], _judge(kind, seg, e), _summary_line(kind, e.result), ts,
-                                   after_edit=same or i > last_edit_i >= 0))
+            runner, scope = scope_of(seg, root) if kind == "test" else ("", ())
+            ev.checks.append(Check(kind, _show(seg)[:160], _judge(kind, seg, e, root), _summary_line(kind, e.result), ts, after_edit, runner, scope))
             found = True
             break   # one row per command; a test run counts before a build
-        if not found and commit_here and verdicts.has_summary(e.result or ""):
-            # a pre-commit hook that ran the tests: its summary is in the commit's output
-            ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", e), _summary_line("test", e.result), ts,
-                                   after_edit=same or i > last_edit_i >= 0))
+        if not found and hooked is not None:
+            ev.checks.append(Check("test", _show("git commit"), _judge("test", "pytest", hooked), _summary_line("test", hooked.result), ts, after_edit, "git commit"))
     decided = {"backed": "verified", "unbacked": "unverified", "contradicted": "contradicted", "unverifiable": "could not check"}
     for f in findings:
         if f.verdict in decided:
@@ -408,8 +484,12 @@ def _flagged_line(item: tuple, redact) -> str:
 HEAD = {
     "pass": "✅ Tests ran after the last code edit and passed",
     "fail": "❌ The last test run after the last code edit failed",
+    "fail-open": "❌ A test run after the last code edit failed, and no later run covered the same tests",
     "none": "⚠️ No test or build ran after the last code edit",
-    "unclear": "⚠️ A check ran after the last code edit, but its output shows no pass/fail line",
+    "no-test": "⚠️ No test ran after the last code edit, only a build or lint check",
+    "narrowed": "⚠️ Only a narrowed test run ran after the last code edit, not the whole suite",
+    "unclear": "⚠️ A test ran after the last code edit, but its output shows no pass/fail line",
+    "no-tests": "⚠️ The test run after the last code edit collected no tests",
     "no-edit": "ℹ️ No code edit by an agent in this window",
 }
 
@@ -418,10 +498,14 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
     from .redact import redact as _redact
     names = {"claude-code": "Claude Code", "codex": "Codex", "cursor": "Cursor", "gemini": "Gemini CLI"}
     after = ev.after
-    head = HEAD[ev.status]
-    if ev.status in ("pass", "fail") and after:
-        last = ([c for c in after if c.kind == "test"] or after)[-1]
-        head += f": {_code(_redact(last.line))}" if last.line else ""
+    status, decisive = ev.verdict
+    head = HEAD[status]
+    if status == "fail" and decisive is not [c for c in after if c.kind == "test"][-1]:
+        head = HEAD["fail-open"]
+    elif status == "unclear" and decisive.result == "no tests":
+        head = HEAD["no-tests"]
+    if status in ("pass", "fail", "narrowed") and decisive.line:
+        head += f": {_code(_redact(decisive.line))}"
     lines = [START, "### Verification evidence", "", f"**{head}**", ""]
     if ev.last_edit:
         more = len(ev.edited_files) - 1
@@ -436,7 +520,7 @@ def render(ev: Evidence, version: str, max_rows: int = 8) -> str:
             seen.add(c.command); uniq.append(c)
         uniq = list(reversed(uniq))[-max_rows:]
         lines += ["", "| Check after the last edit | Result | Output |", "|---|---|---|"]
-        icon = {"passed": "✅ passed", "failed": "❌ failed", "no tests": "⚠️ no tests collected", "no result line": "⚠️ no pass/fail line"}
+        icon = {"passed": "✅ passed", "narrowed": "⚠️ narrowed run", "failed": "❌ failed", "no tests": "⚠️ no tests collected", "no result line": "⚠️ no pass/fail line"}
         for c in uniq:
             lines.append(f"| {_code(_redact(c.command))} | {icon.get(c.result, c.result)} | {_code(_redact(c.line))} |")
     before = len([c for c in ev.checks if not c.after_edit])

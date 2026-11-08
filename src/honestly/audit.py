@@ -510,7 +510,7 @@ def _clean_pass(out: str) -> bool:
 
 
 RANK = {"backed": 0, "weak": 1, "unverifiable": 2, "unbacked": 3, "contradicted": 4}
-GIT_HOOK_RUN = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:commit|push)\b")
+GIT_HOOK_RUN = re.compile(r"^\s*(?:\w+=\S*\s+)*git(?:\s+-c\s+\S+)*\s+(?:commit|push)\b")
 GIT_READS = re.compile(r"^\s*git(?:\s+-c\s+\S+)*\s+(?:log|show)\b")
 GIT_COMMIT_TITLE = re.compile(r"^\[[^\]\n]+\] [^\n]*$", re.M)   # `[main abc1234] Fix, 12 passed` quotes the message, it is not a run
 HOOK_TEST_COUNT = re.compile(r"\b[1-9]\d* (?:passed|failed)\b|\btest result: |\bTests run: ", re.I)   # `0 errors, 2 warnings` is a lint hook, not tests
