@@ -65,8 +65,8 @@ def test_a_stall_writing_the_log_is_not_a_hang(monkeypatch):
 
 def test_a_check_that_spins_is_still_caught(monkeypatch):
     def spin(*a, **k):
-        end = time.perf_counter() + 0.6
-        while time.perf_counter() < end:
+        end = time.process_time() + 0.6   # by the same clock: on a busy machine 0.6 s on the wall may be much less work
+        while time.process_time() < end:
             pass
 
     monkeypatch.setattr(hooks, "_unit_hidden", spin)
