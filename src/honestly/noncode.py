@@ -38,8 +38,8 @@ SPECS: dict[str, Spec] = {
         noun="download",
         heredoc=re.compile(r"\b(?:urlretrieve|urlopen|hf_hub_download|snapshot_download)\s?\(|\b(?:requests|httpx|session)\.(?:get|stream)\s?\(|\bdownload\w{0,30}\s?\(", _I)),
     "saved": Spec(
-        tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$"),
-        bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
+        tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$|^mcp__.*(?:update|create|write|save|upload|edit)", _I),
+        bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bsed -i|\bperl -[a-z]*i|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
         noun="write"),
     "checked": Spec(
         tool=re.compile(r"^(Read|Grep|Glob|WebSearch|WebFetch|ReadNotifications|mcp__.*(browser|chrome|computer|navigate|read_page|get_page_text|find)|mcp__.*(search|get_|list_|read)|ToolSearch)", _I),

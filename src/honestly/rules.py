@@ -1036,7 +1036,7 @@ VERIFY = {
                         r"(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|lint[\w-]*\.py|qc\.py|build[\w-]*\.(?:py|sh))\b"
                         r"|ast\.parse\(|\bcompileall\b|\b(?:ba|z)?sh -n\b|\bphp -l\b|\bruby -c\b)", re.I),   # syntax checks
     "render": re.compile(r"(hyperframes(@[\w.]+)? (render|build)|\bffmpeg\b|\bffprobe\b|(?:npx )?remotion render|manim |blender |music[\w-]*\.sh|render[\w-]*\.sh)", re.I),
-    "push": re.compile(r"(git push|kaggle kernels push|kaggle competitions submit|kernels push)", re.I),
+    "push": re.compile(r"(git push|gh pr (?:create|merge)|git merge|kaggle kernels push|kaggle competitions submit|kernels push)", re.I),
     "commit": re.compile(r"(git commit|git tag)", re.I),
     "run": re.compile(r"(python[\d.]*(?:\s+-[A-Za-z]+)*\s+(?:\S+\.py|-m (?!http)|-c\b|- <<)|node \S+\.(m?js|ts)|node --check|npx (?!remotion)\S+|\bcurl\b|bash \S+\.sh|\bsh \S+\.sh|\./\S+|cargo run|go run|\bmake\b|docker (build|compose up|run)|kaggle kernels (status|output)|uv run (python|pytest|ruff|mypy|-q python|-q pytest)|\.venv/bin/python)", re.I),
 }
@@ -1406,11 +1406,15 @@ def _command_kinds_of(words: tuple, _pattern: str) -> set:
         rest = a[1:]
         if sub == "push":
             return set() if any(x in ("-n", "--dry-run", "--help", "-h") for x in rest) else {"push"}
+        if sub == "merge":   # "merged into main" is said of this
+            return set() if any(x in ("--abort", "--help", "-h") for x in rest) else {"push"}
         if sub == "commit":
             return set() if any(x in ("--dry-run", "--help", "-h") for x in rest) else {"commit"}
         if sub == "tag":
             return {"commit"} if rest and not any(x in ("-l", "--list", "-d", "--delete", "-v", "--verify", "--help") for x in rest) else set()
         return set()
+    if h == "gh" and len(real) >= 3 and real[1] == "pr" and real[2] in ("create", "merge"):
+        return {"push"}
     if not_a_run(real):
         return set()
     if non_verifying(line):
