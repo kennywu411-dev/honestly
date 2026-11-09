@@ -30,6 +30,7 @@ The rules are tuned for precision over recall. Anything the audit cannot see (a 
 | 0.7.0 | 13 | 12/13 | — | one pass, not blind; see the 0.7.2 re-read below |
 | 0.7.1, re-read | 15 | — | 1/8 (+7 unsure) | on a sheet that cut commands off; led to the 0.7.2 fixes |
 | 0.7.2 | 9 | — | 4/8 (+1 unsure) | whole commands in the sheet; see below |
+| 0.8.0 | 44 | — | 20/37 (+6 unsure, 1 not labelled) | whole commands in the sheet; see below |
 
 Agreement between the two passes on round 2: `unverified` 18/19, `verified` 33/39, `contradicted` 8/8. On round 6: `unverified` 11/11, `verified` 32/36.
 
@@ -58,6 +59,38 @@ Of the 9 flags that remain:
 - The unsure one says a file was saved; nothing in the turn wrote it and the sheet could not show why.
 
 So the fair summary is 4 of 8 by the labeller's reading, on nine flags from one developer's logs. It is a small sample and the number is not a benchmark.
+
+## 0.8.0: reading claims, and a blind read of every flag
+
+**How much it reads.** Four corpora were labelled by agents that had not seen the rules, each one used to score the detector once. The 91% reached on the corpus the detector was built with did not carry:
+
+| Corpus | Rules scored | Claims read | Other sentences wrongly read |
+|---|---|---|---|
+| second | first rewrite | 180/368 | 17/864 |
+| third | after a table of verbs | 167/298 | 7/963 |
+| fourth, the one to quote | 0.8.0 | 236/465 | 17/1185 |
+| fourth | 0.7.4 | 46/465 | 25/1185 |
+| fourth, real sentences only | 0.8.0 | 41/105 | 3/766 |
+
+Each corpus became a development set after it was scored once, so only the latest row is a fair number. The fourth deliberately reaches beyond code: documents, job applications, spreadsheets, personal admin. Sentences in earlier corpora were removed before scoring. One agent labelled each corpus, with no second reader.
+
+**A classifier was tried and left out.** A linear model over word and character n-grams, trained on the other corpora and gated by the same mood checks, reached 288/465 and 27/1185 on the fourth. On 60 days of real logs it added 14 holds. Read one by one, at most one was right. A plan, a sentence about someone else and a description of a tool all read as claims to it. The corpus number looked better and the product would have been worse.
+
+**Wordings only the table of verbs reads are loose.** With nothing behind them in this turn they are held only when nothing in the session ever did such a thing. That is why reading far more claims added no false holds on real logs, and also why reading them catches less than the count suggests.
+
+**A blind read of every flag.** A language-model agent read all 51 flags from 60 days of the author's logs, with whole commands and no access to the rules: 21 correct, 22 wrong, 8 unsure. Rules were then fixed for what it found: exit 141 from a closed pipe after an assignment, a commit hook's result when the command also reads the log, `pytest` inside a quoted string, a next sentence that owns up, and switching branch after pushing. That removed 8 flags, one of which it had called correct (a commit hook's output now backs a sentence that also names a type check the hook may not have run). On the 44 flags left: 20 correct, 17 wrong, 6 unsure, and 1 new flag it did not label.
+
+Of those 17 wrong:
+
+- Five are the README's own staged demo: assertions run by hand after "you don't have to run pytest". The rules hold these on purpose.
+- Three are a run followed by `git merge`. The merged tree has not been tested, so these are held on purpose.
+- Five are a run followed by an edit that plainly could not touch the claim, such as a test sample or a CI file. Telling those apart takes reading the code, so these are also held on purpose.
+- Two are evidence the rules do not read: a project's own measuring steps, and a screenshot after the fix.
+- Two are real false holds still open: edits in two repositories in one turn, and a reply that says further down that it has not run on Windows yet.
+
+So about half by this reader's count. One reader on one developer's logs, and the number is not a benchmark.
+
+**What it cannot catch.** Readers of 300 sampled real replies found 53 false sentences. Almost all were wrong numbers, overstatement or unsupported facts that no command settles, and it holds none of them. In a stratified sample of claims it does read, 15 were confirmed false and it holds 2.
 
 ## 0.7.3 was a mistake
 
@@ -100,6 +133,6 @@ All three are regression tests.
 ## Known limits
 
 - The 0.5.3 rule changes were checked by one labelling pass, not two.
-- Recall is estimated on one small sample. A larger labelled set, especially from other stacks, is the most useful contribution: run `honestly feedback` on a wrong catch, or open an issue with a claim that should have been caught.
+- Claim reading is measured on corpora labelled by one agent each, from one developer's logs plus written sentences. A larger labelled set, especially from other stacks, is the most useful contribution: run `honestly feedback` on a wrong catch, or open an issue with a claim that should have been caught.
 - "Fixed" is inherently vague. When the fix is visual, looking at a screenshot is the real verification and no tool can see the look; such claims are reported as `weak` and kept out of the headline rate.
 - The rules were tuned on one developer's sessions (Python, JavaScript, video tooling, Kaggle) and corrected with logs from two other machines. Other stacks are covered by synthetic tests only.
