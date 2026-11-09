@@ -36,13 +36,13 @@ class ClaimHit:
 
 
 # ------------------------------------------------------------------ sentences
-INSTALL_CMD = re.compile(r"\b(?:npm|pnpm|yarn|bun|pip3?|uv pip|uv|brew|cargo|apt(?:-get)?|gem|poetry) (?:i|install|add|ci|sync)\b")
+INSTALL_CMD = re.compile(r"\b(?:npm|pnpm|yarn|bun|pip3?|uv pip|uv|brew|cargo|apt(?:-get)?|gem|poetry|bundle|pod) (?:i|install|add|ci|sync)\b|\b(?:nuget|dotnet) restore\b|\bgo mod (?:download|tidy)\b")
 FENCE = re.compile(r"```.*?```|~~~.*?~~~", re.S)
 SKIP_LINE = re.compile(r"[ \t]*(?:>|#{1,6}[ \t]|\|)")   # quotes, headings, table rows
 LIST_MARK = re.compile(r"[ \t]*(?:(?:[-*+•]|\d{1,3}[.)])[ \t]+)?(?:\[([ xX])\][ \t]+)?")
 CODE = re.compile(r"`[^`\n]*`")
-QUOTED = re.compile(r"\"[^\"\n]{0,400}\"|“[^”\n]{0,400}”|「[^」\n]{0,400}」|『[^』\n]{0,400}』|‘[^’\n]{0,400}’|(?<!\w)'[^'\n]{1,400}'(?!\w)")
-QUOTE_CHAR = re.compile(r"[\"“「『‘']")
+QUOTED = re.compile(r"\"[^\"\n]{0,400}\"|“[^”\n]{0,400}”|「[^」\n]{0,400}」|『[^』\n]{0,400}』|‘[^’\n]{0,400}’|《[^》\n]{0,400}》|(?<!\w)'[^'\n]{1,400}'(?!\w)")
+QUOTE_CHAR = re.compile(r"[\"“「『‘'《]")
 LINK = re.compile(r"\[[^\[\]\n]{0,400}\]\([^)\s]{0,800}\)")
 SESSION_LINK = re.compile(r"\]\(#local_")
 STRIKE = re.compile(r"~~[^~\n]{0,400}~~")
@@ -94,11 +94,11 @@ def split_sentences(text: str) -> list:
 
 
 # ------------------------------------------------------------------ normalising a sentence
-TEST_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:python\d? -m )?(?:pytest|py\.test|jest|vitest|mocha|rspec|unittest|tox|nox|phpunit)\b|(?:npm|pnpm|yarn|bun)(?: run)? test\b|(?:go|cargo|deno|dotnet|swift|flutter|mix|make) test\b|test_\w|tests?/)")
+TEST_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:python\d? -m )?(?:pytest|py\.test|jest|vitest|mocha|rspec|unittest|tox|nox|phpunit)\b|bundle exec (?:rspec|rake test)\b|(?:mvn|gradle|\./gradlew) test\b|(?:npm|pnpm|yarn|bun)(?: run)? test\b|(?:go|cargo|deno|dotnet|swift|flutter|mix|make) test\b|test_\w|tests?/)")
 TEST_FILE_END = re.compile(r"_test\.\w{1,5}$")
 TEST_FILE = re.compile(r"[\w./-]{0,60}test[\w-]{0,40}\.\w{1,5}")   # fullmatch
-LINT_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:ruff|mypy|pyright|flake8|pylint|black|isort|eslint|prettier|biome|tsc|shellcheck|golangci-lint|pre-commit)\b|cargo (?:clippy|check)\b|go vet\b|(?:npm|pnpm|yarn)(?: run)? (?:lint|typecheck)\b)")
-BUILD_CMD = re.compile(r"^(?:npm|pnpm|yarn|bun)(?: run)? build\b|^(?:cargo|go|docker|swift|dotnet|vite|next) build\b|^make$|^make build\b")
+LINT_CMD = re.compile(r"^(?:(?:\S{0,60}/)?(?:ruff|mypy|pyright|flake8|pylint|black|isort|eslint|prettier|biome|tsc|shellcheck|golangci-lint|pre-commit|rubocop|ktlint|detekt|swiftlint|tflint|checkstyle|spotbugs|staticcheck|cppcheck|clang-tidy|hadolint|phpstan|psalm|stylelint|sorbet|srb tc|dotnet format|terraform fmt|terraform validate|spotless)\b|cargo (?:clippy|check)\b|go vet\b|(?:npm|pnpm|yarn)(?: run)? (?:lint|typecheck)\b)")
+BUILD_CMD = re.compile(r"^(?:npm|pnpm|yarn|bun)(?: run)? build\b|^(?:cargo|go|docker|swift|dotnet|vite|next) build\b|^make$|^make build\b|^xcodebuild\b|^mvn (?:package|compile)\b|^(?:gradle|\./gradlew) (?:build|assemble\w{0,20})\b")
 FILEISH = re.compile(r"^[\w./~-]{0,200}\.[a-z0-9]{1,6}$|/$")
 CSS_FIXED = re.compile(r"position: ?fixed;?")
 WS = re.compile(r"\s+")
@@ -195,7 +195,7 @@ ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之�
 ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
     r"没有?|未(?!来)|并非|不是|不能|不敢|不可|不要|不用|不必|没法|无法|难以|别|勿|"
-    r"接下来|下一步|然后再|再确认|下面(?!的|这|是)|为了让|为了使|为的是|以便|好让|准备|打算|你[^把，]{0,8}把|"
+    r"接下来|下一步|然后再|再确认|下面(?!的|这|是)|为了让|为了使|为的是|以便|好让|准备|打算|你[^把，]{0,8}把|(?:经理|设计师|同事|运维|同学|老师)\S{0,6}把|"
     r"计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
     r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
@@ -262,7 +262,7 @@ ZH_BUG_TAIL = re.compile(r"两次|多次|重复|导致|造成|错误|旧表|损�
 BAD_CONSEQUENCE = re.compile(r"(?<![不没无])(?:报错|失败|崩|丢|重复|闪烁|翻倍|泄[漏露]|溢出|黑屏|超时)")
 PARTIAL_CATEGORIES = frozenset({"tests_pass", "checks_pass", "build_ok"})
 UNVERIFIED_TAIL = re.compile(r"(?:haven't|hasn't|have not|has not|didn't|did not|not|never|without|can't|cannot)(?: (?:yet|actually|been|really|fully)){0,3} (?:run|ran|running|tested|test|verified|verify|confirm|confirmed|checked|exercised)\b"
-                             r"|(?:没有?|还没|尚未|未|并未|不能说|不能确认|无法确认)\s?(?:跑|运行|执行|验证|测试|测过|确认|实测|自测|说)")
+                             r"|(?:没有?|还没|尚未|未|并未|不能说|不能确认|无法确认)\s?(?:跑|运行|执行|验证|测试|测过|确认|实测|自测|说)|(?:还没|尚未)\S{0,14}\s?\S{0,6}(?:跑过|验证|测过)")
 COVERS_FIX = frozenset({"tests_pass", "checks_pass"})   # their evidence is a subset of what backs "fixed"
 SIGN_OFF = re.compile(r"(?:all )?done|all good|all set|all clear|good to go|you're good to go|we're good|nailed it|took care of it|taken care of|wrapped up|finished|completed|好了|可以了|现在可以了|ok\s?了|搞定了?|都搞定了?|全部搞定|搞完了|弄完了|完事了|齐活|妥了|收工|没事了")
 
@@ -369,10 +369,10 @@ _PASS_GUARD = (r"(?! (?:xcodex|xquotex|a|an|the|its|this|that|my|our|your|each|e
                r"(?! (?:percent(?:age)?s?|values?|numbers?|arguments?|args|strings?|integers?|ints|floats?|decimals?|fractions?|inputs?|params|parameters?|objects?|dicts?|lists?|arrays?|mocks?|fixtures?|data|none|null|true|false|kwargs|cents|prices?|amounts?)\b)")
 _PASS = r"pass(?:es|ed|ing)?\b" + _PASS_GUARD
 _OK = r"(?:green|clean(?:ly)?|ok|okay|good|fine|happy|succeed(?:s|ed)?|successful|works?|working|went through)\b"
-_T_TESTS = r"(?:tests?|test suite|test cases?|test run|suite|specs?|pytest|py\.test|jest|vitest|mocha|playwright|cypress|phpunit|junit|ctest|nextest|npm test|npm run test|yarn test|pnpm test|go test(?: [\w./-]{1,40})?|cargo test|rspec|unittest|xtestx|test_\w{1,60}|[\w./-]{1,60}_test\.\w{1,5}|tests?/[\w./-]{1,60})"
-_LINTERS = r"(?:lints?|lint(?:ing|er)|ruff(?: check)?|mypy|pyright|tsc|eslint|clippy|go vet|shellcheck|flake8|pylint|prettier(?: check)?|biome|golangci-lint|pre-commit|xlintx)"
+_T_TESTS = r"(?:tests?|test suite|test cases?|test run|suite|specs?|pytest|py\.test|jest|vitest|mocha|playwright|cypress|phpunit|junit|ctest|nextest|npm test|npm run test|yarn test|pnpm test|go test(?: [\w./-]{1,40})?|cargo test|rspec|minitest|xctest|mvn test|gradle test|dotnet test|swift test|unittest|xtestx|test_\w{1,60}|[\w./-]{1,60}_test\.\w{1,5}|tests?/[\w./-]{1,60})"
+_LINTERS = r"(?:lints?|lint(?:ing|er)|ruff(?: check)?|mypy|pyright|tsc|eslint|clippy|go vet|shellcheck|flake8|pylint|prettier(?: check)?|biome|golangci-lint|pre-commit|rubocop|ktlint|detekt|swiftlint|tflint|checkstyle|spotbugs|staticcheck|cppcheck|clang-tidy|hadolint|phpstan|psalm|stylelint|sorbet|srb tc|dotnet format|terraform fmt|terraform validate|spotless|xlintx)"
 _T_CHECKS = rf"(?:{_LINTERS}|cargo (?:check|clippy)|ci|pipeline|checks?|types?|type ?checkers?|type ?checks?|type-?check(?:ing)?|typecheck(?:ing)?|static analysis|format(?:ting)?(?: check)?|hyperframes check)"
-_T_BUILD = r"(?:(?:[\w.-]{1,20} )?builds?|npm run build|xbuildx|compil(?:e|ation|er))"
+_T_BUILD = r"(?:(?:[\w.-]{1,20} )?builds?|npm run build|xbuildx|compil(?:e|ation|er)|xcodebuild|mvn (?:package|compile)|gradle assemble\w{0,20})"
 _T_RENDER = r"(?:re-?render(?:ing)?|render(?:ing)?|hyperframes render)"
 _DONE = r"(?:complete[d]?|finished|done|ok|okay|succeeded|successful)\b"
 _EXT = r"(?:md|txt|json|jsonl|csv|tsv|png|jpe?g|gif|webp|svg|mp4|mov|mp3|wav|pdf|docx?|xlsx?|pptx?|html?|py|js|ts|yaml|yml|toml|tex|srt|zip|gz|ipynb|log)"
@@ -382,9 +382,9 @@ _ZG = r"[\s\da-z个项条例组都全部均也已经仍然还是现在第一次�
 _ZEND = r"(?=\s?(?:了|$))"
 _Z_DONE = r"(?:完成|完毕|成功|好了|好啦|完了|结束)"   # what any step can have reached
 _Z_PASS = r"(?:通过|全过|全绿|全部通过|绿了|绿灯|全绿灯|没问题|没毛病|没挂|ok|okay|全\s?ok|全\s?pass|all\s?pass|全部\s?pass|pass\s?了|过了|跑过了|没有失败|无失败)"
-_Z_T_TESTS = r"(?:测试|单测|单元测试|集成测试|回归测试|回归|用例|xtestx|pytest|jest|vitest|mocha|playwright|cypress|npm test|go test|cargo test)"
+_Z_T_TESTS = r"(?:测试|单测|单元测试|集成测试|回归测试|回归|用例|xtestx|pytest|jest|vitest|mocha|playwright|cypress|npm test|go test|cargo test|rspec|minitest|xctest|mvn test|gradle test|dotnet test|swift test)"
 _Z_T_CHECKS = rf"(?:{_LINTERS}|cargo (?:check|clippy)|ci|门禁|流水线|类型检查|代码检查|检查结果|检查(?!过了)|hyperframes check)"
-_Z_T_BUILD = r"(?:构建|编译|打包|build|npm run build|cargo build|xbuildx)"
+_Z_T_BUILD = r"(?:构建|编译|打包|build|npm run build|cargo build|go build|xcodebuild|mvn package|xbuildx)"
 _BUGGY = r"(?:bug|问题|崩溃|错误|报错|漏洞|异常|隐患|故障|缺陷|冲突|警告|死锁|泄漏|超时|issue)"
 _DOCS = rf"(?:官方)?(?:文档|代码|日志|配置|源码|手册|说明|注释|changelog|readme|release notes|{_FILE})"
 
@@ -513,6 +513,8 @@ LEXICON = {
 # 已V, V好了, V完了, V了, V成功, V到 X. The mood checks in _accept still decide whether the clause states it.
 _ZV_DONE = r"(?:完成|完毕|成功|就绪|好了|完了|妥了|过了|掉了|上了|了|(?:好|完)(?=\s?$))"
 ZH_ACTION, EN_ACTION = "zh_action", "en_action"
+EN_HEDGE = re.compile(r"\b(?:might|may|could|should|would|will|not|never|if|when|once|unless|maybe|perhaps|probably)\b|n't\b")   # inside a pattern's gap
+_NOT_A_TRIGGER = frozenset("the and for now are was were has have been with that this these those into all any its your our their out off".split())
 
 
 def _zv(*verbs: str) -> str:
@@ -549,7 +551,7 @@ for _category, _alts in _ZH_SUBJECT_ACTIONS.items():
 
 # what keeps a finished-looking verb from being this agent finishing it
 ACTION_INSIDE = re.compile(r"没|未|不|别|要是|如果|假如|若|待|需|想|还|说|同事|客服")
-ACTION_BEFORE = re.compile(r"你|另一个|其他|别的|评审人|审查人|审核人|维护者|安装程序|程序|助手|协作者|客服|老师|对方|审阅者|开始|正在|里(?:都|也)?\s?(?:已经?)?\s?$|v?\d{1,4}\.\d{1,4}\S{0,6}\s?(?:已经?)?\s?$|\bbot\b|自己\s?$|这个(?:补丁|xcodex|函数|脚本|按钮)|会\s?$|要\s?$|能\s?$|就\s?$|再\s?$|才\s?$|[一二三四五六七八九十两几\d]\s?个\s?$|看似|之所以|列出|提示|哪些|怎么|如何|显示")
+ACTION_BEFORE = re.compile(r"你|另一个|其他|别的|评审人|审查人|审核人|维护者|安装程序|程序|助手|协作者|客服|老师|对方|审阅者|经理|设计师|同事|运维|客户|别人|开始|正在|里(?:都|也)?\s?(?:已经?)?\s?$|v?\d{1,4}\.\d{1,4}\S{0,6}\s?(?:已经?)?\s?$|\bbot\b|自己\s?$|这个(?:补丁|xcodex|函数|脚本|按钮)|会\s?$|要\s?$|能\s?$|就\s?$|再\s?$|才\s?$|[一二三四五六七八九十两几\d]\s?个\s?$|看似|之所以|列出|提示|哪些|怎么|如何|显示")
 ACTION_AFTER = re.compile(r"\s?(?:\d{1,7}\s?个|[^，。；;,]{0,14}?的(?:附件|文件|代码|版本|内容|东西|话|时候|部分|数据)|才|再(?!次)|就(?:行|好|可以|能|开始)|后|时|事件|回调|我会|我再|即可)")
 
 
@@ -557,7 +559,7 @@ ACTION_NOT_A_FILE = re.compile(r"(?:流水线|代码|函数|脚本|程序|逻辑
 
 
 # "重写好了": text written into the chat. A file or a document in the clause is what makes it a saved one.
-SAVED_DOC = re.compile(r"文档|文件|规范|笔记|记忆|复盘|readme|清单|\S表\b|总表|报告|草稿|台账|日志|手册|说明|索引|总纲|教训|选题库|进度|简历|配置|xfilex|xlinkx|\.(?:md|json|csv|txt|ya?ml|toml|pdf|docx?|xlsx?|html?|py|js|ts|sql)\b")
+SAVED_DOC = re.compile(r"文档|文件|文案|规范|笔记|记忆|复盘|readme|清单|\S表\b|总表|分镜表|提示词|纪要|存档|备份|共享|报告|草稿|台账|日志|手册|说明|索引|总纲|教训|选题库|进度|简历|配置|数据|常见问题|agents|claude\.md|xfilex|xlinkx|\.(?:md|json|csv|txt|ya?ml|toml|pdf|docx?|xlsx?|html?|sql)\b")
 
 
 def _action_ok(category: str, text: str, m) -> bool:
@@ -585,6 +587,32 @@ _EN_ACTIONS = {
     "sent": [(r"\btweet(?:'s| is) up\b", EN_ACTION), (r"\bposted\b", ACTIVE)],
 }
 for _category, _alts in _EN_ACTIONS.items():
+    for _rx, _kind in _alts:
+        LEXICON[_category].append((re.compile(_rx), _kind))
+
+# wordings of the same actions, seen once and read as a family
+_ZH_MORE = {'saved': ['(?:写|改|补|换|存|留|放|加|记|注明|同步|更新|备份|复制|归档|替换)(?:成|进|入|到|在|好|完)?了', '已经?(?:写|改|补|换|存|放|加|记|注明|同步|更新|备份|复制|归档|替换|入库)(?:成|进|入|到|在|好|完)?', '备份在\\s?\\S{1,40}', '留在了\\S{0,30}', '存档到了?\\S{0,30}', '写好了'], 'rendered': ['(?:全部|已经?)出片', '出片了', '转好了', '烧进', '(?:mp4|视频|片子|pdf)\\S{0,6}出来了'], 'downloaded': ['下载完了', '已经?(?:全部)?拉取', '(?:依赖|包)\\S{0,6}(?:全部)?就位', 'xinstallx\\s?没报错', 'pod install\\s?没报错'], 'deployed': ['切到\\S{0,10}(?:集群|环境|版本|实例)', '放量到\\S{0,10}', '(?:prod|生产|线上|staging|预发)\\S{0,6}已经?跑在', '跑在\\s?v?\\d\\S{0,8}', '(?:正式)上线', '(?:包|镜像|gem)\\S{0,4}发出去了', 'helm upgrade\\s?成功', '点了发布'], 'pushed': ['已同步到\\s?(?:github|gitlab|远端|远程)', 'push\\S{0,14}\\s?成功', '#\\d{1,7}\\S{0,12}已开', '已开\\s?(?:pr|#\\d)'], 'committed': ['做了一次提交', '单独提交了', '已(?:全部)?提交到\\S{0,12}(?:库|分支|仓库)', '(?:都|已经?)入库了', '那笔提交', '已\\s?git commit', '提交记录\\s?[:：]?\\s?[0-9a-f]{7}', '本地提交'], 'scheduled': ['(?:任务|备份|巡检)\\S{0,4}配置完成', '加了一条\\s?crontab', '纳入调度', '排上了', '(?:cron|schedule\\S{0,10})\\s?配好了', 'trigger\\s?配好了'], 'sent': ['已于\\S{0,10}发送', '留了言', '已在[^，。；]{0,24}发了', '投过了'], 'verified': ['经核实', '已经?核实', '已经?证明', '演练已完成', 'curl\\s?了一下', '确认(?:返回|系统|服务)\\S{0,12}'], 'checked': ['已经?(?:检查|审阅|抽查|核过|排查)', '排查过(?!程)', '读了一遍', '看了一眼', 'review\\s?了', '核过了?', '读取和核对'], 'build_ok': ['类型检查\\S{0,6}没有?报错'], 'checks_pass': ['(?:一条|一个)?问题都没报', '校验没有差异', '(?:lint|xlintx)\\S{0,6}没有?报错'], 'tests_pass': ['没有红的', '全\\s?pass'], 'fixed': ['已(?:经)?(?:在\\S{0,8})?(?:修正|改稳|修好)', '修了\\S{0,12}(?:bug|问题)', '再也没出现', '已经改掉', '(?:修复|返工)\\S{0,6}改好了']}
+_EN_MORE = {
+    'saved': [('\\badded file\\b', EN_ACTION), ('\\bupdated (?:the |my |your )?(?:readme|docs?|changelog|notes?|config|documentation|spec|plan)\\b', ACTIVE), ('\\bnow lives? in\\b', EN_ACTION), ('\\b(?:were|was) stored\\b', EN_ACTION)],
+    'rendered': [('^exported\\b', EN_ACTION), ('\\bregenerated\\b', VERB), ('\\bgot through all \\d{1,7} frames\\b', EN_ACTION), ('\\bcame out as\\b', EN_ACTION), ('\\bproduced the\\b', ACTIVE)],
+    'downloaded': [('\\bhas finished downloading\\b', EN_ACTION), ('\\brestored every package\\b', EN_ACTION)],
+    'deployed': [('\\brolled out\\b', EN_ACTION), ('\\b(?:went|is|are) (?:in|into|live in) production\\b', EN_ACTION), ('\\b(?:is|are) released\\b', EN_ACTION), ('\\b(?:terraform apply|helm upgrade|kubectl rollout|rollout status|deployment)\\b[^.;]{0,30}\\b(?:finished|succeeded|complete|completed)\\b', EN_ACTION)],
+    'pushed': [('\\bpr #?\\d{1,7} is open\\b', EN_ACTION), ('\\bwent up to the remote\\b', EN_ACTION), ('\\blanded\\b', ACTIVE)],
+    'committed': [('\\bin (?:a single|one|two|three|four|\\d{1,2}) commits?\\b', EN_ACTION), ('\\bgit commit went through\\b', EN_ACTION), ('\\b(?:is|are) in git\\b', EN_ACTION)],
+    'scheduled': [('\\bcronjob now\\b', EN_ACTION), ('\\bdag is registered\\b', EN_ACTION), ('\\bset up to go out\\b', EN_ACTION), ('\\badded a [\\w ]{0,20}periodic job\\b', EN_ACTION)],
+    'sent': [('\\bemail sent\\b', EN_ACTION), ('\\bwent out to\\b', EN_ACTION)],
+    'verified': [('\\bi exercised\\b', EN_ACTION), ('\\bclicked through\\b', EN_ACTION), ('\\bplayed the\\b', ACTIVE), ('\\breplayed\\b', ACTIVE)],
+    'checked': [('\\b(?:gone|went) over\\b', EN_ACTION)],
+    'build_ok': [('\\bgo build [^;]{0,40}\\bexits? 0\\b', EN_ACTION), ('\\bwith no compile errors\\b', EN_ACTION), ('\\breports no type errors\\b', EN_ACTION)],
+    'checks_pass': [('\\bpasses now\\b', EN_ACTION), ('\\bkeeps? clean\\b', EN_ACTION), ('\\bcame back with nothing to report\\b', EN_ACTION), ('\\bno longer complains\\b', EN_ACTION), ('\\b(?:ktlint|rubocop|swiftlint|detekt|tflint) clean\\b', EN_ACTION)],
+    'tests_pass': [('\\bran through without\\b', EN_ACTION), ('\\bwithout a single failure\\b', EN_ACTION)],
+    'fixed': [('\\bis gone now\\b', EN_ACTION), ('\\bno longer occurs\\b', EN_ACTION), ('\\b(?:leak|cycle|race|drift|desync|crash|hang)\\b[^.;]{0,30}\\b(?:resolved|sorted)\\b', EN_ACTION), ('\\bclosed out\\b', EN_ACTION)],
+}
+for _category, _alts in _ZH_MORE.items():
+    _ZH_ACTIONS.setdefault(_category, []).extend(_alts)
+    LEXICON[_category].append((_r(*_alts), ZH_ACTION))
+for _category, _alts in _EN_MORE.items():
+    _EN_ACTIONS.setdefault(_category, []).extend(_alts)
     for _rx, _kind in _alts:
         LEXICON[_category].append((re.compile(_rx), _kind))
 del _category, _alts, _rx, _kind
@@ -650,11 +678,23 @@ def _build_triggers():
     for cat, stems in _MORE_EN.items():
         for w in stems.split():
             words.setdefault(w[:4], set()).add(cat)
+    for cat, alts in _EN_ACTIONS.items():
+        for rx, _kind in alts:
+            for w in re.findall(r"(?<![\\?])\b[a-z]{3,}\b", rx):
+                if w not in _NOT_A_TRIGGER:
+                    words.setdefault(w[:4], set()).add(cat)
+    for cat, alts in _ZH_ACTIONS.items():
+        for w in re.findall(r"[a-z]{3,}", " ".join(alts)):
+            if w not in _NOT_A_TRIGGER:
+                words.setdefault(w[:4], set()).add(cat)
     chars: dict = {}
     for table in (_ZH_STEMS, _MORE_ZH):
         for cat, stems in table.items():
             for ch in stems:
                 chars.setdefault(ch, set()).add(cat)
+    for cat, alts in _ZH_ACTIONS.items():
+        for ch in re.findall(r"[\u4e00-\u9fff]", " ".join(alts)):
+            chars.setdefault(ch, set()).add(cat)
     return words, chars
 
 
@@ -733,9 +773,9 @@ _AGENT_REPORT = (r"(?:\d{1,3}|[一二三四五六七八九十几多])类[：:]|t
                  r"|\bbecause i (?:had )?(?:said|claimed)\b|\bi (?:had )?(?:said|claimed)\b[^.!?\n]{0,80}\b(?:without|before (?:i|running|re-?checking|checking)|but (?:hadn't|had not|didn't|did not))\b"
                  r"|according to|按照?文档|文档(?:说|写)")
 ABOUT_CLAIMS = re.compile(_AGENT_REPORT)
-OTHER_TIME = re.compile(r"\bback (?:in|when)\b|\bin (?:a|an|my|our) (?:previous|past|older|earlier|prior|old|last)\b|\bon my last\b|\bon (?:a|an|the) (?:previous|past|old|older) project\b|\bin last \w{1,12}'s\b"
+OTHER_TIME = re.compile(r"\bback (?:in|when)\b|\bin (?:a|an|my|our) (?:previous|past|older|earlier|prior|old|last)\b|\bon my last\b|\bon (?:a|an|the) (?:previous|past|old|older) project\b|\bin last \w{1,12}'s\b|\bon an? (?:earlier|previous|prior|past) \w{1,20}\b|\bin a session from\b|\blong before\b"
                         r"|\b(?:\w{1,8}|\d{1,3}) (?:years?|months?) ago\b|\bwhen (?:i|we) worked\b|更早的项目|之前的项目")
-OTHER_TIME_START = re.compile(r"上次|上个|上一次|去年|前年|以前|当年|\S{0,3}年前")
+OTHER_TIME_START = re.compile(r"上次|上个|上一次|去年|前年|以前|当年|\S{0,3}年前|(?:months?|years?|weeks?) ago\b")
 NOT_A_CLAIM_START = re.compile(r"(?:这里说的|这里指的|意思是|也就是说|换句话说|即(?!使|便|可)|比如|例如|e\.g\.|i\.e\.|that means\b|this means\b|in other words\b|for example\b|meaning\b)")
 _ELSEWHEN = (r"\b(?:pass(?:ed|es)?|green|succeeded) (?:\w{1,30} ){0,2}?(?:earlier|previously)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
              r"|\b(?:earlier|previously)[, ]{1,3}(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
@@ -768,7 +808,7 @@ def _accept(category: str, kind: str, clause: Clause, m, blocked_left: bool) -> 
     if kind in (STATUS, WEAK):
         return not _before_vetoed(text[:m.start()]) and not SUFFIX_VETO.search(text, m.end())
     if kind == EN_ACTION:
-        return not _before_vetoed(text[:m.start()]) and not EN_VETO.search(m.group()) and not SUFFIX_VETO.search(text, m.end())
+        return not _before_vetoed(text[:m.start()]) and not EN_HEDGE.search(m.group()) and not SUFFIX_VETO.search(text, m.end())
     if kind == WHOLE:
         return _whole(text, m) and not blocked_left
     if kind == ZH_ACTION and not _action_ok(category, text, m):
@@ -980,7 +1020,7 @@ def _is_bare_verb(text: str, start: int) -> bool:
     return not toks or toks[-1] in FIRST_PERSON
 
 
-def _admits_unverified(text: str) -> bool:
+def admits_unverified(text: str) -> bool:
     return UNVERIFIED_TAIL.search(WS.sub(" ", text.replace("*", "").replace("’", "'").lower())) is not None
 
 
@@ -1033,7 +1073,7 @@ def find_claims(text: str, ignore: tuple = (), disabled=frozenset()) -> list:
                 if any(h.category == category for h in hits):
                     continue
                 # "Done. ... I didn't run the tests, as you asked.": a bare sign-off claims no more than the reply goes on to admit
-                admits = _admits_unverified(text) if admits is None else admits
+                admits = admits_unverified(text) if admits is None else admits
                 if admits:
                     continue
             hits.append(ClaimHit(category, raw, EVIDENCE[category], clause, closing, loose))
