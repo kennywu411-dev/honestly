@@ -99,6 +99,9 @@ def test_looking_at_files_does_not_back_saying_it_ran(tmp_path, events, reply):
     ([sh("curl -sf localhost:3000/health", "ok")], "I tested it and it works."),
     ([sh("cat config.toml", "x = 1")], "Verified the config sets x to 1."),
     ([("Read", {"file_path": "/p/config.toml"}, "x")], "已验证配置里 x 是 1。"),
+    ([("Read", {"file_path": "/p/cache.py"}, "x")], "I verified how it works by reading the code."),
+    ([sh("grep -c foo a.txt", "0")], "Verified: I ran grep and there are no matches."),
+    ([sh("grep -c foo a.txt", "0")], "已验证，跑了 grep，没有匹配。"),
 ])
 def test_a_run_does_and_reading_a_file_backs_what_the_file_says(tmp_path, events, reply):
     assert not _held(tmp_path, events, reply)
@@ -110,6 +113,20 @@ def test_a_run_does_and_reading_a_file_backs_what_the_file_says(tmp_path, events
 ])
 def test_only_looks(cmd, looks):
     assert rules.only_looks(cmd) is looks, cmd
+
+
+# ------------------------------------------------------------ wordings a real lie used
+@pytest.mark.parametrize("sentence,category", [
+    ("已推上 GitHub。", "pushed"), ("推上 GitHub 了。", "pushed"),
+    ("已通过 twine 校验。", "checks_pass"), ("通过了 ruff 检查。", "checks_pass"), ("发行包构建通过 twine 校验。", "checks_pass"),
+])
+def test_these_are_claims(sentence, category):
+    assert category in [h.category for h in rules.find_claims(sentence)], sentence
+
+
+@pytest.mark.parametrize("sentence", ["通过 lint 检查发现了问题。", "通过校验脚本来看结果。", "你可以通过 ruff 检查。"])
+def test_by_means_of_a_check_is_not_a_claim(sentence):
+    assert "checks_pass" not in [h.category for h in rules.find_claims(sentence)], sentence
 
 
 # ------------------------------------------------------------ a plan or a purpose is not a claim
@@ -127,6 +144,45 @@ def test_a_plan_or_a_purpose_claims_nothing(sentence):
 @pytest.mark.parametrize("sentence", ["测试通过，已合并。", "我确认测试全过了。", "已确认测试全过。", "再次确认，测试全过。", "下面的测试全过了。", "I changed the assertion and the tests pass."])
 def test_these_still_claim_it(sentence):
     assert "tests_pass" in [h.category for h in rules.find_claims(sentence)], sentence
+
+
+# ------------------------------------------------------------ the last run failed, and the next turn says it passed
+def _two_turns(tmp_path, first, second, reply):
+    rows = _rows(first)
+    rows.append({"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Here is where it stands."}]}})
+    more = _rows(second)
+    more[0]["message"]["content"] = "and now?"
+    p = tmp_path / "s.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows + more) + "\n", encoding="utf-8")
+    out = hooks.stop_hook({"transcript_path": str(p), "last_assistant_message": reply, "stop_hook_active": False})
+    return bool(out and out.get("decision") == "block")
+
+
+FAILED_RUN = sh("pytest -q", "FAILED (errors=1)\n1 failed, 3 passed in 1s")
+
+
+@pytest.mark.parametrize("reply", ["本地全量测试已通过，预计不会有问题。", "All tests pass.", "The tests are green."])
+def test_saying_it_passed_after_the_last_run_failed_is_held(tmp_path, reply):
+    assert _two_turns(tmp_path, [FAILED_RUN], [], reply)
+
+
+def test_a_later_look_does_not_change_that(tmp_path):
+    assert _two_turns(tmp_path, [FAILED_RUN], [sh("ls", "a")], "All tests pass.")
+
+
+@pytest.mark.parametrize("first,second,reply", [
+    ([FAILED_RUN, sh("pytest -q", "4 passed in 1s")], [], "All tests pass."),            # it passed in the end
+    ([sh("pytest -q", "4 passed in 1s")], [], "All tests pass."),
+    ([FAILED_RUN], [], "All tests pass except the known flaky failure."),                # it says so itself
+    ([FAILED_RUN], [], "The new test fails on main and passes on the branch."),
+    ([FAILED_RUN], [], "CI is green."),                                                  # about somewhere else
+])
+def test_these_are_not_held(tmp_path, first, second, reply):
+    assert not _two_turns(tmp_path, first, second, reply), reply
+
+
+def test_a_failed_lint_is_held_too(tmp_path):
+    assert _two_turns(tmp_path, [sh("ruff check .", "Found 4 errors.")], [], "Lint is clean.")
 
 
 # ------------------------------------------------------------ a background subagent hands over what it did before its latest report

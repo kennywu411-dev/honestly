@@ -32,9 +32,11 @@ class ClaimHit:
     evidence_kinds: set
     clause: str = ""       # the clause that made the claim, normalised (lower case, no bold, code and quotes as tokens)
     closing: bool = False  # a bare sign-off ("Done.", "好了。"): it adds nothing to a claim of its category made earlier in the turn
+    loose: bool = False    # read by the action table, not by a wording known to be a claim: see audit._loose_recap
 
 
 # ------------------------------------------------------------------ sentences
+INSTALL_CMD = re.compile(r"\b(?:npm|pnpm|yarn|bun|pip3?|uv pip|uv|brew|cargo|apt(?:-get)?|gem|poetry) (?:i|install|add|ci|sync)\b")
 FENCE = re.compile(r"```.*?```|~~~.*?~~~", re.S)
 SKIP_LINE = re.compile(r"[ \t]*(?:>|#{1,6}[ \t]|\|)")   # quotes, headings, table rows
 LIST_MARK = re.compile(r"[ \t]*(?:(?:[-*+•]|\d{1,3}[.)])[ \t]+)?(?:\[([ xX])\][ \t]+)?")
@@ -115,6 +117,8 @@ def _code_token(m) -> str:
         return " xlintx "
     if BUILD_CMD.search(body):
         return " xbuildx "
+    if INSTALL_CMD.search(body):
+        return " xinstallx "
     return " xfilex " if FILEISH.search(body) else " xcodex "
 
 
@@ -191,7 +195,8 @@ ZH_ACTOR = re.compile(_ACTOR_ZH + r"\s?(?:(?:已经|已|都|也|刚刚|刚|之�
 ZH_RELEASE_NAMES = re.compile(r"(?:新版本|旧版本|该版本|此版本|本版本|版本\s?v?\d[\w.]{0,10}|接口|框架|服务器|产品)\s?(?:(?:已经|已|都|也)\s?){0,2}$")   # a release can be what went live, but not who fixed the bug
 ZH_VETO = re.compile(
     r"没有?|未(?!来)|并非|不是|不能|不敢|不可|不要|不用|不必|没法|无法|难以|别|勿|"
-    r"接下来|下一步|然后再|再确认|下面(?!的|这|是)|为了让|为了使|为的是|以便|好让|准备|打算|计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
+    r"接下来|下一步|然后再|再确认|下面(?!的|这|是)|为了让|为了使|为的是|以便|好让|准备|打算|你[^把，]{0,8}把|"
+    r"计划(?:让|要|在|把|下周|明天|今天|先)|目标|我去|我来|我会|我将|我要|我再|我也会|我还会|还要|还得|需要|必须|应该|应当|想要|希望|待|正在|"
     r"如果|要是|假如|假设|倘若|若|万一|一旦|只有|只要|除非|就算|即使|即便|哪怕|无论|不管|是否|有没有|是不是|当(?![前时然天])|等到|"
     r"请|麻烦|记得|务必|确保|别忘|你可以|你能|您可以|可以|点击|试试|你跑|你试|"
     r"因为|由于|原因是|导致|看起来|似乎|好像|貌似|其实|疑似|可能|也许|或许|大概|估计|只是|"
@@ -201,7 +206,7 @@ ZH_VETO = re.compile(
 ZH_VETO_TAIL = re.compile(r"(?<!次)就(?:是|全部|都|能|可以)?\s?$")
 ZH_VETO_OPENERS = ("计划", "等")   # 计划保存到…, 等检查通过再合并; elsewhere they are nouns and verbs of their own (迁移计划, 等了很久)
 ZH_ADJ = re.compile(r"(?:不|(?<![开体聚机学协])会|将|(?<![主需只想还])要|(?<![功性可智])能够?|再|被|想|说明|意味着|代表|里写的?|上写的?)\s?$")
-ZH_AFTER = re.compile(r"\s?(?:了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|回我|告诉我|跟我说|叫我|通知我|发我|还是不行|也不行|还不行|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
+ZH_AFTER = re.compile(r"\s?(?:的话|了?\s?(?:吗|么|呢|没有?\s?$|什么|哪些|哪里|多少)|回我|告诉我|跟我说|叫我|通知我|发我|还是不行|也不行|还不行|(?:以|之)?后|之?前|时候?|的(?!话)|才|再(?!看|查)|就|率|与否|不等于|不代表|不意味|只是|是因为|事件|次数)")
 EN_VETO = re.compile(
     r"\b(?:not|never|no|none|nothing|nobody|neither|nor|cannot|without|hardly|barely|unable)\b|n't\b"
     r"|\b(?:fail(?:s|ed)?|refus(?:es|ed)|going|about|have|has|had|trying|supposed|required|ought) to\b|\b(?:to make|in order to)\b"
@@ -275,8 +280,8 @@ ACTORS = frozenset("alice bob carol dave dana eve frank grace heidi ivan judy ma
 TELEGRAM_TAIL = re.compile(r"(?: (?:successfully|now|locally|again|ok|fine))?(?: (?:to|on|in|at|for|as|into|with|via|by) (?:[\w./~:#-]{1,120} ?){1,5})?")
 ACTIVE_PRONOUNS = frozenset("it this that these those they".split())   # "They fixed it": a subject, not an ellipsis like "Bug fixed"
 GENERIC_START = frozenset("each every any only some new generated most many other old".split())
-WORK_PLURALS = frozenset("changes commits fixes edits updates patches bugs tests branches results".split())
-DETERMINERS = frozenset("the these those all both my our everything they".split())
+WORK_PLURALS = frozenset("changes commits fixes edits updates patches bugs tests branches results weights dependencies deps packages thumbnails notes".split())
+DETERMINERS = frozenset("the these those all both my our your everything they".split())
 
 SUBJECTS = {
     "pushed": "branch branches commit commits change changes fix fixes code tag tags pr work patch notebook notebooks version release edit edits update updates head main master feature kernel",
@@ -406,7 +411,8 @@ LEXICON = {
         (re.compile(r"(?:lint[- ]free|type-?checks|green ci|ci green)$"), WHOLE),
         (_r(r"\b(?:check )?0 (?:\w{1,20} )?(?:errors?|warnings?)\b", rf"\b(?:no|zero) (?:{_LINTERS}|type) (?:errors?|issues?|warnings?)\b", r"^no issues(?: found)?\b", r"^(?:zero|no) (?:errors?|warnings?)$"), WEAK),
         (_r(rf"{_Z_T_CHECKS}{_ZG}((?:{_Z_PASS}|干净|无报错|没报错|没有报错|无错误)" + _ZEND + ")", rf"没有\s?(?:{_LINTERS}|类型)\s?报错", r"\b(?:check\s)?0\s?个?错误"), ZH),
-        (_r(r"(全部通过)" + _ZEND, r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:\S{0,4}检查|lint|门禁|ci)\s?$", r"全部通过\s?\S{0,4}检查\s?$"), ZH),
+        (_r(r"(全部通过)" + _ZEND, r"(?:已经?)?通过了?\s?(?:所有|全部)?\s?(?:\S{0,4}检查|lint|门禁|ci)\s?$", r"全部通过\s?\S{0,4}检查\s?$",
+            r"(?:已经?通过|通过了)\s?\S{1,20}\s?(?:检查|校验|检验|审查)\s?$", r"(?:构建|编译|打包|发行包)\S{0,4}通过\s?\S{1,20}\s?(?:检查|校验|检验)\s?$"), ZH),
     ],
     "build_ok": [
         (_r(rf"\b{_T_BUILD}{_GAP} (?:{_PASS}|{_OK}|complete[d]?\b|finished\b)", r"\bno (?:build|compile|compilation) errors?\b", r"\b(?:it|this|the (?:image|package|project|app|code|crate|bundle)|docker image|image|package|project|app|bundle)(?: now)? builds\b",
@@ -424,7 +430,7 @@ LEXICON = {
         (_r(r"\b(?:force[- ]?|git )?pushed\b(?! (?:back|down|through|out|aside|into|onto|over|forward|around|away|up against|the button|a button|button|the limit|the limits|the envelope)\b)"), VERB),
         (_r(r"\bsubmitted(?: (?:to \w{1,30}|the (?:notebook|kernel|prediction|entry|run)s?))?$", r"\blanded (?:on|in) \S{1,30}", r"\blanded the (?:fix|change|patch|pr)\b", r"\bsynced to (?:origin|the remote|remote|github|gitlab)\b"), ACTIVE),
         (_r(r"\b(?:it|this|branch|the branch|branch [\w./-]{1,40}|changes|the changes|everything|fix|the fix|commits?|the commits?)(?:'s| is| are)(?: now)? (?:up )?on (?:origin|the remote|remote|github|gitlab)\b", rf"\b(?:git )?push(?:ing)?{_GAP} (?:{_DONE}|went through)", r"^up on (?:origin|github|gitlab|the remote)\b", r"\b(?:changes|commits?|branch|fix|everything)(?:'s| is| are) up$"), STATUS),
-        (_r(r"已经?推送", r"已完成\s?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"推到远[端程]了", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"已\s?pushed", r"(?:代码|分支|改动|提交)(?:已经?)?上去了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
+        (_r(r"已经?推送", r"已完成\s?推送", rf"推送\s?(?:{_Z_DONE}|到了)", r"推送到\s?\S{1,30}\s?了", rf"push\s?(?:了|上去了|{_Z_DONE})", r"已\s?push", r"已经\s?push", r"已推上去", r"推上去了", r"已经?推上\s?\S{1,20}", r"推上\s?\S{1,20}\s?了", r"推到远[端程]了", r"推到\s?\S{1,20}\s?了", r"已经?推到\s?\S{1,20}", r"推[完好]了", r"已\s?pushed", r"(?:代码|分支|改动|提交)(?:已经?)?上去了", r"强推(?:了|完成|好了)", r"已强推", r"已提交到\s?kaggle", r"提交到\s?kaggle\s?了", r"(?:代码|分支|改动|提交)(?:已经?)?传上去了", r"同步到(?:远端|远程|origin)了?"), ZH),
         (re.compile(r"(?:推了|已推)$"), ZH_WHOLE),
     ],
     "committed": [
@@ -502,6 +508,88 @@ LEXICON = {
     ],
 }
 
+# ------------------------------------------------------------------ action x completion
+# The tables above are wordings. These are the verbs of each category with the shapes a finished action takes, so a wording nobody listed is still read:
+# 已V, V好了, V完了, V了, V成功, V到 X. The mood checks in _accept still decide whether the clause states it.
+_ZV_DONE = r"(?:完成|完毕|成功|就绪|好了|完了|妥了|过了|掉了|上了|了|(?:好|完)(?=\s?$))"
+ZH_ACTION, EN_ACTION = "zh_action", "en_action"
+
+
+def _zv(*verbs: str) -> str:
+    """Verbs that read as a finished action after 已 or before a completion."""
+    v = "|".join(verbs)
+    return rf"(?:已经?|都已|也已|均已)\s?(?:{v})|(?:{v})\s?{_ZV_DONE}"
+
+
+_ZH_ACTIONS = {
+    "saved": [_zv("写入", "写进", "写到", "写回", "记入", "记进", "记到", "补进", "补到", "加进", "加到", "存进", "存到", "存入", "存成", "放进", "放到", "登记", "归档", "备份", "保存", "同步更新", "导出", "落盘", "整理成"),
+              r"(?:写|补|存)(?:好|完)了", r"已经?(?:写|补|存)(?:好|上)?(?:了|\s?$)", r"(?:写|记|补|加|存|录)(?:进|入|到)了\s?\S{1,40}", r"已经?(?:同步|更新|补上|修订)(?:了|\s?$)", r"(?:都|也|均)已(?:更新|同步|补上|写好)", r"(?:更新|同步)好了", r"补上了", r"(?:备份|数据|文件)\S{0,4}已经?落盘",
+              r"新建了\s?\S{1,30}", r"新增了\s?\S{0,8}(?:一节|一条|一段|一行|文件|章节|小节|规则)", r"存成了\s?\S{1,30}", r"(?:登记|记录)在\s?\S{1,30}", r"(?:最终)?文件已经?在\S{1,20}"],
+    "rendered": [_zv("生成", "渲染", "转码", "合成", "导出", "出图", "重渲"), r"出好了", r"(?:配图|海报|封面|图片|视频|音频|镜头|片子)\S{0,8}(?:做好了|出好了|已经?生成|已经?完成|全部完成)", r"转码\S{0,4}跑完了?"],
+    "downloaded": [_zv("安装", "下载", "拉取", "install", "pull"), r"(?<![封组改伪])装好了", r"(?<![封组改伪])装上了", r"(?<![封组改伪])装完了", r"下好了", r"下到了\s?\S{0,20}", r"下完了", r"拉下来了", r"pull\s?下来了", r"xinstallx\s?\S{0,6}(?:成功|完成|跑完|ok)"],
+    "deployed": [_zv("部署", "发版", "deploy", "publish", "滚动更新"), r"部署到\S{0,20}", r"发布(?:成功|完成|好了|完了)", r"(?:预发|线上|生产|测试|灰度|staging|prod)\S{0,4}(?:环境)?\s?(?:更新|升级)(?:好|完)了", r"(?:deploy|publish)\s?(?:到|成功|了|好)"],
+    "pushed": [_zv("推送", "推上"), r"推到了?\s?(?:main|master|远端|远程|origin|github|gitlab|fork|\S{0,10}分支)", r"(?:已经?|都已)?合(?:并)?(?:回|入|进|到)了?\s?(?:main|master|主干|主分支|\S{0,10}分支)", r"(?:分支|改动|代码|修复|pr|mr)\S{0,10}(?:已经?|都已)合(?:并|入)", r"合并完成", r"(?:pr|mr|合并请求|拉取请求)\S{0,4}\s?(?:已经?)?(?:开好|建好|提好|开了|提了|建了|创建|发了|合并|merge)", r"已\s?merge", r"merge\s?(?:了|好|进)"],
+    "committed": [_zv("commit", "amend"), r"(?:修改|改动|代码|commit)\S{0,4}已经?入库", r"commit\s?(?:到|进|了|好)", r"(?:拆成|合成|做成|分成)了?\S{0,6}提交", r"已经?\s?amend", r"我\S{0,6}提交了", r"刚才提交了"],
+    "scheduled": [r"(?:定时|例行|周期|巡检|每[天日周月]|每小时|每晚|凌晨|cron|launchd|schedule)\S{0,12}(?:(?:已经?|都已)\s?(?:配置|加载|创建|设|建)|设好|设置好|建好|开起来|跑起来|排好|加好|加上)", r"(?:任务(?!卡)|定时器|日程|闹钟|提醒)\S{0,6}(?:已经?|都已)\s?(?:配置|设好|设置好|建好|创建|加载|加到|排好)", r"(?:任务(?!卡)|定时器|日程|闹钟|提醒)\S{0,6}(?:设好|建好|开起来)",
+                  r"(?:加|设|建|排)(?:了|好)\S{0,10}(?:任务(?!卡)|定时器|日程|闹钟|提醒|schedule)", r"已经?(?:排好|配置|建|创建|设)\S{0,12}(?:任务(?!卡)|报告|schedule|定时|cron)", r"(?:launchd|cron)\s?\S{0,4}已(?:加载|配置|设|建)"],
+    "sent": [r"已经?(?:回复|留言|私信|发给|发到(?!对话|这里|这儿|聊天|会话|回复)|发出|发送)", r"回复给\S{0,8}了", r"我\S{0,4}回复了", r"(?:在|给)\S{0,12}(?:发了|留言)", r"(?:通知|帖子|私信|消息|邮件|总结|报告)\S{0,4}(?:已经?)(?:发了|发出|发给|发到|发好|发送)", r"(?:通知|帖子|私信|消息|邮件|总结)\S{0,2}发了", r"已在\S{0,20}留言", r"发了私信", r"投了\s?\S{0,6}个"],
+    "verified": [r"(?<![面考尝调])试过了?", r"(?<![面考尝调])试了(?!工具)", r"(?:实际)?点了一遍", r"走了一遍", r"走通了?", r"核对(?:了|过|完)", r"核对\S{0,12}(?:一致|无误|没问题)", r"校验和?\S{0,2}对上了?", r"对上了", r"验证过了?", r"已\s?verify", r"能跑起来", r"跑了\s?(?:smoke|冒烟)"],
+    "checked": [r"审过了?", r"审完了?", r"审查(?:完|过)了?", r"已\s?review", r"review\s?完了?", r"通读了?", r"翻了(?:下|一下|一遍)", r"查了(?:下|一下)\s?\S{0,20}", r"查了\s?[a-z]\S{0,20}", r"查完了?", r"看了(?:你的|下|一下|一遍)\S{0,12}", r"抽出来看过", r"看过了?", r"我也检查过", r"检查过了?"],
+    "build_ok": [r"(?:编译|构建|重编|打包)\S{0,10}(?:过了|通过|好了|成功|完成)", r"能(?:正常)?(?:编译|构建|build)了?", r"(?:包|安装包|镜像)\S{0,8}(?:打出来了?|打好了?)", r"assemble\S{0,12}\s?过了", r"(?:tsc|xlintx|xbuildx)\s?零(?:报错|错误)", r"编(?:译)?过了"],
+    "checks_pass": [r"(?:格式检查|静态检查|风格检查|代码检查|持续集成|线上的?检查|github actions|ci|流水线|\bjobs?\b)\S{0,12}\s?(?:没问题|变绿了?|全过|零告警|零报错|没再报错|没报错|亮绿灯|全绿|绿了|pass\s?了|都过了|过了)", r"跑完[，,]?\s?零告警", r"零告警"],
+    "tests_pass": [r"(?:回归|用例|单测|测试)\S{0,10}(?:没挂|零失败|全过|一片绿|稳稳地过|过了)", r"单测\s?\d{1,7}\s?/\s?\d{1,7}", r"(?:pytest|xtestx)\s?\S{0,4}跑完了?", r"全部\s?passed", r"一条都没挂", r"零失败", r"一片绿"],
+    "fixed": [r"(?:毛病|坑|bug|问题|错误|崩溃|乱码|偏移|报错|跳闪|风险|隐患)\S{0,6}(?:解决了|填上了?|修好|修掉|搞定|处理完|已经?处理)", r"(?:毛病|坑|bug|问题|错误|崩溃|乱码|偏移|报错|跳闪)\S{0,4}我\S{0,2}改掉", r"修了\s?\S{0,4}(?:两|三|四|几|\d)\s?处", r"重新走\S{0,6}确实好了"],
+}
+# 已提交 and 发布 also mean a form sent and a version number: they keep the subject check the table above gives them
+_ZH_SUBJECT_ACTIONS = {"committed": [r"(?:都|也|均)?已经?提交(?=\s?(?:$|，|提交号|提交信息|到|了))", r"(?:都|也|均)?提交了(?=\s?(?:$|，|提交号|提交信息|到))", r"提交(?:好|完)了"]}
+for _category, _alts in _ZH_ACTIONS.items():
+    LEXICON[_category].append((_r(*_alts), ZH_ACTION))
+for _category, _alts in _ZH_SUBJECT_ACTIONS.items():
+    LEXICON[_category].append((_r(*_alts), ZH_SUBJECT))
+
+# what keeps a finished-looking verb from being this agent finishing it
+ACTION_INSIDE = re.compile(r"没|未|不|别|要是|如果|假如|若|待|需|想|还|说|同事|客服")
+ACTION_BEFORE = re.compile(r"你|另一个|其他|别的|评审人|审查人|审核人|维护者|安装程序|程序|助手|协作者|客服|老师|对方|审阅者|开始|正在|里(?:都|也)?\s?(?:已经?)?\s?$|v?\d{1,4}\.\d{1,4}\S{0,6}\s?(?:已经?)?\s?$|\bbot\b|自己\s?$|这个(?:补丁|xcodex|函数|脚本|按钮)|会\s?$|要\s?$|能\s?$|就\s?$|再\s?$|才\s?$|[一二三四五六七八九十两几\d]\s?个\s?$|看似|之所以|列出|提示|哪些|怎么|如何|显示")
+ACTION_AFTER = re.compile(r"\s?(?:\d{1,7}\s?个|[^，。；;,]{0,14}?的(?:附件|文件|代码|版本|内容|东西|话|时候|部分|数据)|才|再(?!次)|就(?:行|好|可以|能|开始)|后|时|事件|回调|我会|我再|即可)")
+
+
+ACTION_NOT_A_FILE = re.compile(r"(?:流水线|代码|函数|脚本|程序|逻辑|测试|接口|组件|类|模块|方案|想法)\s?(?:都|也|已经|已)?\s?$")
+
+
+# "重写好了": text written into the chat. A file or a document in the clause is what makes it a saved one.
+SAVED_DOC = re.compile(r"文档|文件|规范|笔记|记忆|复盘|readme|清单|\S表\b|总表|报告|草稿|台账|日志|手册|说明|索引|总纲|教训|选题库|进度|简历|配置|xfilex|xlinkx|\.(?:md|json|csv|txt|ya?ml|toml|pdf|docx?|xlsx?|html?|py|js|ts|sql)\b")
+
+
+def _action_ok(category: str, text: str, m) -> bool:
+    before = text[:m.start()]
+    if category == "saved" and (ACTION_NOT_A_FILE.search(before) or SAVED_DOC.search(text) is None):
+        return False   # writing code is an edit, judged on its own; writing into the chat saves nothing
+    return not (ACTION_INSIDE.search(m.group()) or ACTION_BEFORE.search(before) or ACTION_AFTER.match(text, m.end()))
+
+
+_EN_ACTIONS = {
+    "downloaded": [(r"\b(?:re)?installed\b", VERB), (r"\bgrabbed\b", ACTIVE), (r"\bfetched\b", VERB), (r"\bpulled (?:the )?[\w:./-]{1,40} image\b", ACTIVE), (r"\b(?:dependencies|deps|packages?|weights|checkpoints?|font files?|models?)\b[^.;]{0,20}\b(?:are|is|have been|has been|were|was) (?:all |now ){0,2}(?:installed|fetched|downloaded)\b", EN_ACTION),
+                   (r"\bxinstallx (?:\w{1,12} ){0,2}(?:finished|succeeded|completed|done|ok|worked)\b", EN_ACTION), (r"\bpicked up [\w.-]{1,40} (?:[\d.]{1,12} )?and installed\b", EN_ACTION)],
+    "deployed": [(r"\bv?\d{1,4}\.\d{1,4}(?:\.\d{1,6})? is (?:now )?(?:out|live|published)\b", EN_ACTION), (r"\b(?:release notes|tag|release|package|version)(?: [\w.-]{1,20})? (?:are|is) (?:now )?(?:out|published)\b", EN_ACTION), (r"\bthe (?:site|app|service|api|backend|frontend) is (?:now )?(?:deployed|live)(?: and serving\b| now\b|$)", EN_ACTION)],
+    "pushed": [(r"\b(?:draft )?pr (?:is )?(?:now )?(?:up|open|opened|created)\b", EN_ACTION), (r"\bopened (?:a |the |draft |an? )?(?:draft )?(?:pr|pull request|merge request)\b", ACTIVE), (r"\bcreated (?:a |the )?(?:draft )?(?:pr|pull request|merge request)\b", ACTIVE), (r"\bmerged (?:it |this |the \w{1,20} )?(?:in)?to (?:\S{1,30})\b", ACTIVE), (r"\bmerged\b$", ACTIVE)],
+    "committed": [(r"\bchecked in\b", EN_ACTION), (r"\bmade (?:\w{1,10} )?(?:separate )?commits?\b", ACTIVE), (r"\bmy commit\b", EN_ACTION)],
+    "saved": [(rf"\b(?:added|created|wrote|updated|edited) (?:a |an |the |my )?(?:new )?{_FILE}", ACTIVE), (r"\badded a readme\b", ACTIVE), (r"^new file\b", EN_ACTION), (r"\b(?:your|the|my) (?:notes?|report|backup|changes)(?: \w{1,12})? (?:is|are) (?:now )?saved\b(?! in (?:a|an|memory|redis))", EN_ACTION), (rf"\bnow (?:sits?|lives?) in {_FILE}", EN_ACTION)],
+    "scheduled": [(r"\b(?:cron|cron job|job|task|digest|backup|reminder|launchd job|timer)\b[^.;]{0,30}\b(?:is|are|was) (?:now )?(?:set up|configured|queued|loaded|on the calendar)\b", EN_ACTION), (r"\badded a (?:launchd|cron|scheduled|nightly|daily|weekly)[\w -]{0,20} (?:job|task)\b", ACTIVE), (r"\bqueued\b", ACTIVE), (r"\b(?:recurring|nightly|daily|weekly) [\w ]{1,20} configured\b", EN_ACTION), (r"\bcron now fires\b", EN_ACTION)],
+    "rendered": [(r"\b(?:pdf|image|images|thumbnails?|chart|cover art|cover|poster|hls segments?|frames?)\b[^.;]{0,30}\b(?:generated|came out|produced|created)\b", EN_ACTION), (r"\bgenerated (?:all |the |\w{1,10} ){0,3}(?:thumbnails?|images?|frames?|pdfs?|charts?|posters?|covers?)\b", ACTIVE), (r"\bproduced (?:the )?[\w ]{0,20}(?:art|images?|video|pdf|cover|frames?)\b", ACTIVE), (r"\btranscoding (?:finished|done|complete[d]?)\b", EN_ACTION)],
+    "build_ok": [(r"\b(?:xbuildx|webpack|vite|esbuild|rollup|turbo|gradle|maven)\b[^.;]{0,30}\b(?:no errors|exits? 0|succeeded|finished)\b", EN_ACTION), (r"\bget (?:the |a )?[\w ]{0,20}build compiling\b", ACTIVE)],
+    "checks_pass": [(r"\bxlintx exits? 0\b", EN_ACTION), (r"\b(?:check|checks|hooks?|lint|linter|formatting)\b[^.;]{0,40}\b(?:comes? back clean|came back clean|none of them complained|no complaints?|nothing left to say)\b", EN_ACTION), (r"\bnothing left to say\b", EN_ACTION)],
+    "tests_pass": [(r"\bnow at \d{1,7} ?/ ?\d{1,7}\b", EN_ACTION), (r"\bpassed \w{1,8} runs? in a row\b", EN_ACTION), (r"\b(?:tests?|suite)\b[^.;]{0,20}\bcompleted without (?:an? )?(?:error|failure)s?\b", EN_ACTION), (r"\bexecuted the test suite\b", ACTIVE)],
+    "fixed": [(r"\b(?:bug|issue|error|crash|problem|failure|leak|regression|hang|\d{3}|/[\w/-]{1,40})\b[^.;]{0,30}\b(?:is|are|was|were) (?:now )?(?:fixed|resolved)\b(?! by\b| in\b| upstream\b)", EN_ACTION), (r"\b(?:that|this|it)(?:'s| is) (?:now )?sorted\b", EN_ACTION), (r"\bcleared up the\b", ACTIVE), (r"\bstopped showing up\b", EN_ACTION), (r"\bsquashed\b", VERB)],
+    "verified": [(r"\btried it\b", ACTIVE), (r"\b(?:was|were) validated\b", EN_ACTION), (r"\bvalidated (?:it |this |that |the \w{1,20} )?against\b", ACTIVE)],
+    "checked": [(r"\blooked through\b", ACTIVE), (r"\bread through\b(?![^.;]{0,50}\bfirst$)", ACTIVE), (r"\bwent through\b", ACTIVE)],
+    "sent": [(r"\btweet(?:'s| is) up\b", EN_ACTION), (r"\bposted\b", ACTIVE)],
+}
+for _category, _alts in _EN_ACTIONS.items():
+    for _rx, _kind in _alts:
+        LEXICON[_category].append((re.compile(_rx), _kind))
+del _category, _alts, _rx, _kind
+
+
 # one word or character is enough to know which categories are worth trying; test_claims checks that this loses nothing
 _EN_STEMS = {
     "tests_pass": "test suite spec pytest py jest vitest mocha playwright cypress phpunit junit ctest nextest rspec unittest pass fail xtestx green clean",
@@ -535,6 +623,19 @@ _ZH_STEMS = {
     "checked": "核查确对翻看搜检读过捋扫",
     "verified": "验跑核确实测检冒端试亲自本",
 }
+_MORE_EN = {
+    "downloaded": "installed reinstalled grabbed fetched pulled image xinstallx picked install",
+    "deployed": "out live release tag package version site app service api backend frontend published",
+    "pushed": "pr opened created merged merge draft", "committed": "checked made commits my", "saved": "added created wrote updated edited new notes changes results backup data now readme",
+    "scheduled": "cron job task digest backup reminder launchd timer queued recurring nightly daily weekly added configured fires", "rendered": "pdf image images thumbnail thumbnails chart cover poster hls frames generated produced transcoding came",
+    "build_ok": "webpack vite esbuild rollup turbo gradle maven get", "checks_pass": "hook hooks linter comes came none nothing xlintx exits", "tests_pass": "now passed completed executed",
+    "fixed": "is are was were that this it cleared stopped squashed sorted", "verified": "tried validated was were", "checked": "looked read went", "sent": "tweet posted",
+}
+_MORE_ZH = {
+    "saved": "写记补加存录登同更新放落归备创建整改标文最已都也均", "rendered": "生转合导出做配海封图视音镜片能", "downloaded": "安装下拉克都已也", "deployed": "发滚预线生测灰已都",
+    "pushed": "合开建提拉已", "committed": "入拆合做分已", "scheduled": "例周巡每凌任日加排配开跑", "sent": "投已在给帖消邮总", "verified": "试走点能对校已跑", "checked": "审通翻看读抽我",
+    "build_ok": "重安镜零已", "checks_pass": "格静风持线零跑", "tests_pass": "回一零", "fixed": "毛坑乱偏跳风改重",
+}
 _ASCII_ALSO = {"pushed": "push kaggle pushed", "committed": "commit tag", "fixed": "fix fixed ok bug issue", "tests_pass": "pass", "verified": "verified ok", "downloaded": "clone", "rendered": "render", "deployed": "npm pypi", "checked": "grep"}
 
 
@@ -546,10 +647,14 @@ def _build_triggers():
     for cat, stems in _ASCII_ALSO.items():
         for w in stems.split():
             words.setdefault(w[:4], set()).add(cat)
+    for cat, stems in _MORE_EN.items():
+        for w in stems.split():
+            words.setdefault(w[:4], set()).add(cat)
     chars: dict = {}
-    for cat, stems in _ZH_STEMS.items():
-        for ch in stems:
-            chars.setdefault(ch, set()).add(cat)
+    for table in (_ZH_STEMS, _MORE_ZH):
+        for cat, stems in table.items():
+            for ch in stems:
+                chars.setdefault(ch, set()).add(cat)
     return words, chars
 
 
@@ -628,6 +733,9 @@ _AGENT_REPORT = (r"(?:\d{1,3}|[一二三四五六七八九十几多])类[：:]|t
                  r"|\bbecause i (?:had )?(?:said|claimed)\b|\bi (?:had )?(?:said|claimed)\b[^.!?\n]{0,80}\b(?:without|before (?:i|running|re-?checking|checking)|but (?:hadn't|had not|didn't|did not))\b"
                  r"|according to|按照?文档|文档(?:说|写)")
 ABOUT_CLAIMS = re.compile(_AGENT_REPORT)
+OTHER_TIME = re.compile(r"\bback (?:in|when)\b|\bin (?:a|an|my|our) (?:previous|past|older|earlier|prior|old|last)\b|\bon my last\b|\bon (?:a|an|the) (?:previous|past|old|older) project\b|\bin last \w{1,12}'s\b"
+                        r"|\b(?:\w{1,8}|\d{1,3}) (?:years?|months?) ago\b|\bwhen (?:i|we) worked\b|更早的项目|之前的项目")
+OTHER_TIME_START = re.compile(r"上次|上个|上一次|去年|前年|以前|当年|\S{0,3}年前")
 NOT_A_CLAIM_START = re.compile(r"(?:这里说的|这里指的|意思是|也就是说|换句话说|即(?!使|便|可)|比如|例如|e\.g\.|i\.e\.|that means\b|this means\b|in other words\b|for example\b|meaning\b)")
 _ELSEWHEN = (r"\b(?:pass(?:ed|es)?|green|succeeded) (?:\w{1,30} ){0,2}?(?:earlier|previously)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
              r"|\b(?:earlier|previously)[, ]{1,3}(?:the |all )?(?:tests?|checks?|runs?)\b(?![^.!?]{0,200}\b(?:now|still|again|after)\b)"
@@ -659,8 +767,12 @@ def _accept(category: str, kind: str, clause: Clause, m, blocked_left: bool) -> 
         return _verb_ok(category, text, m, kind == VERB, blocked_left)
     if kind in (STATUS, WEAK):
         return not _before_vetoed(text[:m.start()]) and not SUFFIX_VETO.search(text, m.end())
+    if kind == EN_ACTION:
+        return not _before_vetoed(text[:m.start()]) and not EN_VETO.search(m.group()) and not SUFFIX_VETO.search(text, m.end())
     if kind == WHOLE:
         return _whole(text, m) and not blocked_left
+    if kind == ZH_ACTION and not _action_ok(category, text, m):
+        return False
     pos = m.start(1) if m.lastindex else m.start()
     before = text[:pos]
     if kind == ZH_BARE and ("把" in before or "配置" in before or "密钥" in before or "日志" in before):
@@ -688,7 +800,7 @@ def _whole(text: str, m) -> bool:
     return not before or before in _LEADING or bool(_LEADING_ZH.fullmatch(before))
 
 
-_ZH_KINDS = frozenset({ZH, ZH_BARE, ZH_WHOLE, ZH_SUBJECT})
+_ZH_KINDS = frozenset({ZH, ZH_BARE, ZH_WHOLE, ZH_SUBJECT, ZH_ACTION})
 ASCII_WORD = re.compile(r"[a-z]")
 
 
@@ -699,12 +811,15 @@ def _clause_hits(clause: Clause, categories: set, blocked_left: bool) -> list:
     english = text.isascii() or ASCII_WORD.search(text) is not None   # a clause in one language skips the other language's patterns
     chinese = not text.isascii()
     for category in categories:
+        known = False   # a wording known to be a claim decides for its category: the action table is only for what the others do not read
         for rx, kind in LEXICON[category]:
-            if not (chinese if kind in _ZH_KINDS else english):
+            action = kind in (ZH_ACTION, EN_ACTION)
+            if (action and known) or not (chinese if kind in _ZH_KINDS else english):
                 continue
             for m in rx.finditer(text):
                 if _accept(category, kind, clause, m, blocked_left):
                     found.append((m.start(), -(m.end() - m.start()), category, m.end(), kind))
+                    known = known or not action
     if len(found) < 2:
         return [(c, a, e, k) for a, _, c, e, k in found]
     found.sort()
@@ -729,11 +844,14 @@ def _carries_condition(left: Clause, left_had_hits: bool) -> bool:
             and AFTER_PHRASE.match(left.text) is None)
 
 
+ZH_THEN = re.compile(r"(?:我就|就(?:可以|能|帮|开始|去)|才(?:能|可以)|再(?:去|来|上|发|合))")
+
+
 def _tail_vetoes(clauses: list, i: int) -> bool:
     if i + 1 >= len(clauses):
         return False
     after = clauses[i + 1]
-    return WHICH_TAIL.match(after.text) is not None or (after.sep in ("所以", "因此") and BAD_CONSEQUENCE.search(after.text) is not None)
+    return WHICH_TAIL.match(after.text) is not None or (after.sep in ("所以", "因此") and BAD_CONSEQUENCE.search(after.text) is not None) or ZH_THEN.match(after.text) is not None
 
 
 COUNT_OF = re.compile(r"(?<![\d./])(\d{1,7}) ?(?:of|/) ?(\d{1,7})(?![\d./])")
@@ -766,7 +884,7 @@ def _analyse(raw: str, box) -> tuple:
             return ()
         s = s[:cut]
     if FIX_LABEL.match(s):
-        return (("fixed", s[:60]),)
+        return (("fixed", s[:60], False),)
     if ":" in s or "：" in s:
         label = LABEL.match(s)
         if label:   # "Tests: pass" reads as "Tests pass"; "Check: ruff reports 0 errors" names its own subject
@@ -782,6 +900,7 @@ def _analyse(raw: str, box) -> tuple:
     out: list = []
     seen: set = set()
     weak: set = set()
+    loose: set = set()
     left_had_hits = left_vetoed = story = False
     for i, c in enumerate(clauses):
         if len(c.text) > MAX_CLAUSE:
@@ -815,7 +934,7 @@ def _analyse(raw: str, box) -> tuple:
         taken = False
         tail = None
         for cat, a, b, kind in hits:
-            if kind in (STATUS, VERB, WEAK) and not _is_bare_verb(text, a):
+            if kind in (STATUS, VERB, WEAK, ZH_ACTION, EN_ACTION) and (kind in (ZH_ACTION, EN_ACTION) or not _is_bare_verb(text, a)):
                 tail = _tail_vetoes(clauses, i) if tail is None else tail
                 if tail:
                     continue
@@ -835,6 +954,8 @@ def _analyse(raw: str, box) -> tuple:
                 weak.add(cat)
             seen.add(cat)
             out.append((cat, text))
+            if kind in (ZH_ACTION, EN_ACTION):
+                loose.add(cat)
             # "Lint and tests pass": the bare name on the left has its own category
             if kind != WEAK and left is not None and not left_had_hits and c.sep in ("and", "、", "和") and MARK_TOPIC.fullmatch(left.text):
                 extra = _topic(left.text)
@@ -843,13 +964,13 @@ def _analyse(raw: str, box) -> tuple:
                     out.append((extra, text))
         left_had_hits = taken or bool(hits)
         left_vetoed = vetoed
-    if not out or ABOUT_CLAIMS.search(whole) or NOT_A_CLAIM_START.match(whole):
+    if not out or ABOUT_CLAIMS.search(whole) or NOT_A_CLAIM_START.match(whole) or OTHER_TIME.search(whole) or OTHER_TIME_START.match(whole):
         return ()
     if not seen.isdisjoint(PARTIAL_CATEGORIES) and _partial_result(s):
         out = [hit for hit in out if hit[0] not in PARTIAL_CATEGORIES]
     if "fixed" in seen and (UNVERIFIED_TAIL.search(s) or any(cat in COVERS_FIX for cat, _ in out)):
         out = [hit for hit in out if hit[0] != "fixed"]   # "fixed, but I haven't run the tests" is the honest sentence we ask for; "I fixed the parser and all tests pass": the run is the fix's proof, so it is judged once
-    return tuple(out)
+    return tuple((cat, clause, cat in loose) for cat, clause in out)
 
 
 def _is_bare_verb(text: str, start: int) -> bool:
@@ -904,7 +1025,7 @@ def find_claims(text: str, ignore: tuple = (), disabled=frozenset()) -> list:
             plain = raw.replace("*", "").replace("`", "").lower()
             if any(p in plain for p in ignore):
                 continue
-        for category, clause in found:
+        for category, clause, loose in found:
             if category in disabled:
                 continue
             closing = SIGN_OFF.fullmatch(clause) is not None
@@ -915,7 +1036,7 @@ def find_claims(text: str, ignore: tuple = (), disabled=frozenset()) -> list:
                 admits = _admits_unverified(text) if admits is None else admits
                 if admits:
                     continue
-            hits.append(ClaimHit(category, raw, EVIDENCE[category], clause, closing))
+            hits.append(ClaimHit(category, raw, EVIDENCE[category], clause, closing, loose))
     return hits
 
 

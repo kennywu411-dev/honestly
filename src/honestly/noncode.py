@@ -38,8 +38,8 @@ SPECS: dict[str, Spec] = {
         noun="download",
         heredoc=re.compile(r"\b(?:urlretrieve|urlopen|hf_hub_download|snapshot_download)\s?\(|\b(?:requests|httpx|session)\.(?:get|stream)\s?\(|\bdownload\w{0,30}\s?\(", _I)),
     "saved": Spec(
-        tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$"),
-        bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
+        tool=re.compile(r"^(Write|Edit|MultiEdit|NotebookEdit)$|^mcp__.*(?:update|create|write|save|upload|edit)", _I),
+        bash=re.compile(r"(>>?\s*\S|\s-o\s|--output|--out\b|\s-out\s|\btee\b|\bcp\b|\bmv\b|\bsed -i|\bperl -[a-z]*i|\bffmpeg\b|\bzip\b|\btar\b|write_text\(|\.write\(|savefig|to_csv|to_json|to_excel|\.save\()", _I),
         noun="write"),
     "checked": Spec(
         tool=re.compile(r"^(Read|Grep|Glob|WebSearch|WebFetch|ReadNotifications|mcp__.*(browser|chrome|computer|navigate|read_page|get_page_text|find)|mcp__.*(search|get_|list_|read)|ToolSearch)", _I),
@@ -163,7 +163,9 @@ def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: li
 
 
 # "Verified, it runs" takes a run. "Verified, the config says X" can be done by reading the config.
-SAYS_IT_RAN = re.compile(r"跑通|跑过|跑了|能跑|实测|测过|测了|试过|试了|\b(?:works?|working|ran|runs|tested|e2e|end[- ]to[- ]end|smoke[- ]test(?:ed)?)\b", _I)
+SAYS_IT_RAN = re.compile(r"跑通|跑过(?!\s?(?:grep|rg|ls|cat|find|git))|跑了(?!\s?(?:grep|rg|ls|cat|find|git))|能跑|实测|测过|测了|试过|试了"
+                         r"|(?<!how it )(?<!how this )(?<!how that )\bworks?\b(?! on\b)|\bworking\b|\bran (?:it|this|that|the (?:app|script|demo|code|program|binary|tests?|flow|pipeline))\b"
+                         r"|\b(?:it|this|that) runs\b|\btested\b|\be2e\b|\bend[- ]to[- ]end\b|\bsmoke[- ]test(?:ed)?\b", _I)
 ONLY_LOOKS = None   # rules.only_looks, set at import time
 
 

@@ -396,7 +396,7 @@ def session_tools(path: str):
     """Every tool call in the whole transcript, for "did anything in this session ever do that?". Hooks read only the end of a big file, and this must
     not miss an action far back. None when it cannot be known: a file too big to scan in a hook, a session continued from an earlier one, or one
     with linked sessions whose work it may be reporting."""
-    events = []
+    events, by_id = [], {}
     try:
         if os.path.getsize(path) > SESSION_SCAN_LIMIT:
             return None
@@ -404,7 +404,7 @@ def session_tools(path: str):
             for line in fh:
                 if any(mark in line for mark in NOT_ALL_HERE):
                     return None
-                if '"tool_use"' not in line:
+                if '"tool_use"' not in line and '"tool_result"' not in line:
                     continue
                 try:
                     r = json.loads(line)
@@ -416,6 +416,10 @@ def session_tools(path: str):
                     if isinstance(b, dict) and b.get("type") == "tool_use":
                         name = _tool_name(b.get("name"))
                         events.append(Event("tool", name=name, text=_summarize_input(name, b.get("input"))))
+                        by_id[b.get("id", "")] = events[-1]
+                    elif isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") in by_id:
+                        e = by_id[b["tool_use_id"]]
+                        e.result, e.is_error = _raw_result(b)[-8000:], bool(b.get("is_error"))
     except OSError:
         return None
     return events

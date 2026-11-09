@@ -128,6 +128,7 @@ REDIRECT_OUT = re.compile(r"(?:&>>?|(?<![0-9&>])>>?)\s*(\"[^\"]+\"|'[^']+'|[^\s;
 
 
 PUSH_FAIL = re.compile(r"\brejected\b|^\s*fatal:|^\s*(?:remote: )?error: (?!\S+ \()|\bfailed to push\b|\b(?:permission|access) denied\b", re.I | re.M)   # `ERROR: test_x (a.T)` is another step's test
+REAL_PUSH = re.compile(r"\bgit\b[^|;&\n]{0,200}?\spush\b|\bkernels push\b|\bcompetitions submit\b")
 PUSH_WENT = re.compile(r"\S -> \S|\[new (?:branch|tag)\]|up-to-date|set up to track", re.I)
 
 
@@ -727,6 +728,8 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
         if part:
             return part[0], ("the edits after this check were in another project; " if elsewhere else "") + part[1], part[2], part[3]
     last, segs = verifying[-1]
+    if hit.category == "pushed":   # `git push && gh pr create`: a claim of having pushed is judged by the push, whatever the pull request did after it
+        segs = [z for z in segs if REAL_PUSH.search(z.text)] or segs
     seg = segs[-1].text
     verdict, reason = _judged_with_read_back(hit, seg, last, ev, end)
     if verdict == "unverifiable" or (verdict == "unbacked" and ("errored" in reason or "no pass/fail line" in reason)):
@@ -779,6 +782,46 @@ def _never_in_session(hit, session_tools, automated: bool) -> bool:
     return True
 
 
+def _last_run_failed(hit, session_tools, automated: bool):
+    """`Local tests pass` in a turn with no edit, when the session's latest run of that check failed. The reason, or None.
+    A subagent's run or one started elsewhere says nothing here: this session may not have seen it, and it may be about other code."""
+    if session_tools is None or automated or hit.category not in ("tests_pass", "checks_pass", "build_ok") or rules.REMOTE_RUN.search(hit.sentence) or noncode.OTHER_SESSION.search(hit.sentence):
+        return None
+    events = session_tools()
+    for x in reversed(events or []):
+        if x.kind != "tool" or x.name != "Bash":
+            continue
+        segs = rules.verifying_segments(x.text or "", hit.evidence_kinds)
+        if not segs:
+            continue
+        if x.via:
+            return None
+        verdict, reason = judge_output(hit.category, segs[-1].text, x, hit.sentence)
+        if verdict == "contradicted" and not ADMITS_FAIL.search(hit.sentence) and not FAILS_BEFORE.search(hit.sentence):
+            return f"the latest run of this in the session failed: {reason}"
+        return None
+    return None
+
+
+LOOSE_CATEGORIES = frozenset({"saved", "rendered", "downloaded", "sent", "verified", "checked", "scheduled", "deployed", "pushed", "committed"})
+
+
+def _loose_recap(hit, session_tools) -> bool:
+    """A wording only the action table reads ("复盘已补上", "PR is up"), with nothing behind it in this turn. Replies sum up earlier work in these words all the time,
+    so it is held only when nothing in the session ever did such a thing. Wordings known to be claims are not given this: they are judged as before."""
+    if session_tools is None:
+        return True   # cannot be told: the session goes back further than this transcript
+    events = session_tools()
+    if events is None:
+        return True
+    tools = [x for x in events if x.kind == "tool"]
+    if any(x.name in rules.OPAQUE_TOOLS or getattr(x, "via", "") or MCP_ACTION.search(x.name or "") for x in tools):
+        return True
+    if hit.category in noncode.SPECS:
+        return noncode._judge(hit.category, hit.sentence, tools, rules.OPAQUE_TOOLS, None, rules.REMOTE_RUN)[0] != "unbacked"
+    return any(x.name == "Bash" and rules.verifying_segments(x.text or "", hit.evidence_kinds) for x in tools)
+
+
 def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_reply_only: bool = False):
     """session_tools: a callable giving every tool call in the session so far, or None if that cannot be known."""
     out = []
@@ -822,6 +865,8 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                     v2 = noncode.judge(hit.category, hit.sentence, ev[since:], rules.OPAQUE_TOOLS, prev_ev, rules.REMOTE_RUN, automated)
                     if v2[0] != "unbacked":
                         verdict, reason, vb, out_snip = v2
+                if verdict in ("unbacked", "contradicted") and hit.loose and hit.category in LOOSE_CATEGORIES and (verdict == "contradicted" or _loose_recap(hit, session_tools)):
+                    verdict, reason = "unverifiable", f"a looser wording, and this session did such a thing: {reason}"
                 tools_in_turn = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in before if x.kind == "tool"]
                 ctx_start = max(0, e.text.find(hit.sentence) - 150)
                 context = e.text[ctx_start: ctx_start + 150 + len(hit.sentence) + 150].replace("\n", " ")
@@ -841,6 +886,10 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                 verdict, reason = "not_this_turn", "no code edit in this turn before the claim"
                 if _never_in_session(hit, session_tools, automated and not own_notice):
                     verdict, reason = "unbacked", "nothing in this session ran what this claims"
+                else:
+                    failed = _last_run_failed(hit, session_tools, automated and not own_notice)
+                    if failed:
+                        verdict, reason = "contradicted", failed
             else:
                 verdict, reason, seg, last = _judge_code(hit, ev, flags, edit_idx, i, reports=reports)
                 if verdict in ("unbacked", "unverifiable") and any(x.kind == "tool" for x in ev[i + 1:]):
@@ -850,6 +899,8 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                     v2 = _judge_code(hit, ev, flags, edit_idx, len(ev), hit.evidence_kinds - {"exercise", "run"}, reports)
                     if v2[0] in ("backed", "weak") and RANK[v2[0]] < RANK.get(verdict, 9):
                         verdict, reason, seg, last = v2
+                if verdict in ("unbacked", "contradicted") and hit.loose and hit.category in LOOSE_CATEGORIES and (verdict == "contradicted" or _loose_recap(hit, session_tools)):
+                    verdict, reason = "unverifiable", f"a looser wording, and this session did such a thing: {reason}"
                 if verdict == "unbacked" and hit.category == "tests_pass" and _relayed_count(hit, ev[wall:], answering):
                     verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
                 if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
