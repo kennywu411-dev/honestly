@@ -221,7 +221,8 @@ EN_VETO = re.compile(
     r"|\b(?:to|be|being)\s*$"
     r"|(?:^|[,;] ?)you\b|\byou(?: should| will| can| could| may| might| need| must| would|'ll)\b"
     r"|^(?:please |now )?(?:check|ensure|make sure|be sure|confirm|verify|see|wait|remember|validate|go ahead|don't forget)\b"
-    r"|^(?:please |now )?(?:run|try|test(?! suite)|use|set|rename|merge(?! conflict)|add|save|send|deploy|push|commit|fix|install|update|create|open|click|press|keep|look|read)\b\s+\S")
+    r"|^(?:please |now )?(?:run|try|test(?! suite)|use|set|rename|merge(?! conflict)|add|save|send|deploy|push|commit|fix|install|update|create|open|click|press|keep|look|read)\b\s+\S"
+    r"|^(?:please |now )?(?:click|tap|press|select|choose|open)\s*$")   # `Click Scheduled`: the name of a screen. Only verbs that are no work's name: `Deploy succeeded`, `Test passed` are claims
 REPORTED = re.compile(r"\b(?:say|says|said|reports|reported|shows|showed|lists|displays|prints|logs)\b")
 TOOL_SUBJECT = re.compile(r"(?:^|\s)(?:the )?(?:output|run|log|summary|result|xtestx|xlintx|xbuildx|pytest|jest|vitest|mocha|ruff|mypy|pyright|eslint|tsc|clippy|flake8|pylint|shellcheck|cargo|go|npm|ci)\s*$")
 AFTER = re.compile(r"\b(?:after|before)\b")
@@ -230,6 +231,17 @@ QUESTION_START = re.compile(r"(?:is|are|was|were|did|does|do|has|have|had(?! a l
 LEADING_CONDITION = re.compile(r"(?:if|once|when|whenever|after|as soon as|assuming|provided|unless|until|before|even if|suppose|per|according to)\b|如果|要是|假如|假设|倘若|万一|一旦|只要|只有|除非|就算|即使|即便|哪怕|等到")
 PAST_FIRST_PERSON = re.compile(r"(?:once|after|when|before) (?:i|we)\b")
 OTHER_SUBJECT = re.compile(r"(?:the|a|an|this|that|these|those|he|she|they|you|someone|somebody|everyone|nobody|his|her|their|your)\b|(?!i\b|we\b|also\b|then\b|just\b|now\b)[a-z][\w-]{0,30} [a-z]{1,30}ed\b")
+
+
+# 在左侧边栏打开定时任务（Scheduled）: a step for the reader, and the English word is the name of a screen. Only right after the step's verb, with nothing
+# around it that says the step was taken or what came of it, and only for an English word: 打开页面确认已部署 goes through the Chinese wordings as before.
+ZH_STEP = re.compile(r"^(?:先|再|然后|接着|最后)?\s?(?:在[^，,；;。！!？?]{0,30}?)?(?:打开|点开|点击|点进|选择|选中|进入|切到|切换到|前往|转到)")
+ZH_STEP_DONE = re.compile(r"[已了过我完都把并]|(?<!然)后|全部|确认|看到|显示|成功")
+
+
+def _zh_step_names_screen(prefix: str, tail: str) -> bool:
+    m = ZH_STEP.match(prefix)
+    return bool(m) and not ZH_STEP_DONE.search(prefix) and not ZH_STEP_DONE.search(tail) and not re.search(r"[a-z]", prefix[m.end():])
 
 
 def _zh_vetoed(prefix: str) -> bool:
@@ -349,7 +361,7 @@ def _passive_ok(category: str, toks: list, tail: str) -> bool:
 def _verb_ok(category: str, text: str, m, passive: bool, blocked_left: bool) -> bool:
     """A verb in the past: fine bare or after I/we, and, when `passive`, after a subject about the work."""
     prefix, tail = text[:m.start()], text[m.end():]
-    if _before_vetoed(prefix) or (not prefix.isascii() and ZH_ACTOR.search(prefix) is not None):
+    if _before_vetoed(prefix) or (not prefix.isascii() and ZH_ACTOR.search(prefix) is not None) or _zh_step_names_screen(prefix, tail):
         return False
     toks = prefix.split()
     while toks and toks[-1] in ADVERBS:
@@ -909,6 +921,23 @@ def _earlier_topic(clauses: list, i: int, out: list):
     return out[-1][0] if out and out[-1][0] in PARTIAL_CATEGORIES else None   # "47 passed，全部通过": the same result said twice
 
 
+SCREEN_NAME = re.compile(r"[A-Z][A-Za-z]{1,30}")
+CLAUSE_END = re.compile(r"[，,；;。！!？?]")
+
+
+def _without_screen_names(s: str, raw: str) -> str:
+    """打开定时任务（Scheduled）: the capitalised word in brackets is what the step's screen is called, not a result said on its own. `s` is lower case by now, so `raw` says which."""
+    names = {x.strip().lower() for x in PAREN.findall(raw) if SCREEN_NAME.fullmatch(x.strip())}
+    if not names:
+        return s
+
+    def keep(m):
+        before, after = CLAUSE_END.split(s[:m.start()])[-1].strip(), CLAUSE_END.split(s[m.end():])[0]
+        return " " if m.group(1).strip() in names and _zh_step_names_screen(before, after) else m.group(0)
+
+    return PAREN.sub(keep, s)
+
+
 @functools.lru_cache(maxsize=4096)
 def _analyse(raw: str, box) -> tuple:
     """(category, clause text) for each claim of a sentence, as written. The checks that look at the whole sentence run only once a clause has claimed something."""
@@ -930,6 +959,7 @@ def _analyse(raw: str, box) -> tuple:
         if label:   # "Tests: pass" reads as "Tests pass"; "Check: ruff reports 0 errors" names its own subject
             s = s[label.end():] if label.group(1) in ("check", "checks") and not BARE_STATUS.match(s[label.end():]) else label.group(1) + " " + s[label.end():]
     if "(" in s or "（" in s:
+        s = _without_screen_names(s, raw)
         inside = PAREN.findall(s)
         s = PAREN.sub(" ", s).strip(TRIM)
         s = WS.sub(" ", "；".join([s] + inside))

@@ -502,6 +502,13 @@ def _code_shell_lines(code: str) -> list:
 
 
 TEMP_PATH = re.compile(r"^(?:/private/tmp/|/tmp/|/var/tmp/|/dev/shm/|/var/folders/)|(?:^|[\\/])scratchpad(?:[\\/]|$)|AppData[\\/]Local[\\/]Temp|[\\/]Temp[\\/]claude|^\$\{?TMPDIR|^[A-Za-z]:[\\/](?:Temp|tmp)[\\/]")
+def _expand_home(path: str) -> str:
+    """`~/proj/app.py` is the person's own folder. Where the home folder itself lives under a temp directory (a container's HOME=/tmp/home), the expanded
+    path would read as scratch to every rule after this one, so it stays as written."""
+    out = _sh.expanduser(path)
+    return path if out != path and TEMP_PATH.search(out.replace("\\", "/")) else out
+
+
 WRITE_ARG = re.compile(r"\bopen\(\s*(?P<a>[^,()]+?(?:\([^()]*\)[^,()]*?)?)\s*,\s*(?:mode\s*=\s*)?['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]"
                        r"|\((?P<g>[^()]*\([^()]*\)[^()]*)\)\.write_(?:text|bytes)\("
                        r"|(?P<b>\b[\w.]+(?:\([^()]*\))?)\.write_(?:text|bytes)\("
@@ -556,7 +563,7 @@ def _write_paths(code: str, whole_cmd: str, argv: list) -> list:
         lits = QUOTED_PATH.findall(expr)
         if lits:   # `os.path.join(base, 'report.md')`: the file's name decides what it is
             path = lits[-1] if path is None or path == lits[-1] else path.rstrip("/") + "/" + lits[-1]
-        out.append(None if path is None else _sh.expanduser(_sh.resolve(path, env)))
+        out.append(None if path is None else _expand_home(_sh.resolve(path, env)))
     return out
 
 
@@ -656,7 +663,7 @@ def _target_counts(t, authored: bool, u, whole_cmd: str = "") -> bool:
     path = t
     if cwd and not t.startswith(("/", "~")) and not re.match(r"[A-Za-z]:[\\/]", t):
         path = os.path.join(cwd, t)
-    path = _sh.expanduser(path)
+    path = _expand_home(path)
     if cwd and TMP_CWD.search("cd " + cwd):
         return False
     if path_is_doc(path):

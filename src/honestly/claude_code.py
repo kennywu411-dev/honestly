@@ -41,6 +41,11 @@ class Turn:
     agent: str = "claude-code"
     model: str = ""
     project: str = ""
+    latest_prompt: str = ""   # the last message a person sent while this turn was running: what a catch quotes, and nothing a verdict reads
+
+    @property
+    def asked(self) -> str:
+        return self.latest_prompt or self.prompt
 
 
 def _tool_name(name) -> str:
@@ -206,6 +211,17 @@ OWN_TASK = re.compile(r"<tool-use-id>([\w-]+)</tool-use-id>")
 TASK_ID = re.compile(r"<task-id>([\w-]+)</task-id>")
 
 
+def _sent_mid_turn(attachment) -> str:
+    """What a person typed while the assistant was working: Claude Code hands it over as an attachment, inside the turn that was already running.
+    A background task's notice and another session's message come the same way, and no person sent those."""
+    if not isinstance(attachment, dict) or attachment.get("type") != "queued_command" or (attachment.get("origin") or {}).get("kind") != "human":
+        return ""
+    prompt = attachment.get("prompt")
+    if isinstance(prompt, list):
+        prompt = " ".join(str(b.get("text") or "") for b in prompt if isinstance(b, dict) and b.get("type") == "text")
+    return prompt.strip() if isinstance(prompt, str) else ""
+
+
 def _is_prompt(r: dict, content, origin: dict) -> bool:
     """A request a person made: what a turn starts with. Everything else that arrives as a `user` row (a tool's result, a task notification,
     a compaction summary, a skill's text, another session's message) happens inside the turn that person's request began."""
@@ -254,6 +270,11 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
         if t == "system" and r.get("subtype") in ("stop_hook_summary", "turn_duration"):
             if cur is not None:
                 cur.events.append(Event("mark", name="stopped", ts=ts))   # what came before this went through a stop as a reply of its own
+            continue
+        if t == "attachment":
+            sent = _sent_mid_turn(r.get("attachment"))
+            if sent and cur is not None:
+                cur.latest_prompt = sent[:2000]
             continue
         if t == "user":
             if isinstance(content, list):

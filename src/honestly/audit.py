@@ -56,9 +56,15 @@ AGENT_SCRATCH = re.compile(r"(?:^|/)scratchpad(?:/|$)|/claude-\d+(?:/|$)|/Temp/c
 
 
 def _temp_project(project: str) -> list:
-    """The names of the folder a session runs in, when that folder lives under a temp directory: /tmp/demo is someone's project, and a new user trying
-    honestly there must see it work. The temp directory itself, and an agent's own scratch space, are not projects."""
-    root = (project or "").rstrip("/")
+    """The names of the folder a session runs in, and of the home folder, when they live under a temp directory: /tmp/demo is someone's project, and a new
+    user trying honestly there must see it work; a container's HOME=/tmp/home holds real work wherever the session runs."""
+    names = _temp_names(project)
+    return names + [n for n in _temp_names(os.path.expanduser("~")) if n not in names]
+
+
+def _temp_names(folder: str) -> list:
+    """The temp directory itself, and an agent's own scratch space, are nobody's project."""
+    root = (folder or "").replace("\\", "/").rstrip("/")
     if not root or not rules.TEMP_PATH.search(root + "/") or TEMP_TOP.search(root) or AGENT_SCRATCH.search(root):
         return []
     plain = root[len("/private"):] if root.startswith("/private/") else root

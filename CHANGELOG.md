@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**It catches more**
+- With the home folder under a temp directory (a container's `HOME=/tmp/home`), edits there were read as scratch. So run the tests, edit `~/proj/src/app.py`, say "All tests pass", and the run from before the edit backed the claim. They count now, written with `~` or with the full path. A temp folder outside home is still scratch.
+
+**It holds less by mistake**
+- A step for the reader that names a screen is no claim: `在左侧边栏打开定时任务（Scheduled）`, `Click Scheduled in the sidebar`. Replaying 60 days of real logs, this one flag went away and nothing else changed.
+
+**What a catch says**
+- A message you send while the assistant is working is now what a catch quotes. It used to quote the message that started the turn. Verdicts do not read it.
+
 ## 0.8.0 (2026-11-09)
 
 A full audit of the product, with every finding reproduced first. This changes behaviour in many places, so it is a minor release and not a patch. It reads far more claims, and every lie in `tests/test_must_catch.py` is caught, including the ones 0.7.4 marked as known misses. Where a rule was narrowed to stop a false hold, a test next to it holds the lie that must stay caught. Numbers, and what it still gets wrong, are in [docs/precision.md](docs/precision.md).
