@@ -46,6 +46,7 @@ jobs:
   publish:
     name: publish to PyPI
     needs: build
+    if: vars.PYPI_TRUSTED_PUBLISHER == 'true'   # off until the owner has set it up on PyPI: see docs/release.md
     runs-on: ubuntu-22.04
     environment:
       name: pypi

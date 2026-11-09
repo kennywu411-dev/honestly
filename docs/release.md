@@ -13,6 +13,8 @@ These are settings on GitHub and PyPI, so no file in this repository can make th
 | Workflow name | `release.yml` |
 | Environment name | `pypi` |
 
+Then set the repository variable `PYPI_TRUSTED_PUBLISHER` to `true` (Settings > Secrets and variables > Actions > Variables). Until it is set, the `publish to PyPI` job is skipped and a release is uploaded by hand.
+
 After the first release published this way works, on https://pypi.org/manage/account/token/ revoke the API token used for uploads, and remove any copy of it from your machine (`~/.pypirc`, environment variables, keychain).
 
 **GitHub environment** (Settings > Environments > New environment, named `pypi`):
@@ -40,7 +42,7 @@ After the first release published this way works, on https://pypi.org/manage/acc
 
 1. Update `version` in `pyproject.toml` and `.claude-plugin/plugin.json`, and `CHANGELOG.md`. Merge to `main`.
 2. Tag it, signed: `git tag -s v0.8.0 -m "honestly 0.8.0"`, then `git push origin v0.8.0`.
-3. The `release` workflow tests, builds and waits for your approval on the `pypi` environment. Approve it.
+3. The `release` workflow tests, builds and waits for your approval on the `pypi` environment. Approve it. If `PYPI_TRUSTED_PUBLISHER` is not set yet, the publish job is skipped: build from the tag and upload with `twine upload dist/*`.
 4. Check https://pypi.org/project/honestly/ shows the version and its provenance, then create the GitHub release: `gh release create v0.8.0 --verify-tag --notes-from-tag`.
 
 ## Checking a build

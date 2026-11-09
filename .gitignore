@@ -4,3 +4,4 @@ dist/
 build/
 .venv/
 .honestly-labels/
+.DS_Store
