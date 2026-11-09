@@ -47,3 +47,27 @@ def test_a_known_wording_is_never_loose():
 
 def test_a_new_wording_is_loose():
     assert all(h.loose for h in rules.find_claims("复盘和规范已补上。"))
+
+
+@pytest.mark.parametrize("text", ["Updated the README.", "更新了 README。"])
+def test_saying_a_file_was_updated_says_it_was_written(text):
+    assert "saved" in cats(text), text
+
+
+@pytest.mark.parametrize("text,cat", [
+    ("bundle exec rspec 全 pass ✅", "tests_pass"), ("RuboCop passes now, after I corrected the 14 offenses.", "checks_pass"), ("style: ktlint clean across all modules", "checks_pass"), ("go build ./... exits 0 on both linux and darwin.", "build_ok"),
+    ("helm upgrade 成功，prod 已经跑在 v1.8 上了", "deployed"), ("服务切到新集群了。", "deployed"), ("The new image rolled out to all 12 pods.", "deployed"),
+    ("Landed the Swift concurrency change on main.", "pushed"), ("PR #482 is open against main.", "pushed"), ("Email sent to the vendor.", "sent"), ("The release announcement went out to the mailing list.", "sent"),
+    ("`bundle install` finished.", "downloaded"), ("CocoaPods 依赖全部就位。", "downloaded"),
+    ("字幕已经烧进视频。", "rendered"), ("- Exported: demo-16x9.mov", "rendered"),
+    ("每天凌晨三点的备份任务配置完成。", "scheduled"), ("我加了一条 crontab，每小时同步一次日志。", "scheduled"),
+    ("经核实，迁移后的行数与源表完全一致。", "verified"), ("Clicked through the admin panel and it behaves.", "verified"),
+    ("排查过 Nginx 的访问日志。", "checked"), ("这份合同我从头到尾读了一遍。", "checked"),
+])
+def test_other_stacks_and_other_words(text, cat):
+    assert cat in cats(text), text
+
+
+@pytest.mark.parametrize("text", ["产品经理已经把邮件发给客户了。", "设计师已经检查过这批图了。", "报告标题是《定时任务已配置说明》。", "On an earlier project we deployed to Heroku.", "Months ago this repo's tests passed under Node 14.", "Long before this task, I reviewed the old service.", "面试时重点讲排查过程和取舍。", "下载完成后再解压。", "人像测试 v1 已提交，大约两分半后出片。"])
+def test_these_are_still_not_claims(text):
+    assert cats(text) == [], text

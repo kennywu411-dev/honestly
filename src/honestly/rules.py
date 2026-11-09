@@ -982,7 +982,21 @@ def bash_is_edit(cmd: str) -> bool:
     """Does this command change code? Decided command by command, each by what it writes and where."""
     if not isinstance(cmd, str):
         return False
-    return any(_unit_is_edit(u, cmd) for u in _sh.units(cmd))
+    return bool(_edit_units(_sh.units(cmd), cmd))
+
+
+_SWITCH_BRANCH = re.compile(r"\s*git(?:\s+-[cC]\s+\S+)*\s+(?:switch|checkout)\b(?![^|;&\n]*\s--(?:\s|$))")
+_PUBLISHED = re.compile(r"\bgit\b[^|;&\n]{0,200}?\spush\b|\bgh pr create\b")
+
+
+def _edit_units(units, cmd: str) -> list:
+    """Where this command changes code, by position. `git push && git checkout main`: leaving a branch once it is published changes nothing the work claimed."""
+    out, published = [], False
+    for i, u in enumerate(units):
+        if _unit_is_edit(u, cmd) and not (published and _SWITCH_BRANCH.match(u.text)):
+            out.append(i)
+        published = published or _PUBLISHED.search(u.text) is not None
+    return out
 
 
 _LOOKS = {"ls", "ll", "la", "dir", "tree", "cat", "bat", "less", "more", "head", "tail", "ghead", "gtail", "grep", "egrep", "fgrep", "rg", "ag", "wc", "find", "fd", "stat", "file", "du", "df",
@@ -1029,7 +1043,7 @@ VERIFY = {
                        r"|npm (run )?test|pnpm (run )?test|yarn (run )?test|bun (run )?test|deno test|manage\.py test|(?:bin/)?rails test|artisan test|\bjust test|hatch run test|pdm (run )?test|npx (jest|vitest|mocha|ava|playwright test|cypress run)|\bjest\b|\bvitest\b|\bmocha\b"
                        r"|\bgo test\b|cargo test|cargo nextest|\bcargo t\b|\bnpm t\b|\bpy\.test\b|bazel test|\bgotestsum\b|\bsbt\b[^|;&\n]*\btest\b|\bdart test\b|node\s+(?:-\S+\s+)*--test\b|mvnw?\b[^|;&\n]*\s(?:test|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:test|check)\b|dotnet test|swift test|xcodebuild test|flutter test|mix test|bundle exec rspec|\brspec\b|rake test|\bphpunit\b|\bpest\b|\bctest\b|make test|make check|\binvoke-pester\b"
                        r"|(?:(?:^|[\s;&|(])(?:\S*/)?(?:python[\d.]*|uv run(?:\s+python[\d.]*)?|poetry run(?:\s+python[\d.]*)?|pipenv run(?:\s+python[\d.]*)?|hatch run|pdm run|node|bun|deno run|bash|sh|zsh|ruby|go run|tsx)\s+(?:-\S+\s+)*|^\s*|(?<![\w/.-])\./)(?:[\w.~/-]*/)?(?:eval\.py|[\w-]*_test\.(?:go|py|ts|js)|[\w-]*test[\w-]*\.(?:sh|py)|check[\w-]*\.sh|run_tests[\w.]*|validate[\w-]*\.py|check[\w-]*\.py|verify[\w-]*\.py|gate\.py)\b|gh pr checks|gh run (view|list|watch)|statusCheckRollup)", re.I),
-    "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check"
+    "build": re.compile(r"(\btsc\b|\beslint\b|prettier --check|\bbiome\b|\bruff\b|\bmypy\b|\bpyright\b|black --check|\bflake8\b|\bpylint\b|\bisort --check|\brubocop\b|\bktlint\b|\bdetekt\b|\bswiftlint\b|\btflint\b|terraform (?:fmt|validate)\b|\bcheckstyle\b|\bspotbugs\b|\bstaticcheck\b|\bcppcheck\b|\bclang-tidy\b|\bhadolint\b|\bphpstan\b|\bpsalm\b|\bstylelint\b|\bsrb tc\b|dotnet format\b"
                         r"|npm run build|pnpm (run )?build|yarn (run )?build|(?:npm run|pnpm( run)?|yarn( run)?) (?:lint|typecheck|type-check)\b|vite build|next (?:build|lint)|cargo (build|check|clippy)|cargo fmt --check|go build|go vet|staticcheck|golangci-lint"
                         r"|mvnw?\b[^|;&\n]*\s(?:compile|package|verify)\b|gradlew?\b[^|;&\n]*\s(?:\S*:)?(?:build|assemble|check)\b|dotnet build|swift build|xcodebuild|\bmake\b(?!\s+(?:clean|distclean|install|uninstall|help|fmt|format|docs?|run|dev|serve|start|watch|migrate|deploy|publish|up|down|logs|shell)\b)|\bphpstan\b|\bpsalm\b|\brubocop\b|\bshellcheck\b|terraform validate|docker build"
                         r"|hyperframes(@[\w.]+)? (?:check|lint|validate|inspect)|tectonic|xelatex|latexmk|pdflatex|pdftotext|pdfinfo|python[\d.]*(?:\s+-[A-Za-z]+)*\s+-m py_compile|"
@@ -1562,7 +1576,7 @@ def only_runs_tests(cmd: str) -> bool:
 def verifying_segments(cmd: str, kinds: set, after_edit_only: bool = False, moves_count: bool = True):
     units = list(_units(cmd))
     if after_edit_only:
-        last = max((i for i, u in enumerate(units) if _unit_is_edit(u, cmd) and (moves_count or not GIT_TREE_MOVE.match(u.text))), default=-1)
+        last = max((i for i in _edit_units(units, cmd) if moves_count or not GIT_TREE_MOVE.match(units[i].text)), default=-1)
         units = units[last + 1:]
     out = []
     for u in units:

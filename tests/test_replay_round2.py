@@ -259,3 +259,42 @@ def test_its_passing_run_backs_it_once_it_has_reported(tmp_path):
     main = [(2, "Write", {"file_path": "/work/proj/a.py", "content": "x"}, "ok")]
     p = _session(tmp_path, main, [(10, *W_PASS)], notes=[20])
     assert not _stop(p, "All tests pass.")
+
+
+# ------------------------------------------------------------ from the blind pass over every flag
+def test_a_closed_pipe_after_an_assignment(tmp_path):
+    cmd = 'W=$(./make-worktree) && git add -A && git commit -qm x && git log --oneline | head -1 && rm -rf "$W"'
+    assert not _held(tmp_path, [EDIT, PASS, sh(cmd, "Exit code 141\nabc123 x", True)], "Committed abc123.")
+
+
+def test_a_commit_hook_result_counts_though_the_command_reads_the_log_too(tmp_path):
+    run = sh("git -C /p commit -q -m docs 2>&1 | grep -E 'passed|failed'; git -C /p log -1 --format=%s", "All checks passed!\n280 passed, 6 skipped in 8.95s\ndocs")
+    assert not _held(tmp_path, [EDIT, run], "All tests pass.")
+
+
+def test_a_commit_subject_is_still_not_a_test_run(tmp_path):
+    run = sh("git commit -qm 'fix, 12 passed'; git log -1 --format=%s", "fix, 12 passed")
+    assert _held(tmp_path, [EDIT, run], "All tests pass.")
+
+
+def test_pytest_in_a_quoted_string_is_not_a_test_run(tmp_path):
+    run = sh("""python3 -c 'from app import f; print(f("CI=1 pytest | tail"))'""", "True")
+    assert not _held(tmp_path, [EDIT, run], "Fixed the crash.")
+
+
+def test_the_next_sentence_can_own_up_to_a_failure(tmp_path):
+    run = sh("hyperframes check", "Lint: 0 errors\n6 error(s), 0 warnings")
+    assert not _held(tmp_path, [EDIT, run], "All checks pass. The only error is three missing font files.")
+
+
+@pytest.mark.parametrize("cmd,reply", [
+    ("git push -q origin x && git checkout -q main; git status -sb", "All tests pass."),
+    ("gh pr create --fill; git switch -q main", "All tests pass."),
+])
+def test_leaving_a_branch_once_it_is_published_changes_nothing(tmp_path, cmd, reply):
+    assert not _held(tmp_path, [EDIT, PASS, sh(cmd, "ok")], reply)
+
+
+@pytest.mark.parametrize("cmd", ["git checkout -q main", "git pull -q", "git push -q origin x && git pull -q", "git merge -q x", "git push origin x; git checkout main -- src/app.py"])
+def test_anything_else_that_moves_the_tree_still_counts(tmp_path, cmd):
+    assert _held(tmp_path, [EDIT, PASS, sh(cmd, "ok")], "All tests pass.")

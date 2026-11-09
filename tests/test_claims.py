@@ -327,7 +327,6 @@ def test_and_the_claims_beside_them(text, cat):
 
 
 @pytest.mark.parametrize("text", [
-    "定时任务配置和手册里的路径都改成了新位置。",
     "同一页生成新的 8 个保存好，旧的作废。",
     "两张参考图已经传上去了。",
     "我重新克隆了一份全新的副本复查。",
@@ -499,3 +498,7 @@ def test_an_anchor_stays_where_a_static_analyser_can_see_it(name):
     from honestly import claims
     pattern = getattr(claims, name).pattern
     assert "^" not in pattern[1:].replace("[^", "") and "$" not in pattern[:-1], pattern
+
+
+def test_paths_changed_in_a_config_is_not_a_schedule():
+    assert "scheduled" not in cats("定时任务配置和手册里的路径都改成了新位置。")

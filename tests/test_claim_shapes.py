@@ -2847,7 +2847,6 @@ Unit tests are failing.
 Unless it's fixed, don't ship.
 Until it's fixed, use the old one.
 Until the tests pass, don't merge.
-Updated the README.
 Upstream fixed this.
 Use `git commit` to commit.
 Use the saved token.
@@ -3290,7 +3289,6 @@ worker 部署好了吗
 日志打印 `迁移已部署`
 明天上线
 是否已部署？
-更新了 README。
 更新日志发了吗
 更新日志没发
 有 3 个失败
