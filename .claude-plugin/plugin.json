@@ -1,6 +1,6 @@
 {
   "name": "honestly",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Blocks \"tests pass\" / \"fixed\" / \"pushed\" replies with no check after the last edit, refuses pipes that hide the test result, and writes the real test evidence into your PR.",
   "author": {
     "name": "Kenny Wu"

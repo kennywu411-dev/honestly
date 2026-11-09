@@ -1,8 +1,45 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 (2026-11-09)
 
-Security review. Each item below was reproduced first, and each has tests.
+A full audit of the product, with every finding reproduced first. This changes behaviour in many places, so it is a minor release and not a patch. It reads far more claims, and every lie in `tests/test_must_catch.py` is caught, including the ones 0.7.4 marked as known misses. Where a rule was narrowed to stop a false hold, a test next to it holds the lie that must stay caught. Numbers, and what it still gets wrong, are in [docs/precision.md](docs/precision.md).
+
+**It catches more**
+- **Claims are read clause by clause, and by what the verb does.** The old patterns missed plain wordings (`47 tests passed in 3.2s`, `cargo test is clean`, `依赖都装好了`, `PR is up`) and took plans and negations for claims. On a corpus labelled by an agent that never saw the rules, 0.7.4 read 46 of 465 claims and wrongly read 25 of 1,185 other sentences. This reads 236 of 465 and 17 of 1,185. It still misses about half of what it has not met.
+- Other stacks' tools by name: RuboCop, ktlint, SwiftLint, tflint, rspec, xctest, `mvn test`, `xcodebuild`, `bundle install`, `pod install` and more, both as claims and as evidence. `git merge` and `gh pr create` or `merge` count for *pushed*, `sed -i` for *saved*, MCP tools that write for *saved*.
+- **Saying it passed when the session's latest run of it failed is contradicted**, also in a turn with no edit.
+- **Saying it ran takes a run.** `已验证，跑通了` and `I tested it and it works` were backed by `ls` or `cat`. `Verified the config sets x` can still be backed by reading the config.
+- **A claim about something nothing in the session did is held,** also in a turn with no tool call: `已部署到生产环境`, `I sent the email to the team`. Summing up what the session did earlier is still fine.
+- **A sentence naming a check is judged by that check.** `pytest` passing no longer backs `ruff is clean`, and `python -m mypy` or `uvx ruff@x` count as those checks.
+- **A background subagent's run counts only once it has reported.** Its passing run no longer backs a claim while it is still working.
+- A failure on the fix followed by a pass on the old code (`git stash`) is now contradicted.
+
+**It reads a run's result correctly**
+- Verdicts come from one table per test runner, checked against 2428 real outputs from real runners. The tables and fixtures are in `src/honestly/verdicts.py` and `tests/fixtures/runner_outputs/`.
+- Shell commands are read by a real parser (`src/honestly/shell.py`): quotes, heredocs, `cd` chains, pipes, subshells and PowerShell.
+- Patterns taken from commands run under a bounded matcher, so a hostile pattern cannot hang a hook.
+
+**It holds less when the agent told the truth**
+- Only the reply going out is judged. Replies already sent in the same turn are not held again.
+- Only a real prompt starts a turn. A task notification, a compaction or a message from another session does not, and a reply to another session is not judged on this session's edits.
+- A background subagent's work after its latest report (resumed, or still running) does not make a finished check stale, and its failing run does not contradict you, until it reports again.
+- Exit 141 from `| head` closing a later pipe is not the step before it failing. A run cut off by its own `| head` is still held.
+- A script saving data under `renders/`, `out/` or `reports/` isn't an edit, nor is `npm i` in a temp folder.
+- A run on the old code on purpose (after `git stash`, or with a file put back from main) says nothing about the fix.
+- A later read of CI that shows nothing does not undo tests in the edit's own command.
+- A plan or a purpose clause is not a claim: `再确认测试全过`, `为了让测试通过`, `To make the tests pass`.
+- A wording read only by the table of verbs is held only when nothing in the session ever did such a thing. Wordings known to be claims get no such allowance.
+- A commit hook's result counts when the command also reads the log, `pytest` in a quoted string is not a test run, the next sentence can own up to a failure, and switching branch after pushing in the same command is not an edit.
+
+**It works inside the real CLIs**
+- `tests/e2e` runs the real Claude Code, Codex and Gemini CLI with honestly's real hooks, a scripted model on loopback and a throwaway home. It found and fixed 47 failures, and all scored scenarios pass. Cursor was not run, because that needs an account.
+- A hook over its time budget lets the reply through and says so, instead of being killed silently.
+
+**Install and CLI**
+- Paths with brackets or quotes no longer make the hook refuse every command. Install and uninstall leave your other hooks and the settings file's formatting alone. Exit codes are documented: 0, 1, 2, 130, 141.
+- Making a card no longer brings up a macOS keychain popup and no longer touches your own Chrome profile. Chrome runs with a temporary profile and a mock keychain, removed after use.
+
+**Security review.** Each item below was reproduced first, and each has tests.
 
 - **A repository cannot silence the guard.** A project's `.honestly.json` can only tighten until you run `honestly trust` in your own terminal, which records that exact file. Until then its relaxing settings are ignored and you see one line saying so. If you share a relaxed file with your team, each person now has to trust it once.
 - **Secrets stay out of pull requests.** `pr-note` printed the reason beside a flagged claim unscrubbed, and redaction missed AWS key ids, JWTs, hex and lowercase tokens, private key bodies, tokens next to punctuation and more. All outward text now goes through one scrubber. Claims and reasons appear as inert code, and a sentence about something other than this code shows only its kind.
