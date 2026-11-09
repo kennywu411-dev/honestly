@@ -140,13 +140,18 @@ def _untrusted(text, limit: int) -> str:
     return s if len(s) <= limit else s[:limit].rstrip() + "…"
 
 
+def _asked(turn) -> str:
+    """What the person last asked in this turn, for what a catch quotes."""
+    return getattr(turn, "asked", "") or getattr(turn, "prompt", "") or ""
+
+
 def _who_where(data: dict, turn, zh: bool) -> str:
     """Name the assistant, its model, the project and the conversation, so the user knows exactly which chat this is about."""
     agent = AGENT_NAMES.get(getattr(turn, "agent", "") or "claude-code", "Claude Code")
     model = _untrusted(getattr(turn, "model", "") or "", 60)
     who = f"{agent}（{model}）" if (zh and model) else (f"{agent} ({model})" if model else agent)
     project = _untrusted(_short(data.get("cwd") or getattr(turn, "project", "") or ""), 40)
-    topic = _untrusted(_topic(getattr(turn, "prompt", "") or ""), 31)
+    topic = _untrusted(_topic(_asked(turn)), 31)
     if zh:
         where = (f"在「{project}」项目" if project else "") + (f"回复「{topic}」这个问题时" if topic else "")
         return who + (where or "")
@@ -404,7 +409,7 @@ def _record(kind: str, data: dict, turn, plain: str, claim: str = "", reason: st
     scrub = lambda text, limit=None: redact(text)[:limit]
     row = {"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "kind": kind,
            "agent": getattr(turn, "agent", "") or agent or "claude-code", "model": scrub(getattr(turn, "model", "") or str(data.get("model") or ""), 80),
-           "project": scrub(data.get("cwd") or getattr(turn, "project", "") or ""), "topic": scrub(_topic(getattr(turn, "prompt", "") or "", 80)),
+           "project": scrub(data.get("cwd") or getattr(turn, "project", "") or ""), "topic": scrub(_topic(_asked(turn), 80)),
            "claim": scrub(claim, 200), "reason": scrub(reason, 200), "command": scrub(command, 200), "message": scrub(plain),
            "tools": [scrub(str(t), 160) for t in (tools or [])][-8:], "version": __import__("honestly").__version__,
            "session": getattr(turn, "session", "") or "", "turn": getattr(turn, "index", 0)}
@@ -626,7 +631,7 @@ def stop_hook(data: dict | None = None, agent: str = "claude-code") -> dict | No
             return agents.warn(agent, f"⚠️ honestly 无法核实「{claim}」（could not check）：这个会话没有保存记录，请把它当作未经验证。" if zh else
                                f'⚠️ honestly could not check "{claim}": this session keeps no transcript, so there is nothing to check it against. Treat it as unverified.')
         return None
-    zh = _lang_zh(cfg, _untrusted(_topic(turn.prompt or "", 400), 400), bad[0].claim)   # a forged instruction label is not the person's language
+    zh = _lang_zh(cfg, _untrusted(_topic(_asked(turn), 400), 400), bad[0].claim)   # a forged instruction label is not the person's language
     code_claim = bool(bad[0].last_edit)
     if second_pass:
         claim = _untrusted(bad[0].claim.strip().rstrip("。．.!！;；"), 60)
