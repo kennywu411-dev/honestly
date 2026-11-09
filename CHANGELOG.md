@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 (2026-11-09)
 
 **It catches more**
 - With the home folder under a temp directory (a container's `HOME=/tmp/home`), edits there were read as scratch. So run the tests, edit `~/proj/src/app.py`, say "All tests pass", and the run from before the edit backed the claim. They count now, written with `~` or with the full path. A temp folder outside home is still scratch.
