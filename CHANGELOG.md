@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.2 (2026-11-12)
 
 **It catches more**
 - A failing run printed behind a label was read as a pass. `printf "pytest: %s\n" "$(pytest -q | tail -1)"` printing `pytest: 1 failed, 193 passed` backed "all tests pass" in 0.8.1, because the failure count was no longer at the start of its line. It is contradicted now. 0.8.1 also had this hole.
