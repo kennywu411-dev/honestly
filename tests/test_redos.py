@@ -48,7 +48,9 @@ def test_a_100_kb_command_of_any_shape_cannot_outrun_a_hook(name):
         start = time.process_time()
         fn(cmd)
         spent = time.process_time() - start
-        assert spent < 2.5, (name, unit, spent)   # the limits in shell.py hold whatever the shape; the pre-command hook has 10 s
+        # The limits in shell.py hold whatever the shape; the pre-command hook has 10 s. The slowest shape takes about 0.5 s
+        # on a laptop and 2.6 s on the macOS Python 3.9 runner, so 5 s leaves room for a slow runner and still stops a blow-up.
+        assert spent < 5.0, (name, unit, spent)
 
 
 @pytest.mark.parametrize("cmd", ["cat > src/big.py <<'EOF'\n" + "x = open('a').read().replace('b', 'c')  # it's\n" * 2000 + "EOF", "python3 - <<'EOF'\n" + "print('a')\n" * 8000 + "EOF", "git commit -m \"" + "line of text. " * 7000 + "\"", "pytest -q " + "tests/test_module.py " * 4800, "bash <<'EOF'\n" + "echo line\n" * 9000 + "EOF"], ids=["source file in a heredoc", "python script in a heredoc", "long commit message", "many file arguments", "shell heredoc"])
