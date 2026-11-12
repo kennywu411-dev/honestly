@@ -172,8 +172,50 @@ def _echoed_lines(cmd: str):
             piece = piece.strip()
             if not piece or not _SHELL_VALUE.sub("", piece).strip():   # `echo $?` prints a status, and could match anything
                 continue
+            if any(rules.verifying_segments(v[2:-1], {"test"}) or rules.verifying_segments(v[2:-1], {"build"})
+                   for v in re.findall(r"\$\([^)\n]*\)", piece)):   # `echo "suite: $(pytest -q | tail -1)"`: the words after the label are the run's
+                continue
             found.append("".join(".*" if _SHELL_VALUE.fullmatch(t) else re.escape(t) for t in re.split(f"({_SHELL_VALUE.pattern})", piece)))
     return found
+
+
+def _run_labels(cmd: str) -> list:
+    """The labels a command prints in front of a test or build run's own words: `echo "suite: $(pytest -q | tail -1)"`, or
+    `printf "pytest: %s\\n" "$(pytest -q | tail -1)"` both print `suite: ` before pytest's summary."""
+    runner = lambda v: rules.verifying_segments(v[2:-1], {"test"}) or rules.verifying_segments(v[2:-1], {"build"})
+    labels = []
+    for part in rules.segments(cmd):
+        m = _ECHO.match(part.text)
+        if not m:
+            continue
+        arg = m.group(1).strip()
+        if part.text.lstrip().lstrip("({ ").startswith("printf"):
+            fmt = re.match(r"""(['"])(.*?)(?<!\\)\1\s+(.*)$""", arg, re.S)
+            if fmt and any(runner(v) for v in re.findall(r"\$\([^)\n]*\)", fmt.group(3))):
+                labels += [line.split("%", 1)[0] for line in fmt.group(2).split("\\n") if "%" in line]
+            continue
+        if arg[:1] in "'\"" and arg[-1:] == arg[:1]:
+            arg = arg[1:-1]
+        for piece in arg.split("\\n"):
+            sub_ = re.search(r"\$\([^)\n]*\)", piece)
+            if sub_ and runner(sub_.group(0)):
+                labels.append(piece[:sub_.start()])
+    return [lab for lab in labels if lab.strip()]
+
+
+def _unlabelled(text: str, cmd: str) -> str:
+    """The run's summary back at the start of its line, so a failure count after a label is read like any other."""
+    labels = _run_labels(cmd)
+    if not labels:
+        return text
+    out = []
+    for line in text.split("\n"):
+        for lab in labels:
+            if line.lstrip().startswith(lab.strip()):
+                line = line.lstrip()[len(lab.strip()):].lstrip()
+                break
+        out.append(line)
+    return "\n".join(out)
 
 
 def _without_echoes(text: str, cmd: str) -> str:
@@ -428,7 +470,7 @@ def judge_output(category: str, seg: str, ev: Event, claim_text: str = ""):
     """Decide from the verifying command's own output: what the runner printed first, then the exit status, then the pipes."""
     if _only_a_closed_pipe(seg, ev):
         ev = dataclasses.replace(ev, is_error=False)
-    text = _without_echoes(verdicts.clean(ev.result or ""), ev.text or seg)
+    text = _unlabelled(_without_echoes(verdicts.clean(ev.result or ""), ev.text or seg), ev.text or seg)
     if text.strip() == _NO_OUTPUT:
         text = ""
     if background_notice(text):
@@ -729,8 +771,11 @@ def _judge_code(hit, ev: list, flags: list, edit_idx: int, end: int, kinds: set 
     if not verifying and any(TASK_OUTPUT_READ.search(x.text or "") for x in after):
         return "unverifiable", "a background task's output was read after the edit; when that run happened is not on the transcript", seg, last
     if not verifying:
-        if any(x.running for x in after):
+        running = [x for x in after if x.running]
+        if any(x.name in rules.OPAQUE_TOOLS for x in running):   # the subagent may be the check: it has not reported yet
             return "unbacked", "a subagent was still running and nothing else had checked this", seg, last
+        if running:   # a background command that is not a check: it is not what the claim rests on, whatever it is doing
+            return "unbacked", "no verification command after the last edit (a background command was running, and it is not a check)", seg, last
         return "unbacked", "no verification command after the last edit", seg, last
     if hit.category == "checks_pass":
         part, verifying = _named_checks(hit, ev, edit_idx, end, verifying, own_run)
