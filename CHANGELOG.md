@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+**It catches more**
+- A failing run printed behind a label was read as a pass. `printf "pytest: %s\n" "$(pytest -q | tail -1)"` printing `pytest: 1 failed, 193 passed` backed "all tests pass" in 0.8.1, because the failure count was no longer at the start of its line. It is contradicted now. 0.8.1 also had this hole.
+- Code written through a joined path counts as an edit: `(R / 'src' / 'app.py').write_text(...)`.
+
+**It holds less by mistake**
+- Documents written through a joined path (`R / 'docs/log.md'`, `Path.home() / '.claude/.../notes.md'`) are no longer code edits. A push followed by an update to the experiment log used to be held as unchecked.
+- Archives and Office files (`.zip`, `.tar.gz`, `.docx`, `.xlsx`, `.pptx` and others) are not code. Writing a zip for upload no longer cancels the check before it.
+- A test summary run inside an echo label (`echo "full suite: $(pytest -q | tail -1)"`) is read as the run's output. A label the command wrote itself, with no run inside, still backs nothing.
+
+**What a hold says**
+- A hold no longer says a check was still running when the only thing still running was a background command that is not a check. When only a subagent was running, it says so.
+
+Replaying 60 days of real logs, one flag went away (the push above) and no other verdict on an existing turn changed.
+
 ## 0.8.1 (2026-11-09)
 
 **It catches more**

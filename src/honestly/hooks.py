@@ -202,7 +202,8 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     failed = f.verdict == "contradicted"
     errored = not failed and "errored" in (f.reason or "")
     image_only = f.verdict == "weak"
-    running = "still running" in (f.reason or "")
+    subagent = "a subagent was still running" in (f.reason or "")
+    running = not subagent and "still running" in (f.reason or "")
     hidden = "went through a pipe" in (f.reason or "")   # a runner ran; what it printed never reached the agent
     empty = "collected no tests" in (f.reason or "")
     if zh:
@@ -210,6 +211,8 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
         if not f.last_edit:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但本轮记录中没有对应的操作。已要求其先完成操作再回复。"
         where = f"改完 {edited} 之后" if edited else "改完代码之后"
+        if subagent:
+            return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}只有一个子代理还在运行，没有其他检查，结果还没出来。已要求其等到结果再回复。"
         if running:
             return f"⚠️ honestly 已拦截：{who}声称「{claim}」，但{where}的{zh_noun}还在运行（still running），结果还没出来。已要求其等到结果再回复。"
         if failed:
@@ -229,6 +232,8 @@ def _plain_stop(f, zh: bool, who: str = "") -> str:
     if not f.last_edit:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but no matching action ran in this turn. It has been asked to do it first.'
     where = f"after editing {edited}" if edited else "after editing the code"
+    if subagent:
+        return f'⚠️ honestly blocked this reply: {who} said "{claim}" but {where} only a subagent was still running and nothing else had checked it, so nobody has seen a result. It has been asked to wait for it.'
     if running:
         return f'⚠️ honestly blocked this reply: {who} said "{claim}" but the {en_noun} {where} was still running, so nobody has seen its result. It has been asked to wait for it.'
     if failed:

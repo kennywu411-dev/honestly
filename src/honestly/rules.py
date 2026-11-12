@@ -36,7 +36,8 @@ def __getattr__(name: str):
 
 # ------------------------------------------------------------ edits & paths
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-DOC_EXT = {".md", ".txt", ".rst", ".csv", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".wav", ".srt", ".log", ".example", ".b64", ".jsonl", ".mdc"}
+DOC_EXT = {".md", ".txt", ".rst", ".csv", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".wav", ".srt", ".log", ".example", ".b64", ".jsonl", ".mdc",
+           ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp", ".zip", ".tgz", ".gz", ".tar", ".7z"}   # documents, and archives of anything: no code runs from them
 # source files whatever folder they sit in; a program's output sent to one of these is code too (`python gen.py > src/gen.py`)
 SOURCE_EXT = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".sh", ".zsh", ".bash", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cc", ".cpp", ".h", ".hpp", ".rb", ".php", ".vue", ".svelte", ".pl", ".lua"}
 CODE_TXT = re.compile(r"(?:^|/)(?:CMakeLists\.txt|(?:[\w.-]*[-_.])?(?:requirements|constraints)(?:[-_.][\w.-]*)?\.(?:txt|in)|requirements/[^/]+\.(?:txt|in))$", re.I)   # code in a .txt
@@ -511,11 +512,16 @@ def _expand_home(path: str) -> str:
 
 WRITE_ARG = re.compile(r"\bopen\(\s*(?P<a>[^,()]+?(?:\([^()]*\)[^,()]*?)?)\s*,\s*(?:mode\s*=\s*)?['\"](?:[wax][bt]?\+?|r[bt]?\+[bt]?)['\"]"
                        r"|\((?P<g>[^()]*\([^()]*\)[^()]*)\)\.write_(?:text|bytes)\("
+                       r"|\((?P<p>[^()]+)\)\.write_(?:text|bytes)\("
                        r"|(?P<b>\b[\w.]+(?:\([^()]*\))?)\.write_(?:text|bytes)\("
                        r"|fs\.(?:promises\.)?writeFile\(\s*(?P<f>[^,]+),"
                        r"|writeFileSync\(\s*(?P<c>[^,]+),"
                        r"|shutil\.(?:copy\w*|move)\(\s*[^,]+,\s*(?P<d>[^,)]+)"
-                       r"|os\.(?:rename|replace)\(\s*[^,]+,\s*(?P<e>[^,)]+)")
+                       r"|os\.(?:rename|replace)\(\s*[^,]+,\s*(?P<e>[^,)]+)"
+                       r"|zipfile\.ZipFile\(\s*(?P<z>[^,()]+?)\s*,\s*(?:mode\s*=\s*)?['\"][wax]['\"]")
+
+
+_JOINED = re.compile(r"""^((?:pathlib\.)?Path\.home\(\)|(?:pathlib\.)?(?:Pure)?Path\([^()]*\)|[A-Za-z_]\w*)((?:\s*/\s*[frbFRB]{0,2}(['"])[^'"\n]*\3)+)\s*$""")
 
 
 def _expr_path(expr: str, body: str, argv: list, depth: int = 0):
@@ -523,6 +529,15 @@ def _expr_path(expr: str, body: str, argv: list, depth: int = 0):
     expr = expr.strip()
     if depth > 5 or not expr:
         return None
+    joined = _JOINED.match(expr)
+    if joined:   # `R/'docs/log.md'`, `Path.home()/'.claude'/'x.md'`: the base, then each literal part
+        base = _expr_path(joined.group(1), body, argv, depth + 1)
+        if base is None:
+            return None
+        parts = [base.rstrip("/")] + [q[1] for q in re.findall(r"""(['"])(.*?)\1""", joined.group(2))]
+        return "/".join(p for p in parts if p not in ("", ".")) or "."
+    if re.match(r"^(?:pathlib\.)?Path\.home\(\)\s*$", expr):
+        return "~"
     if re.match(r"^tempfile\.|^(?:Named)?TemporaryFile\b|^mkdtemp\b|^mkstemp\b", expr):
         return "/tmp/tempfile"
     m = re.match(r"^(?:pathlib\.)?(?:Path|PurePath|os\.path\.join|os\.path\.expanduser|os\.path\.abspath|str|path\.join|path\.resolve)\(\s*(.*)", expr)
