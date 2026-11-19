@@ -149,3 +149,35 @@ def test_doctor_names_an_install_that_misses_the_powershell_tool(tmp_path, monke
 def test_a_filtering_cmdlet_is_read_like_grep(cmd):
     assert hooks.find_hidden_status(cmd) is None, cmd   # by default a filter looks for one thing
     assert hooks.find_hidden_status(cmd, strict=True) is not None, cmd
+
+
+@pytest.mark.parametrize("cmd", [
+    'pytest | Where-Object { $_ -match "foo" }',
+    'npm test | ? { $_ -notmatch "warning" }',
+    "pytest | where {$_ -match 'foo'}",
+    "pytest | WHERE-OBJECT { $_ -IMATCH 'foo' }",
+    "pytest | Where-Object { $PSItem -inotmatch 'WARNING' }",
+    "pytest | Where-Object { $_ -cmatch 'fAiLeD' }",  # explicitly case-sensitive
+])
+def test_where_object_filters_follow_grep_strictness(cmd):
+    assert hooks.find_hidden_status(cmd) is None, cmd
+    hit = hooks.find_hidden_status(cmd, strict=True)
+    assert hit is not None and hit[2] == "filter", cmd
+
+
+@pytest.mark.parametrize("cmd", [
+    'pytest | Where-Object { $_ -match "failed|passed" }',
+    "pytest | ? {$_ -match 'FAILED|PASSED'}",         # case-insensitive by default
+    "pytest | where { $_ -notmatch 'unrelated' }",
+    "pytest | Where-Object { $_ -cnotmatch 'WaRnInG' }",
+    "pytest | Where-Object { $_ -match $pattern }",   # unknown patterns and complex blocks stay allowed
+    'pytest | Where-Object { $_ -match "$pattern" }',
+    'pytest | Where-Object { $_ -match "f`oo" }',
+    "pytest | Where-Object { $_ -match 'foo' -or $_ -match 'passed' }",
+    "pytest | Where-Object { $_ -match 'foo'; $true }",
+    "pytest | Where-Object { $_.Length -gt 0 }",
+    "pytest | Where-Object { $_ -like '*passed*' }",
+    'Get-Content log.txt | Where-Object { $_ -match "foo" }',
+])
+def test_where_object_verdicts_and_unknown_blocks_stay_allowed(cmd):
+    assert hooks.find_hidden_status(cmd, strict=True) is None, cmd

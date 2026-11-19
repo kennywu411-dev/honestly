@@ -918,7 +918,7 @@ def _ps_abbr(name: str, least: int = 1) -> str:
 SELECT_CUTS_END = re.compile(rf"\s-(?:{_ps_abbr('first')}|{_ps_abbr('index', 3)}|{_ps_abbr('skiplast', 5)})\b", re.I)   # like `head`: the result is printed last
 SELECT_LAST = re.compile(rf"\s-(?:{_ps_abbr('last')})\b", re.I)   # like `tail`
 SLS_VALUE_PARAMS = ("-context", "-culture", "-encoding", "-exclude", "-include", "-inputobject", "-literalpath", "-path")
-PS_PIPES = {"select-object", "select", "select-string", "sls", "measure-object", "measure", "out-null", "findstr"}   # cmdlets (and cmd's findstr) with a POSIX twin
+PS_PIPES = {"select-object", "select", "select-string", "sls", "measure-object", "measure", "out-null", "findstr", "where-object", "where", "?"}   # cmdlets (and cmd's findstr) with a POSIX twin
 
 
 def _ps_list(token: str) -> list:
@@ -990,7 +990,20 @@ def _find_parts(toks: list):
     return "rg", flags, pats
 
 
-def _ps_consumer(name: str, toks: list):
+def _where_parts(raw: str):
+    """`Where-Object { $_ -match 'foo' }`: only a whole, simple match against a literal pattern is known."""
+    m = re.fullmatch(r'''\{\s*\$(?:_|PSItem)\s+-(?P<op>[ic]?(?:not)?match)\s+(?:'(?P<single>(?:[^']|'')*)'|"(?P<double>[^"$`]*)")\s*\}''', raw, re.I | re.S)
+    if not m:
+        return "rg", set(), []   # expressions, interpolated strings and other blocks stay unknown
+    op = m.group("op").lower()
+    flags = set() if op.startswith("c") else {"i"}
+    if "notmatch" in op:
+        flags.add("v")
+    pattern = m.group("single")
+    return "rg", flags, [pattern.replace("''", "'") if pattern is not None else m.group("double")]
+
+
+def _ps_consumer(name: str, toks: list, raw: str = ""):
     rest = " " + " ".join(toks)
     if name in ("select-object", "select"):
         return "head" if SELECT_CUTS_END.search(rest) else "tail" if SELECT_LAST.search(rest) else "keep"
@@ -998,6 +1011,8 @@ def _ps_consumer(name: str, toks: list):
         return "count"
     if name == "out-null":
         return "silent"
+    if name in ("where-object", "where", "?"):
+        return _pattern_keeps_verdict(*_where_parts(raw))
     return _pattern_keeps_verdict(*{"findstr": _findstr_parts, "find": _find_parts}.get(name, _sls_parts)(toks))
 
 
@@ -1103,7 +1118,8 @@ def _consumer_of(c) -> str:
     name = _GNU_NAMES.get(low, name)
     args = real[1:]
     if low in PS_PIPES:
-        return _ps_consumer(low, args)
+        raw = " ".join(w.raw for w in c.words[len(c.words) - len(args):])   # retain quotes: a PowerShell pattern may be interpolated
+        return _ps_consumer(low, args, raw)
     if name == "find" and (any(w.quoted for w in c.words[1:2]) or args[:1] and args[0].startswith("/")) and not any(a.startswith("-") for a in args):
         return _ps_consumer("find", args)   # cmd's find takes a quoted string; POSIX find takes paths
     if name in ("true", ":", "false", "read"):
