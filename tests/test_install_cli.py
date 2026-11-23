@@ -1,4 +1,5 @@
 """Install, upgrade, uninstall and the CLI: what a new user meets in the first ten minutes."""
+import datetime
 import json
 import os
 import stat
@@ -931,7 +932,9 @@ CATCH = json.dumps({"ts": "2026-11-08T00:00:00+00:00", "kind": "stop", "agent": 
 def test_bad_input_gets_one_line_and_the_right_exit_code(tmp_path, args, code):
     home = tmp_path / "home"
     _seed_session(home)
-    _write(home / ".honestly" / "catches.jsonl", CATCH + "\n")
+    catch = json.loads(CATCH)
+    catch["ts"] = datetime.datetime.now(datetime.timezone.utc).isoformat()   # reach the blocked write even after the fixture's seven-day window
+    _write(home / ".honestly" / "catches.jsonl", json.dumps(catch) + "\n")
     (home / "a-file").write_text("x")
     r = _honestly([a.replace("BLOCKED", str(home / "a-file")) for a in args], home)   # a folder under a file cannot be made on any platform
     assert r.returncode == code, r.stderr
