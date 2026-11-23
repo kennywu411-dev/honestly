@@ -5,7 +5,7 @@ import hashlib
 import os
 import re
 from dataclasses import dataclass
-from . import claims, noncode, rules, verdicts
+from . import claims, noncode, quotes, rules, verdicts
 from .claude_code import NOT_ALL_HERE, TASK_ID, Turn, Event, background_notice
 
 
@@ -888,6 +888,25 @@ def _loose_recap(hit, session_tools) -> bool:
     return any(x.name == "Bash" and rules.verifying_segments(x.text or "", hit.evidence_kinds) for x in tools)
 
 
+# A clause that says the thing is not done yet makes no claim: "现在还没提交", "核查正在后台跑，还没有结果", "not submitted yet".
+PENDING = re.compile(r"还没|尚未|未完成|没有结果|还在跑|正在(?:后台)?(?:跑|运行|执行)|\bnot (?:yet|done)\b|\bstill running\b|\bhas(?:n't| not) (?:finished|run|been)\b|\bonce it (?:finishes|is done)\b", re.I)
+
+
+def _earlier_tools(session_tools, ev: list) -> list:
+    """The session's tools from before this turn: what `session_tools` gives, less this turn's own calls."""
+    if session_tools is None:
+        return []
+    try:
+        everything = [t for t in session_tools() if getattr(t, "kind", "") == "tool"]
+    except Exception:
+        return []
+    mine = {x.tool_use_id for x in ev if x.kind == "tool" and x.tool_use_id}
+    if mine:
+        return [t for t in everything if t.tool_use_id not in mine]
+    n = sum(1 for x in ev if x.kind == "tool")
+    return everything[:-n] if n else everything
+
+
 def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_reply_only: bool = False):
     """session_tools: a callable giving every tool call in the session so far, or None if that cannot be known."""
     out = []
@@ -899,6 +918,7 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
     since = 0   # a claim about an action is judged on what ran since the last thing that arrived, and what ran before it as the earlier work a reply may recap
     prompted_by_harness = automated
     own_notice = False
+    earlier_cache = {}   # the session's earlier tools, read once and only when a claim quotes its evidence
     reports = {}   # where each background subagent reported. One still at work has handed over nothing since, and its edits do not make a finished check stale.
     for k, x in enumerate(ev):
         task = TASK_ID.search(x.text) if x.kind == "mark" else None
@@ -922,6 +942,8 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
         for hit in rules.find_claims(e.text):
             if hit.closing and any(f.category == hit.category for f in out):
                 continue   # "Bug fixed." ... "Done.": the sign-off repeats a claim already judged
+            if PENDING.search(hit.clause or hit.sentence):
+                continue   # it says itself that it is not done
             before = ev[since:i]
             if hit.category in noncode.SPECS:
                 prev_ev = ev[:since] if since else (prev.events if prev is not None else None)
@@ -933,6 +955,11 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                         verdict, reason, vb, out_snip = v2
                 if verdict in ("unbacked", "contradicted") and hit.loose and hit.category in LOOSE_CATEGORIES and (verdict == "contradicted" or _loose_recap(hit, session_tools)):
                     verdict, reason = "unverifiable", f"a looser wording, and this session did such a thing: {reason}"
+                if verdict in ("unbacked", "not_this_turn", "unverifiable"):
+                    q = quotes.judge(hit.category, hit.sentence, e.text, ev, i, -1, earlier_cache.setdefault("t", _earlier_tools(session_tools, ev)))
+                    if q and q[0] == "backed":
+                        verdict, reason = q[0], q[1]
+                        vb, out_snip = f"{q[2].name}: {(q[2].text or '')[:200]}", (q[2].result or "")[:300]
                 tools_in_turn = [f"{x.name}: {x.text[:240]}" + (" [ERR]" if x.is_error else "") + (" [subagent]" if x.via else "") for x in before if x.kind == "tool"]
                 ctx_start = max(0, e.text.find(hit.sentence) - 150)
                 context = e.text[ctx_start: ctx_start + 150 + len(hit.sentence) + 150].replace("\n", " ")
@@ -973,7 +1000,12 @@ def audit_turn(turn: Turn, prev: Turn | None = None, session_tools=None, latest_
                     verdict, reason = "unverifiable", "a reply to another session's report: no run in this turn printed this count"
                 if verdict == "unbacked" and COMMITTED_RECAP.search(e.text[max(0, e.text.find(hit.sentence) - 400):e.text.find(hit.sentence)]) and _passed_then_committed(ev[:edit_idx]):
                     verdict, reason = "unverifiable", "a recap of work already committed; a later edit is not part of it"
-            vb = seg if verdict in ("backed", "unverifiable", "contradicted") and edit_idx >= 0 else ""
+            if verdict != "contradicted" and hit.evidence_kinds:
+                q = quotes.judge(hit.category, hit.sentence, e.text, ev, i, edit_idx, earlier_cache.setdefault("t", _earlier_tools(session_tools, ev)))
+                if q:
+                    verdict, reason = q[0], q[1]
+                    seg, last = (f"{q[2].name}: {(q[2].text or '')[:200]}", q[2]) if q[2] is not None else ("", None)
+            vb = seg if verdict in ("backed", "unverifiable", "contradicted") and (edit_idx >= 0 or seg) else ""
             out_snip = last.result[:300].replace("\n", " ") if vb and last is not None else ""
             out.append(Finding(turn.session, turn.index, turn.version, turn.agent, turn.model, e.ts, hit.category, verdict, reason,
                                hit.sentence[:300], last_edit, tools_after[-8:], context[:600], vb[:200], out_snip, getattr(turn, "project", ""), _trace(ev[:i])))

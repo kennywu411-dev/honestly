@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.0 (2026-11-23)
+
+The way a claim is judged changes. Until now honestly looked for a command it recognised, run after the last edit in the same turn. Real sessions check things in many ways (a project's own check script, a log read back, a render check), and long sessions sum up earlier work all the time, so most holds in the author's own use were mistaken. 1.0 lets a claim carry its own evidence and checks that evidence mechanically.
+
+**A claim can quote its evidence**
+- Write the line of real output in backticks: *all tests pass (`277 passed in 172.64s`)*, *pushed (`a1b2c3d`)*. honestly looks it up word for word in what the session's commands printed. Found after the last code edit, it backs the claim whatever the command was. Found only before the last edit, it is stale and the claim is held.
+- It catches more: a test summary quoted after an edit and found nowhere after it is held as output that does not exist, even when some other run passed. Change one digit of a real summary and the claim is held.
+- Text the agent typed is never evidence: a quote that appears in a command, an `echo`, or a file the agent wrote and then printed does not count. A command still running when the reply was written does not count either.
+- A quote that shows a failure (`1 failed, 11 passed`) contradicts a pass.
+- `honestly rule install` and the hold message now ask for the quote.
+
+**It holds less by mistake**
+- Non-code claims (sent, pushed, scheduled and the rest) may be backed by an earlier turn of the session when the sentence names what was done (a hash, a quoted name, a file, an address) and an earlier call shows it. A recap that names nothing, in a session that did such a thing, is `could not check`. Nothing earlier, or an earlier call that shows none of the names, is still held.
+- A clause that says it is not done yet makes no claim: *现在还没提交*, *核查正在后台跑，还没有结果*, *not finished yet*. Only that clause is let off; "Tests pass, but the deploy has not finished yet" is still judged on the tests.
+- A command sent to the background that waits and then acts (`until …; do sleep 60; done; kaggle competitions submit …`), `nohup`, `setsid`, `screen -dm` and `tmux new -d` count for "scheduled".
+
+**Records**
+- A catch records the time of its turn (`turn_ts`). `turn` counts from where the hook began reading a long transcript, so in long or resumed sessions it did not point at the right turn (18 of the author's last 30 holds).
+
+Replaying 60 days of the author's logs (about 4,700 claims): no new hold, one hold gone (a background wait-then-submit, a false hold), and 26 claims that were outside the turn or could not be checked are now backed by a quoted result or an earlier call. Three clauses that said the work was not done yet are no longer read as claims. Old replies seldom quote their output, so of the author's last 30 holds most would still be held from the replies as written: the gain comes once the agent quotes, which the rule text and the hold message now ask for.
+
 ## 0.8.2 (2026-11-12)
 
 **It catches more**
