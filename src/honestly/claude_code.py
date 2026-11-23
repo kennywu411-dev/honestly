@@ -28,6 +28,7 @@ class Event:
     via: str = ""       # 'subagent:<id>' when the event ran inside a subagent and was merged into the parent turn
     task: str = ""      # the id a background command or a subagent runs under, when it has one
     running: bool = False   # it had not finished when the reply was written, so nobody has seen its result
+    body: str = ""      # what an edit wrote (Write content, Edit new_string): text the agent typed, so output that repeats it is not evidence
 
 
 @dataclass
@@ -63,6 +64,18 @@ def _summarize_input(name: str, inp) -> str:
         if k in inp:
             return str(inp[k])
     return ""
+
+
+BODY_MAX = 20000
+
+
+def _input_body(name: str, inp) -> str:
+    """The text an editing tool wrote. A quote that only exists because the agent wrote it cannot back a claim."""
+    if not isinstance(inp, dict):
+        return ""
+    parts = [inp.get(k) for k in ("content", "new_string", "new_source")]
+    parts += [e.get("new_string") for e in inp.get("edits") or [] if isinstance(e, dict)]
+    return "\n".join(p for p in parts if isinstance(p, str))[:BODY_MAX]
 
 
 def projects_root() -> str:
@@ -309,7 +322,7 @@ def _parse(path: str, sidechain: bool = False, start: int = 0):
                 elif b.get("type") == "tool_use":
                     calls[str(b.get("id") or "")] = (_tool_name(b.get("name")), b.get("input"))
                     cur.events.append(Event("tool", name=_tool_name(b.get("name")), text=_summarize_input(_tool_name(b.get("name")), b.get("input")),
-                                           tool_use_id=str(b.get("id") or ""), ts=ts))
+                                           tool_use_id=str(b.get("id") or ""), ts=ts, body=_input_body(_tool_name(b.get("name")), b.get("input"))))
     if cur is not None:
         turns.append(cur)
     for turn in turns:

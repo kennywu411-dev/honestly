@@ -48,7 +48,7 @@ SPECS: dict[str, Spec] = {
         noun="look"),
     "scheduled": Spec(
         tool=re.compile(r"(CronCreate|create_scheduled_task|update_scheduled_task|ScheduleWakeup|schedule)", _I),
-        bash=re.compile(r"(\bcrontab\b|launchctl (load|bootstrap|submit)|\bschtasks\b|^\s*at \d|systemctl .*timer|\bsleep \$\(\(\s*\$?\w+\s*-\s*\$?\w+\s*\)\))", _I),   # `caffeinate -is sleep $((t-now))`: a wait until a set time, not a retry's `sleep $((i*2))`
+        bash=re.compile(r"(\bcrontab\b|launchctl (load|bootstrap|submit)|\bnohup\b|\bdisown\b|\bsetsid\b|\bscreen -d?m|\btmux new(?:-session)?\b[^|;&]*\s-d\b|\bschtasks\b|^\s*at \d|systemctl .*timer|\bsleep \$\(\(\s*\$?\w+\s*-\s*\$?\w+\s*\)\))", _I),   # `caffeinate -is sleep $((t-now))`: a wait until a set time, not a retry's `sleep $((i*2))`
         noun="schedule"),
     "verified": Spec(
         tool=re.compile(r"^(Read|mcp__.*(computer|screenshot|browser_batch|javascript_tool|read_page|get_page_text)|js)$", _I),
@@ -106,9 +106,20 @@ def _hits(spec: Spec, tools: list, must_mention: str = "") -> list:
             out.append(t)
         elif t.name == "Bash" and spec.bash and (spec.bash.search(_shell_text(t.text or "")) or _heredoc_did_it(spec, t.text or "")):
             out.append(t)
+        elif spec.noun == "schedule" and _waits_in_background(t):
+            out.append(t)
     if must_mention:
         out = [t for t in out if must_mention in (t.text or "").lower()]
     return out
+
+
+WAIT = re.compile(r"\bsleep\b|\buntil\b|\bwhile\b|\bwait\b")
+
+
+def _waits_in_background(t) -> bool:
+    """A command sent to the background that waits and then acts: `until done; do sleep 60; done; kaggle ... submit`."""
+    from .claude_code import background_notice
+    return t.name == "Bash" and bool(WAIT.search(t.text or "")) and background_notice(t.result or "") is not None
 
 
 QUOTED_STRING = re.compile(r"\"[^\"\n]{0,400}\"|'[^'\n]{0,400}'")
@@ -157,9 +168,47 @@ def judge(category: str, sentence: str, tools: list, opaque: set, prev_tools: li
         recap = _judge_recap(category, sentence, session_tools(), opaque, remote)
         if recap:
             return recap
+    if verdict[0] == "unbacked" and session_tools is not None and (not automated or own_notice):
+        recap = _session_recap(category, sentence, session_tools(), remote)
+        if recap:
+            return recap
     if automated and verdict[0] == "unbacked":
         return "unverifiable", "a reply to an automated message summarises earlier turns; " + verdict[1], verdict[2], verdict[3]
     return verdict
+
+
+OBJECT = re.compile(r"`([^`\n]{2,120})`|\b([0-9a-f]{7,40})\b|([\w.+-]+@[\w-]+\.[\w.]+)|“([^”\n]{2,60})”|「([^」\n]{2,60})」|\"([^\"\n]{2,60})\"")
+
+
+def _objects(sentence: str) -> list[str]:
+    """What the sentence names: a quoted name, a hash, an address, a file."""
+    found = [next(g for g in m.groups() if g).lower() for m in OBJECT.finditer(sentence)]
+    found += [m.group(1).rsplit("/", 1)[-1].lower() for m in PATH_IN_CLAIM.finditer(sentence)]
+    return [o for o in dict.fromkeys(found) if len(o.strip()) >= 2]
+
+
+def _session_recap(category: str, sentence: str, earlier, remote) -> tuple | None:
+    """A sentence about something done earlier in the session, not in this turn. Backed when an earlier call did it and shows what the
+    sentence names; a recap that cannot be told apart when the sentence names nothing; None (still unbacked) when nothing earlier did it,
+    or what did it shows none of the names."""
+    if not earlier or NOT_DONE_YET.search(sentence) or OTHER_SESSION.search(sentence) or (remote and remote.search(sentence)):
+        return None
+    spec = SPECS[category]
+    hits = [t for t in _hits(spec, [t for t in earlier if getattr(t, "kind", "") == "tool"]) if not t.is_error]
+    if category == "verified" and SAYS_IT_RAN.search(sentence):
+        hits = [t for t in hits if _ran_something(t)]
+    if not hits:
+        return None
+    names = _objects(sentence)
+    if not names:
+        return "unverifiable", f"a recap: this session did a {spec.noun} earlier, and the sentence names nothing to match it on", "", ""
+    where = (lambda t: (t.text or "")) if category in ("saved", "downloaded") else (lambda t: (t.text or "") + " " + (t.result or ""))   # a write names its file in its path or command, not in what it wrote
+    named = [t for t in hits if any(n in where(t).lower() for n in names)]
+    if not named:
+        return None
+    last = named[-1]
+    label = f"{last.name}: {(last.text or '')[:80]}"
+    return "backed", f"{spec.noun} done earlier in this session: {label}", label, (last.result or "")[:300]
 
 
 # "Verified, it runs" takes a run. "Verified, the config says X" can be done by reading the config.

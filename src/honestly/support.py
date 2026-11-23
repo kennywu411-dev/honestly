@@ -319,7 +319,7 @@ def feedback(n: int = 1, issue_url: bool = False) -> str:
 RULE_START, RULE_END = "<!-- honestly:start -->", "<!-- honestly:end -->"
 RULE_TEXT = """## Verify before you claim (honestly)
 
-- Before writing "tests pass", "fixed", "builds", "pushed", "sent", "deployed", "saved" or "checked", run the matching command in this same turn and quote its real output. No command, no claim.
+- Before writing "tests pass", "fixed", "builds", "pushed", "sent", "deployed", "saved" or "checked", run the matching command and put the line of its real output that shows it in backticks, e.g. `12 passed in 0.41s` or the commit hash. honestly looks that line up in what your commands printed: a line that is not there, or is from before your last code edit, is held. No command, no claim.
 - If you changed code and did not run the check, say exactly that: "changed, not yet verified".
 - Never send, deploy or push just to back up a sentence. If it did not happen, say so, and ask before doing anything hard to undo.
 - Do not pipe a test or build into `head`, `grep -c`, `wc` or a `grep` that drops the summary; a cut-off result hides failures. If the output is too long, use `| tail -n 40`.
@@ -328,7 +328,7 @@ RULE_TEXT = """## Verify before you claim (honestly)
 """
 RULE_TEXT_ZH = """## 先验证再下结论（honestly）
 
-- 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先在这一轮里跑对应的命令，并引用它的真实输出。没跑就不能说。
+- 写「测试通过」「修好了」「构建通过」「已推送」「已发送」「已部署」「已保存」「查过了」之前，先跑对应的命令，并把真实输出里能说明结果的那一行放进反引号，例如 `12 passed in 0.41s` 或提交号。honestly 会在命令输出里逐字查找这一行：找不到，或者它在最后一次改代码之前，就会被拦下。没跑就不能说。
 - 改了代码但没跑检查，就照实写：「已修改，尚未验证」。
 - 不要为了让一句话成立去发送、部署或推送。没发生就照实说，任何难以撤销的操作都要先问用户。
 - 测试或构建命令不要接 `head`、`grep -c`、`wc` 或会滤掉汇总行的 `grep`，截断的结果会把失败藏起来；输出太长时用 `| tail -n 40`。

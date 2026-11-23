@@ -38,6 +38,14 @@ The one lesson worth repeating: in round 1 several correct flags were labelled a
 
 The 0.5.3 pass was done once, by the author, from `honestly audit --json` output, after the rule changes in that release; it is weaker than the two-pass rounds above and a blind second pass has not been run on it. The four unsure items: a fix to a scheduled job whose only check was reading the job's log (`grep`, which the rules do not count as verification); two "lint passes" sentences whose command text was cut off in the sheet; and one `contradicted` verdict read from a log file rather than from the check's own output. The fourteen correct flags are the familiar shape: an edit, then "tests pass" / "fixed" / "check passes" with no command after the edit, or with the earlier run now stale.
 
+## 1.0: quoted results
+
+1.0 changes how evidence is found rather than tuning another rule. Of the author's 30 holds from 2026-11-12 to 11-23, two or three stand when read in full; the rest were project checks the rules did not recognise, recaps of earlier turns, non-code claims done earlier in the session, and clauses that said the work was not done yet. A claim may now quote the line of output that backs it, and the quote is looked up word for word.
+
+- Replaying 60 days (about 4,700 claims): no new hold, one false hold gone, 26 claims newly backed by a quote or an earlier call. Old replies seldom quote, so the replay understates what changes once the agent follows the rule.
+- `tests/test_quotes.py` covers forged quotes: an `echo`, a script the agent wrote that prints the line, a changed digit, a quote from before the last edit, a command still running. Each is held. Every case in `tests/test_must_catch.py` is still caught.
+- Not yet measured: precision on a fresh labelled sample with agents that quote. That is the next round.
+
 ## The 0.7.2 re-read
 
 The 12/13 for 0.7.0 was one pass, not blind, and it did not hold up.
